@@ -176,7 +176,7 @@ declare_mlir_dialect_python_bindings(
 # dependencies.
 ################################################################################
 
-set(PYTHON_SOURCE_DIR "${MLIR_SOURCE_DIR}/lib/Bindings/Python")
+set(PYTHON_SOURCE_DIR "${MLIR_SOURCE_DIR}/core/Bindings/Python")
 declare_mlir_python_extension(MLIRPythonExtension.Core
   MODULE_NAME _mlir
   ADD_TO_PARENT MLIRPythonSources.Core

@@ -121,10 +121,15 @@ include_directories( ${MLIR_INCLUDE_DIR})
 add_subdirectory(tools/mlir-tblgen)
 add_subdirectory(tools/mlir-linalg-ods-gen)
 
-add_subdirectory(include/mlir)
-add_subdirectory(lib)
+add_subdirectory(core/include/mlir)
+add_subdirectory(analysis)
+add_subdirectory(core)
+add_subdirectory(dialects)
+add_subdirectory(runtime)
+add_subdirectory(transforms)
+add_subdirectory(targets)
 # C API needs all dialects for registration, but should be built before tests.
-add_subdirectory(lib/CAPI)
+add_subdirectory(core/CAPI)
 
 if (MLIR_INCLUDE_TESTS)
   add_definitions(-DMLIR_INCLUDE_TESTS)
