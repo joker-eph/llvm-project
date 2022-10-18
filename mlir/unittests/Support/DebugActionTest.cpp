@@ -34,6 +34,8 @@ struct ParametricAction : DebugAction<ParametricAction, bool> {
   static StringRef getDescription() { return "param-action-description"; }
 };
 
+ActionResult noOp() { return { nullptr, false, success() }; }
+
 TEST(DebugActionTest, GenericHandler) {
   DebugActionManager manager;
 
@@ -53,8 +55,8 @@ TEST(DebugActionTest, GenericHandler) {
   };
   manager.registerActionHandler<GenericHandler>();
 
-  EXPECT_TRUE(manager.shouldExecute<SimpleAction>());
-  EXPECT_FALSE(manager.shouldExecute<ParametricAction>(true));
+  EXPECT_TRUE(succeeded(manager.execute<SimpleAction>({}, {}, noOp)));
+  EXPECT_FALSE(succeeded(manager.execute<ParametricAction>({}, {}, noOp, true)));
 }
 
 TEST(DebugActionTest, ActionSpecificHandler) {
@@ -68,11 +70,11 @@ TEST(DebugActionTest, ActionSpecificHandler) {
   };
   manager.registerActionHandler<ActionSpecificHandler>();
 
-  EXPECT_TRUE(manager.shouldExecute<ParametricAction>(true));
-  EXPECT_FALSE(manager.shouldExecute<ParametricAction>(false));
+  EXPECT_TRUE(succeeded(manager.execute<ParametricAction>({}, {}, noOp, true)));
+  EXPECT_FALSE(succeeded(manager.execute<ParametricAction>({}, {}, noOp, false)));
 
   // There is no handler for the simple action, so it is always executed.
-  EXPECT_TRUE(manager.shouldExecute<SimpleAction>());
+  EXPECT_TRUE(succeeded(manager.execute<SimpleAction>({}, {}, noOp)));
 }
 
 TEST(DebugActionTest, DebugCounterHandler) {
@@ -86,11 +88,11 @@ TEST(DebugActionTest, DebugCounterHandler) {
   manager.registerActionHandler<DebugCounterHandler>();
 
   // Check that the action is executed 3 times, but no more after.
-  EXPECT_TRUE(manager.shouldExecute<SimpleAction>());
-  EXPECT_TRUE(manager.shouldExecute<SimpleAction>());
-  EXPECT_TRUE(manager.shouldExecute<SimpleAction>());
-  EXPECT_FALSE(manager.shouldExecute<SimpleAction>());
-  EXPECT_FALSE(manager.shouldExecute<SimpleAction>());
+  EXPECT_TRUE(succeeded(manager.execute<SimpleAction>({}, {}, noOp)));
+  EXPECT_TRUE(succeeded(manager.execute<SimpleAction>({}, {}, noOp)));
+  EXPECT_TRUE(succeeded(manager.execute<SimpleAction>({}, {}, noOp)));
+  EXPECT_FALSE(succeeded(manager.execute<SimpleAction>({}, {}, noOp)));
+  EXPECT_FALSE(succeeded(manager.execute<SimpleAction>({}, {}, noOp)));
 }
 
 TEST(DebugActionTest, NonOverlappingActionSpecificHandlers) {

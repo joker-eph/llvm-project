@@ -17,17 +17,31 @@
 #ifndef MLIR_SUPPORT_DEBUGACTION_H
 #define MLIR_SUPPORT_DEBUGACTION_H
 
+#include "mlir/IR/Block.h"
+#include "mlir/IR/Operation.h"
+#include "mlir/IR/Region.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Support/TypeID.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/DebugInfo/PDB/PDBTypes.h"
 #include "llvm/Support/TypeName.h"
 #include "llvm/Support/raw_ostream.h"
 #include <functional>
 #include <type_traits>
 
 namespace mlir {
+
+/// Element of the IR to be considered during a transformation
+using IRUnit = std::variant<Operation *, Block *, Region *>;
+
+/// Information about what happened on the transformation
+struct ActionResult {
+  IRUnit *unit;
+  bool changed;
+  LogicalResult status;
+};
 
 //===----------------------------------------------------------------------===//
 // DebugActionManager
@@ -104,11 +118,15 @@ public:
   // Action Queries
   //===--------------------------------------------------------------------===//
 
-  /// Returns true if the given action type should be executed, false otherwise.
-  /// `Args` are a set of parameters used by handlers of `ActionType` to
-  /// determine if the action should be executed.
+  /// Find a handler to execute an action provided with `transform` and
+  /// identified with `instanceTag` on the list of IRUnit `units`. The list of
+  /// extra `args` matches the expectation of `ActionType`. If no handler is found
+  /// the `transform` callback is invoked directly.
   template <typename ActionType, typename... Args>
-  bool shouldExecute(Args &&...args) {
+  LogicalResult execute(ArrayRef<IRUnit> units,
+                        ArrayRef<StringRef> instanceTags,
+                        llvm::function_ref<ActionResult()> transform,
+                        Args &&... args) {
     // The manager is always disabled if built without debug.
 #if !LLVM_ENABLE_ABI_BREAKING_CHECKS
     return true;
@@ -120,9 +138,13 @@ public:
     };
     FailureOr<bool> result = dispatchToHandler<ActionType, bool>(
         shouldExecuteFn, std::forward<Args>(args)...);
+    bool executed = (succeeded(result) && *result) || failed(result);
+    if (executed) {
+      transform();
+    }
 
-    // If the action wasn't handled, execute the action by default.
-    return succeeded(result) ? *result : true;
+    // Whether the action was executed or not
+    return success(executed);
 #endif
   }
 
