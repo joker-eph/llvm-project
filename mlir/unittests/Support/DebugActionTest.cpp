@@ -40,7 +40,7 @@ TEST(DebugActionTest, GenericHandler) {
   // A generic handler that always executes the simple action, but not the
   // parametric action.
   struct GenericHandler : DebugActionManager::GenericHandler {
-    FailureOr<bool> shouldExecute(StringRef tag, StringRef desc) final {
+    FailureOr<bool> execute(StringRef tag, StringRef desc) final {
       if (tag == SimpleAction::getTag()) {
         EXPECT_EQ(desc, SimpleAction::getDescription());
         return true;
@@ -53,8 +53,9 @@ TEST(DebugActionTest, GenericHandler) {
   };
   manager.registerActionHandler<GenericHandler>();
 
-  EXPECT_TRUE(manager.shouldExecute<SimpleAction>());
-  EXPECT_FALSE(manager.shouldExecute<ParametricAction>(true));
+  auto noOp = []() { return; };
+  EXPECT_TRUE(manager.execute<SimpleAction>(noOp));
+  EXPECT_FALSE(manager.execute<ParametricAction>(noOp, true));
 }
 
 TEST(DebugActionTest, ActionSpecificHandler) {
@@ -62,17 +63,16 @@ TEST(DebugActionTest, ActionSpecificHandler) {
 
   // Handler that simply uses the input as the decider.
   struct ActionSpecificHandler : ParametricAction::Handler {
-    FailureOr<bool> shouldExecute(bool shouldExecuteParam) final {
-      return shouldExecuteParam;
-    }
+    FailureOr<bool> execute(bool executeParam) final { return executeParam; }
   };
   manager.registerActionHandler<ActionSpecificHandler>();
 
-  EXPECT_TRUE(manager.shouldExecute<ParametricAction>(true));
-  EXPECT_FALSE(manager.shouldExecute<ParametricAction>(false));
+  auto noOp = []() { return; };
+  EXPECT_TRUE(manager.execute<ParametricAction>(noOp, true));
+  EXPECT_FALSE(manager.execute<ParametricAction>(noOp, false));
 
   // There is no handler for the simple action, so it is always executed.
-  EXPECT_TRUE(manager.shouldExecute<SimpleAction>());
+  EXPECT_TRUE(manager.execute<SimpleAction>(noOp));
 }
 
 TEST(DebugActionTest, DebugCounterHandler) {
@@ -80,17 +80,18 @@ TEST(DebugActionTest, DebugCounterHandler) {
 
   // Handler that uses the number of action executions as the decider.
   struct DebugCounterHandler : SimpleAction::Handler {
-    FailureOr<bool> shouldExecute() final { return numExecutions++ < 3; }
+    FailureOr<bool> execute() final { return numExecutions++ < 3; }
     unsigned numExecutions = 0;
   };
   manager.registerActionHandler<DebugCounterHandler>();
 
   // Check that the action is executed 3 times, but no more after.
-  EXPECT_TRUE(manager.shouldExecute<SimpleAction>());
-  EXPECT_TRUE(manager.shouldExecute<SimpleAction>());
-  EXPECT_TRUE(manager.shouldExecute<SimpleAction>());
-  EXPECT_FALSE(manager.shouldExecute<SimpleAction>());
-  EXPECT_FALSE(manager.shouldExecute<SimpleAction>());
+  auto noOp = []() { return; };
+  EXPECT_TRUE(manager.execute<SimpleAction>(noOp));
+  EXPECT_TRUE(manager.execute<SimpleAction>(noOp));
+  EXPECT_TRUE(manager.execute<SimpleAction>(noOp));
+  EXPECT_FALSE(manager.execute<SimpleAction>(noOp));
+  EXPECT_FALSE(manager.execute<SimpleAction>(noOp));
 }
 
 TEST(DebugActionTest, NonOverlappingActionSpecificHandlers) {
@@ -98,15 +99,16 @@ TEST(DebugActionTest, NonOverlappingActionSpecificHandlers) {
 
   // One handler returns true and another returns false
   struct SimpleActionHandler : SimpleAction::Handler {
-    FailureOr<bool> shouldExecute() final { return true; }
+    FailureOr<bool> execute() final { return true; }
   };
   struct OtherSimpleActionHandler : OtherSimpleAction::Handler {
-    FailureOr<bool> shouldExecute() final { return false; }
+    FailureOr<bool> execute() final { return false; }
   };
   manager.registerActionHandler<SimpleActionHandler>();
   manager.registerActionHandler<OtherSimpleActionHandler>();
-  EXPECT_TRUE(manager.shouldExecute<SimpleAction>());
-  EXPECT_FALSE(manager.shouldExecute<OtherSimpleAction>());
+  auto noOp = []() { return; };
+  EXPECT_TRUE(manager.execute<SimpleAction>(noOp));
+  EXPECT_FALSE(manager.execute<OtherSimpleAction>(noOp));
 }
 
 } // namespace
