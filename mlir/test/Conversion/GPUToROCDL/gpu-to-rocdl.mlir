@@ -471,4 +471,3 @@ gpu.module @module {
     spirv.ReturnValue %0 : vector<4xf32>
   }
 }
-
