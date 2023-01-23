@@ -20,7 +20,9 @@ class ThreadPool;
 } // namespace llvm
 
 namespace mlir {
-class DebugActionManager;
+namespace tracing {
+class ActionManager;
+}
 class DiagnosticEngine;
 class Dialect;
 class DialectRegistry;
@@ -211,7 +213,7 @@ public:
   StorageUniquer &getAttributeUniquer();
 
   /// Returns the manager of debug actions within the context.
-  DebugActionManager &getDebugActionManager();
+  tracing::ActionManager &getActionManager();
 
   /// These APIs are tracking whether the context will be used in a
   /// multithreading environment: this has no effect other than enabling

@@ -13,6 +13,7 @@
 
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "mlir/Bytecode/BytecodeWriter.h"
+#include "mlir/Debug/Counter.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -23,7 +24,6 @@
 #include "mlir/Parser/Parser.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
-#include "mlir/Support/DebugCounter.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Support/Timing.h"
 #include "mlir/Support/ToolUtilities.h"
@@ -146,7 +146,7 @@ static LogicalResult processBuffer(raw_ostream &os,
   context.allowUnregisteredDialects(config.shouldAllowUnregisteredDialects());
   if (config.shouldVerifyDiagnostics())
     context.printOpOnDiagnostic(false);
-  context.getDebugActionManager().registerActionHandler<DebugCounter>();
+  context.getActionManager().registerActionHandler<tracing::DebugCounter>();
 
   // If we are in verify diagnostics mode then we have a lot of work to do,
   // otherwise just perform the actions without worrying about it.
@@ -292,7 +292,7 @@ LogicalResult mlir::MlirOptMain(int argc, char **argv, llvm::StringRef toolName,
   registerMLIRContextCLOptions();
   registerPassManagerCLOptions();
   registerDefaultTimingManagerCLOptions();
-  DebugCounter::registerCLOptions();
+  tracing::DebugCounter::registerCLOptions();
   PassPipelineCLParser passPipeline("", "Compiler passes to run", "p");
 
   // Build the list of dialects as a header for the --help message.
