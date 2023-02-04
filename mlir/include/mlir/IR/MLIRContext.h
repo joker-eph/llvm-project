@@ -21,7 +21,7 @@ class ThreadPool;
 
 namespace mlir {
 namespace tracing {
-class ActionManager;
+class Action;
 }
 class DiagnosticEngine;
 class Dialect;
@@ -212,8 +212,22 @@ public:
   /// instances. This should not be used directly.
   StorageUniquer &getAttributeUniquer();
 
-  /// Returns the manager of debug actions within the context.
-  tracing::ActionManager &getActionManager();
+  /// Signatures for the action handler that can be registered with the context.
+  using HandlerTy =
+      std::function<void(function_ref<void()>, const tracing::Action &)>;
+
+  /// Register a handler for handling actions that are dispatched through this
+  /// context.
+  void registerActionHandler(HandlerTy handler);
+
+  /// Dispatch the provided action to the handler if any, or just execute it.
+  void dispatch(function_ref<void()> actionFn, const tracing::Action &action);
+
+  /// Dispatch the provided action to the handler if any, or just execute it.
+  template <typename ActionTy, typename... Args>
+  void dispatch(function_ref<void()> actionFn, Args &&...args) {
+    dispatch(actionFn, ActionTy{std::forward<Args>(args)...});
+  }
 
   /// These APIs are tracking whether the context will be used in a
   /// multithreading environment: this has no effect other than enabling

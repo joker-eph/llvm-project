@@ -123,8 +123,11 @@ public:
   // Debugging
   //===--------------------------------------------------------------------===//
 
-  /// An action manager for use within the context.
-  tracing::ActionManager actionManager;
+  /// An action handler for handling actions that are dispatched through this
+  /// context.
+  std::function<void(function_ref<void()>, const tracing::Action &)>
+      actionHandler = [](function_ref<void()> callback,
+                         const tracing::Action &action) { callback(); };
 
   //===--------------------------------------------------------------------===//
   // Diagnostics
@@ -345,11 +348,17 @@ static ArrayRef<T> copyArrayRefInto(llvm::BumpPtrAllocator &allocator,
 }
 
 //===----------------------------------------------------------------------===//
-// Debugging
+// Action Handling
 //===----------------------------------------------------------------------===//
 
-tracing::ActionManager &MLIRContext::getActionManager() {
-  return getImpl().actionManager;
+void MLIRContext::registerActionHandler(HandlerTy handler) {
+  getImpl().actionHandler = std::move(handler);
+}
+
+/// Dispatch the provided action to the handler if any, or just execute it.
+void MLIRContext::dispatch(function_ref<void()> actionFn,
+                           const tracing::Action &action) {
+  getImpl().actionHandler(actionFn, action);
 }
 
 //===----------------------------------------------------------------------===//
