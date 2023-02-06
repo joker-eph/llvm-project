@@ -17,15 +17,21 @@ namespace mlir {
 /// tracing infrastructure.
 struct PassExecutionAction
     : public tracing::ActionImpl<PassExecutionAction> {
+  using Base = tracing::ActionImpl<PassExecutionAction>;
   const Pass &pass;
-  PassExecutionAction(const Pass &pass, Operation *op) : pass(pass), op(op) {}
+  PassExecutionAction(ArrayRef<IRUnit> irUnits, const Pass &pass)
+      : Base(irUnits), pass(pass) {}
   static constexpr StringLiteral tag = "pass-execution-action";
   void print(raw_ostream &os) const override {
-    os << "`" << getTag() << "` "
-       << " running \"" << pass.getName() << "\" on Operation \""
-       << op->getName() << "\"\n";
+    os << "`" << tag << "` "
+       << " running \"" << pass.getName() << "\" on Operation \"";
+    ArrayRef<IRUnit> irUnits = getContextIRUnits();
+    if (irUnits.empty()) {
+      os << "<missing?>";
+    } else {
+      os << irUnits.front().dyn_cast<Operation *>()->getName() << "\"";
+    }
   }
-  Operation *op;
 };
 
 namespace detail {

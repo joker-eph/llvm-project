@@ -21,9 +21,9 @@ namespace tracing {
 /// This class...
 struct ActionLogger : public ExecutionContext::Observer {
   ActionLogger(raw_ostream &os, bool printActions = true,
-               bool printBreakpoints = true)
-      : os(os), printActions(printActions), printBreakpoints(printBreakpoints) {
-  }
+               bool printBreakpoints = true, bool printIRUnits = true)
+      : os(os), printActions(printActions), printBreakpoints(printBreakpoints),
+        printIRUnits(printIRUnits) {}
 
   void beforeExecute(const ActionActiveStack *action, Breakpoint *breakpoint,
                      bool willExecute) override;
@@ -33,6 +33,7 @@ private:
   raw_ostream &os;
   bool printActions;
   bool printBreakpoints;
+  bool printIRUnits;
 };
 
 } // namespace tracing

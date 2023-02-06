@@ -9,8 +9,10 @@
 #ifndef MLIR_IR_MLIRCONTEXT_H
 #define MLIR_IR_MLIRCONTEXT_H
 
+#include "mlir/IR/Unit.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/TypeID.h"
+#include "llvm/ADT/ArrayRef.h"
 #include <functional>
 #include <memory>
 #include <vector>
@@ -225,8 +227,9 @@ public:
 
   /// Dispatch the provided action to the handler if any, or just execute it.
   template <typename ActionTy, typename... Args>
-  void dispatch(function_ref<void()> actionFn, Args &&...args) {
-    dispatch(actionFn, ActionTy{std::forward<Args>(args)...});
+  void dispatch(function_ref<void()> actionFn, ArrayRef<IRUnit> irUnits,
+                Args &&...args) {
+    dispatch(actionFn, ActionTy{irUnits, std::forward<Args>(args)...});
   }
 
   /// These APIs are tracking whether the context will be used in a

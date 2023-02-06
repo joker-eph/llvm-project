@@ -7,6 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Debug/Observers/ActionLogging.h"
+#include "mlir/IR/Action.h"
+#include "mlir/IR/Operation.h"
+#include "mlir/IR/Region.h"
+#include "llvm/Support/raw_ostream.h"
 #include <sstream>
 #include <thread>
 
@@ -32,15 +36,21 @@ void ActionLogger::beforeExecute(const ActionActiveStack *action,
     os << "skipping ";
   if (printBreakpoints) {
     if (breakpoint)
-      os << " (on breakpoint: " << *breakpoint << ") ";
+      os << "(on breakpoint: " << *breakpoint << ") ";
     else
-      os << " (no breakpoint) ";
+      os << "(no breakpoint) ";
   }
   os << "Action ";
   if (printActions)
     action->getAction().print(os);
   else
     os << action->getAction().getTag();
+  if (printIRUnits) {
+    os << " (";
+    interleaveComma(action->getAction().getContextIRUnits(), os,
+                    [&](const IRUnit &unit) { printIRUnit(unit, os); });
+    os << ")\n";
+  }
 }
 
 void ActionLogger::afterExecute(const ActionActiveStack *action) {
