@@ -30,6 +30,7 @@
 #include "mlir/Support/Timing.h"
 #include "mlir/Support/ToolUtilities.h"
 #include "mlir/Tools/ParseUtilities.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/InitLLVM.h"
@@ -85,6 +86,8 @@ public:
     logActionsFile->keep();
     raw_fd_ostream &logActionsStream = logActionsFile->os();
     actionLogger = std::make_unique<tracing::ActionLogger>(logActionsStream);
+    for (const auto *locationBreakpoint : config.getLogActionsLocFilters())
+      actionLogger->addBreakpointManager(locationBreakpoint);
 
     executionContext.registerObserver(actionLogger.get());
     context.registerActionHandler(executionContext);
@@ -94,6 +97,8 @@ private:
   std::unique_ptr<llvm::ToolOutputFile> logActionsFile;
   tracing::ExecutionContext executionContext;
   std::unique_ptr<tracing::ActionLogger> actionLogger;
+  std::vector<std::unique_ptr<tracing::FileLineColLocBreakpoint>>
+      locationBreakpoints;
 };
 
 /// Perform the actions on the input file indicated by the command line flags
@@ -327,6 +332,12 @@ LogicalResult mlir::MlirOptMain(int argc, char **argv, llvm::StringRef toolName,
       "log-actions-to", cl::desc("Log action execution to a file, or stderr if "
                                  " '-' is passed")};
 
+  static llvm::cl::list<std::string> logActionLocationFilter{
+      "log-mlir-actions-filter",
+      llvm::cl::desc(
+          "Comma separated list of locations to filter actions from logging"),
+      llvm::cl::CommaSeparated};
+
   InitLLVM y(argc, argv);
 
   // Register any command line options.
@@ -380,6 +391,23 @@ LogicalResult mlir::MlirOptMain(int argc, char **argv, llvm::StringRef toolName,
       .setUseImplicitModule(!noImplicitModule)
       .setDumpPassPipeline(dumpPassPipeline)
       .setLogActionsTo(logActionsTo);
+
+  // Parse the individual location filters and set the breakpoints.
+  tracing::FileLineColLocBreakpointManager locBreakpointManager;
+  if (!logActionLocationFilter.empty()) {
+    for (const std::string &location : logActionLocationFilter) {
+      auto diag = [](StringRef msg) { llvm::errs() << msg << "\n"; };
+      auto locBreakpoint =
+          tracing::FileLineColLocBreakpoint::parseFromString(location, diag);
+      if (failed(locBreakpoint)) {
+        llvm::errs() << "Invalid location filter: " << location << "\n";
+        return failure();
+      }
+      auto [file, line, col] = *locBreakpoint;
+      locBreakpointManager.addBreakpoint(file, line, col);
+    }
+    config.addLogActionLocFilter(&locBreakpointManager);
+  }
 
   if (failed(MlirOptMain(output->os(), std::move(file), registry, config)))
     return failure();

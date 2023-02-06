@@ -29,11 +29,21 @@ struct ActionLogger : public ExecutionContext::Observer {
                      bool willExecute) override;
   void afterExecute(const ActionActiveStack *action) override;
 
+  /// If one of multiple breakpoint managers are set, only matching breakpoint
+  /// will be logged.
+  void addBreakpointManager(const BreakpointManager *manager) {
+    breakpointManagers.push_back(manager);
+  }
+
 private:
+  /// Check if we should log this action or not.
+  bool shouldLog(const ActionActiveStack *action);
+
   raw_ostream &os;
   bool printActions;
   bool printBreakpoints;
   bool printIRUnits;
+  std::vector<const BreakpointManager *> breakpointManagers;
 };
 
 } // namespace tracing

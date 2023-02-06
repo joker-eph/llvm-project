@@ -7,9 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Debug/Observers/ActionLogging.h"
+#include "mlir/Debug/BreakpointManager.h"
 #include "mlir/IR/Action.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/Region.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include <sstream>
 #include <thread>
@@ -27,8 +29,20 @@ int64_t getThreadId() {
   return tid;
 }
 
+bool ActionLogger::shouldLog(const ActionActiveStack *action) {
+  // If some condition was set, we ensured it is met before logging.
+  if (breakpointManagers.empty())
+    return true;
+  return llvm::any_of(breakpointManagers,
+                      [&](const BreakpointManager *manager) {
+                        return manager->match(action->getAction());
+                      });
+}
+
 void ActionLogger::beforeExecute(const ActionActiveStack *action,
                                  Breakpoint *breakpoint, bool willExecute) {
+  if (!shouldLog(action))
+    return;
   os << "[thread " << getThreadId() << "] ";
   if (willExecute)
     os << "begins ";
@@ -54,6 +68,8 @@ void ActionLogger::beforeExecute(const ActionActiveStack *action,
 }
 
 void ActionLogger::afterExecute(const ActionActiveStack *action) {
+  if (!shouldLog(action))
+    return;
   os << "[thread " << getThreadId() << "] completed `"
      << action->getAction().getTag() << "`\n";
 }

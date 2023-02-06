@@ -13,6 +13,7 @@
 #ifndef MLIR_TOOLS_MLIROPT_MLIROPTMAIN_H
 #define MLIR_TOOLS_MLIROPT_MLIROPTMAIN_H
 
+#include "mlir/Debug/BreakpointManagers/FileLineColLocBreakpointManager.h"
 #include "mlir/Support/LogicalResult.h"
 #include "llvm/ADT/StringRef.h"
 
@@ -28,6 +29,9 @@ namespace mlir {
 class DialectRegistry;
 class PassPipelineCLParser;
 class PassManager;
+namespace tracing {
+class FileLineColLocBreakpointManager;
+}
 
 /// Configuration options for the mlir-opt tool.
 class MlirOptMainConfig {
@@ -117,6 +121,17 @@ public:
   /// Get the filename to use for logging actions.
   StringRef getLogActionsTo() const { return logActionsTo; }
 
+  /// Set the location breakpoints to use for logging actions.
+  /// Ownership stays with the caller.
+  void addLogActionLocFilter(tracing::BreakpointManager *breakpointManager) {
+    logActionLocationFilter.push_back(breakpointManager);
+  }
+
+  /// Get the location breakpoints to use for logging actions.
+  ArrayRef<tracing::BreakpointManager *> getLogActionsLocFilters() const {
+    return logActionLocationFilter;
+  }
+
   /// Deprecated.
   MlirOptMainConfig &setPreloadDialectsInContext(bool preload) {
     preloadDialectsInContext = preload;
@@ -166,6 +181,9 @@ private:
 
   /// Log action execution to the given file (or "-" for stdout)
   std::string logActionsTo;
+
+  /// Location Breakpoints to filter the action logging.
+  std::vector<tracing::BreakpointManager *> logActionLocationFilter;
 
   /// The callback to populate the pass manager.
   std::function<LogicalResult(PassManager &)> passPipelineCallback;
