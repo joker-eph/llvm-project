@@ -29,31 +29,153 @@ class DialectRegistry;
 class PassPipelineCLParser;
 class PassManager;
 
+/// Configuration options for the mlir-opt tool.
+class MlirOptMainConfig {
+public:
+  /// Set whether to split the input file based on the `// -----` marker into
+  /// pieces and process each chunk independently.
+  MlirOptMainConfig &setSplitInputFile(bool split) {
+    splitInputFile = split;
+    return *this;
+  }
+  bool shouldSplitInputFile() const { return splitInputFile; }
+
+  /// Set whether to check that emitted diagnostics match `expected-*` lines on
+  /// the corresponding line
+  MlirOptMainConfig &setVerifyDiagnostics(bool verify) {
+    verifyDiagnostics = verify;
+    return *this;
+  }
+  bool shouldVerifyDiagnostics() const { return verifyDiagnostics; }
+
+  /// Set whether to run the verifier after each transformation pass.
+  MlirOptMainConfig &setVerifyPasses(bool verify) {
+    verifyPasses = verify;
+    return *this;
+  }
+  bool shouldVerifyPasses() const { return verifyPasses; }
+
+  /// Set whether to run the verifier after each transformation pass.
+  MlirOptMainConfig &setAllowUnregisteredDialects(bool allow) {
+    allowUnregisteredDialects = allow;
+    return *this;
+  }
+  bool shouldAllowUnregisteredDialects() const {
+    return allowUnregisteredDialects;
+  }
+
+  /// Set whether to run the verifier after each transformation pass.
+  MlirOptMainConfig &setShowDialects(bool show) {
+    showDialects = show;
+    return *this;
+  }
+  bool shouldShowDialects() const { return showDialects; }
+
+  /// Set whether to run the verifier after each transformation pass.
+  MlirOptMainConfig &setEmitBytecode(bool emit) {
+    emitBytecode = emit;
+    return *this;
+  }
+  bool shouldEmitBytecode() const { return emitBytecode; }
+
+  /// Set whether to run the verifier after each transformation pass.
+  MlirOptMainConfig &setUseImplicitModule(bool useImplicitModule) {
+    this->useImplicitModule = useImplicitModule;
+    return *this;
+  }
+  bool shouldUseImplicitModule() const { return useImplicitModule; }
+
+  /// Set whether to run the verifier after each transformation pass.
+  MlirOptMainConfig &setDumpPassPipeline(bool dump) {
+    dumpPassPipeline = dump;
+    return *this;
+  }
+  bool shouldDumpPassPipeline() const { return dumpPassPipeline; }
+
+  /// Set the callback to populate the pass manager.
+  MlirOptMainConfig &
+  setPassPipelineSetupFn(std::function<LogicalResult(PassManager &)> callback) {
+    passPipelineCallback = std::move(callback);
+    return *this;
+  }
+
+  MlirOptMainConfig &setPassPipelineParser(const PassPipelineCLParser &parser);
+
+  /// Populate the passmanager, if any callback was set.
+  LogicalResult setupPassPipeline(PassManager &pm) const {
+    if (passPipelineCallback)
+      return passPipelineCallback(pm);
+    return success();
+  }
+
+  /// Deprecated.
+  MlirOptMainConfig &setPreloadDialectsInContext(bool preload) {
+    preloadDialectsInContext = preload;
+    return *this;
+  }
+
+  /// Deprecated.
+  bool shouldPreloadDialectsInContext() const {
+    return preloadDialectsInContext;
+  }
+
+private:
+  /// Input .mlir or .mlirbc filename for the mlir-opt tool.
+  std::string inputFilename = "-";
+
+  /// Output .mlir or .mlirbc filename for the mlir-opt tool.
+  std::string outputFilename = "-";
+
+  /// Split the input file based on the `// -----` marker into pieces and
+  /// process each chunk independently.
+  bool splitInputFile = false;
+
+  /// Check that emitted diagnostics match `expected-*` lines on the
+  /// corresponding line
+  bool verifyDiagnostics = false;
+
+  /// Run the verifier after each transformation pass.
+  bool verifyPasses = true;
+
+  /// Allow operation with no registered dialects.
+  bool allowUnregisteredDialects = false;
+
+  /// Print the list of registered dialects.
+  bool showDialects = false;
+
+  /// Emit bytecode instead of textual assembly when generating output.
+  bool emitBytecode = false;
+
+  /// Use an implicit top-level module op during parsing.
+  bool useImplicitModule = false;
+
+  /// Deprecated.
+  bool preloadDialectsInContext = false;
+
+  /// Print the pipeline that will be run.
+  bool dumpPassPipeline = false;
+
+  /// The callback to populate the pass manager.
+  std::function<LogicalResult(PassManager &)> passPipelineCallback;
+};
+
 /// This defines the function type used to setup the pass manager. This can be
 /// used to pass in a callback to setup a default pass pipeline to be applied on
 /// the loaded IR.
 using PassPipelineFn = llvm::function_ref<LogicalResult(PassManager &pm)>;
 
-/// Perform the core processing behind `mlir-opt`:
+/// Perform the core processing behind `mlir-opt`.
 /// - outputStream is the stream where the resulting IR is printed.
 /// - buffer is the in-memory file to parser and process.
-/// - passPipeline is the specification of the pipeline that will be applied.
 /// - registry should contain all the dialects that can be parsed in the source.
-/// - splitInputFile will look for a "-----" marker in the input file, and load
-/// each chunk in an individual ModuleOp processed separately.
-/// - verifyDiagnostics enables a verification mode where comments starting with
-/// "expected-(error|note|remark|warning)" are parsed in the input and matched
-/// against emitted diagnostics.
-/// - verifyPasses enables the IR verifier in-between each pass in the pipeline.
-/// - allowUnregisteredDialects allows to parse and create operation without
-/// registering the Dialect in the MLIRContext.
-/// - preloadDialectsInContext will trigger the upfront loading of all
-///   dialects from the global registry in the MLIRContext. This option is
-///   deprecated and will be removed soon.
-/// - emitBytecode will generate bytecode output instead of text.
-/// - implicitModule will enable implicit addition of a top-level
-/// 'builtin.module' if one doesn't already exist.
-/// - dumpPassPipeline will dump the pipeline being run to stderr
+/// - config contains the configuration options for the tool.
+LogicalResult MlirOptMain(llvm::raw_ostream &outputStream,
+                          std::unique_ptr<llvm::MemoryBuffer> buffer,
+                          DialectRegistry &registry,
+                          const MlirOptMainConfig &config);
+
+/// Perform the core processing behind `mlir-opt`.
+/// This API is deprecated, use the MlirOptMainConfig version above instead.
 LogicalResult
 MlirOptMain(llvm::raw_ostream &outputStream,
             std::unique_ptr<llvm::MemoryBuffer> buffer,
@@ -63,9 +185,8 @@ MlirOptMain(llvm::raw_ostream &outputStream,
             bool preloadDialectsInContext = false, bool emitBytecode = false,
             bool implicitModule = false, bool dumpPassPipeline = false);
 
-/// Support a callback to setup the pass manager.
-/// - passManagerSetupFn is the callback invoked to setup the pass manager to
-///   apply on the loaded IR.
+/// Perform the core processing behind `mlir-opt`.
+/// This API is deprecated, use the MlirOptMainConfig version above instead.
 LogicalResult MlirOptMain(
     llvm::raw_ostream &outputStream, std::unique_ptr<llvm::MemoryBuffer> buffer,
     PassPipelineFn passManagerSetupFn, DialectRegistry &registry,
