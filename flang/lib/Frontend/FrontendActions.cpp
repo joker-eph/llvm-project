@@ -60,6 +60,7 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/TargetParser/TargetParser.h"
@@ -68,6 +69,30 @@
 #include <system_error>
 
 using namespace Fortran::frontend;
+
+static llvm::StringRef TimeTrace = "/tmp/profile.trace";
+static llvm::cl::opt<unsigned> TimeTraceGranularity(
+    "time-trace-granularity",
+    llvm::cl::desc(
+        "Minimum time granularity (in microseconds) traced by time profiler"),
+    llvm::cl::init(5));
+struct Fortran::frontend::TimeTracerRAII {
+  TimeTracerRAII(llvm::StringRef ProgramName) {
+    if (!TimeTrace.empty())
+      llvm::timeTraceProfilerInitialize(TimeTraceGranularity, ProgramName);
+  }
+  ~TimeTracerRAII() {
+    if (!TimeTrace.empty()) {
+      if (auto E = llvm::timeTraceProfilerWrite(TimeTrace, TimeTrace)) {
+        handleAllErrors(std::move(E), [&](const llvm::StringError &SE) {
+          llvm::errs() << SE.getMessage() << "\n";
+        });
+        return;
+      }
+      llvm::timeTraceProfilerCleanup();
+    }
+  }
+};
 
 // Declare plugin extension function declarations.
 #define HANDLE_EXTENSION(Ext)                                                  \
@@ -198,6 +223,8 @@ static void setMLIRDataLayout(mlir::ModuleOp &mlirModule,
   mlirModule->setAttr(mlir::DLTIDialect::kDataLayoutAttrName, dlSpec);
 }
 
+CodeGenAction::CodeGenAction(BackendActionTy act) : action{act} {}
+
 bool CodeGenAction::beginSourceFileAction() {
   llvmCtx = std::make_unique<llvm::LLVMContext>();
   CompilerInstance &ci = this->getInstance();
@@ -247,13 +274,15 @@ bool CodeGenAction::beginSourceFileAction() {
         }
         auto [file, line, col] = *locBreakpoint;
         fileLineColLocBreakpointManager.addBreakpoint(file, line, col);
+        actionLogger->addBreakpointManager(&fileLineColLocBreakpointManager);
       }
-      actionLogger->addBreakpointManager(&fileLineColLocBreakpointManager);
     }
   }
-  mlir::setupGdbDebugExecutionContextHook(executionContext);
+  // mlir::setupGdbDebugExecutionContextHook(executionContext);
   mlirCtx->registerActionHandler(executionContext);
-  mlirCtx->disableMultithreading();
+  // mlirCtx->disableMultithreading();
+
+  timeTracer = std::make_unique<TimeTracerRAII>("flang");
 
   fir::support::registerNonCodegenDialects(registry);
   fir::support::loadNonCodegenDialects(*mlirCtx);
@@ -705,6 +734,10 @@ void CodeGenAction::generateLLVMIR() {
                                     opts.Underscoring, opts.LoopVersioning,
                                     opts.getDebugInfo());
   (void)mlir::applyPassManagerCLOptions(pm);
+  mlir::DefaultTimingManager tm;
+  mlir::applyDefaultTimingManagerCLOptions(tm);
+  mlir::TimingScope timing = tm.getRootScope();
+  pm.enableTiming(timing);
 
   // run the pass manager
   if (!mlir::succeeded(pm.run(*mlirModule))) {

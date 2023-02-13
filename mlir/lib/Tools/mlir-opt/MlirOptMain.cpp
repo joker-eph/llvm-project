@@ -46,6 +46,7 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/StringSaver.h"
 #include "llvm/Support/ThreadPool.h"
+#include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/ToolOutputFile.h"
 
 using namespace mlir;
@@ -402,8 +403,35 @@ LogicalResult mlir::MlirOptMain(int argc, char **argv, llvm::StringRef toolName,
                                              cl::value_desc("filename"),
                                              cl::init("-"));
 
-  InitLLVM y(argc, argv);
+  static cl::opt<std::string> TimeTrace(
+      "time-trace", cl::desc("Record time trace to the provided file. "
+                             "The file will be overwritten if it exists."));
 
+  static cl::opt<unsigned> TimeTraceGranularity(
+      "time-trace-granularity",
+      cl::desc(
+          "Minimum time granularity (in microseconds) traced by time profiler"),
+      cl::init(5), cl::Hidden);
+
+  struct TimeTracerRAII {
+    TimeTracerRAII(StringRef ProgramName) {
+      if (!TimeTrace.empty())
+        timeTraceProfilerInitialize(TimeTraceGranularity, ProgramName);
+    }
+    ~TimeTracerRAII() {
+      if (!TimeTrace.empty()) {
+        if (auto E = timeTraceProfilerWrite(TimeTrace, TimeTrace)) {
+          handleAllErrors(std::move(E), [&](const StringError &SE) {
+            errs() << SE.getMessage() << "\n";
+          });
+          return;
+        }
+        timeTraceProfilerCleanup();
+      }
+    }
+  };
+
+  InitLLVM y(argc, argv);
   // Register any command line options.
   MlirOptMainConfig::registerCLOptions(registry);
   registerAsmPrinterCLOptions();
@@ -422,6 +450,9 @@ LogicalResult mlir::MlirOptMain(int argc, char **argv, llvm::StringRef toolName,
   // Parse pass names in main to ensure static initialization completed.
   cl::ParseCommandLineOptions(argc, argv, helpHeader);
   MlirOptMainConfig config = MlirOptMainConfig::createFromCLOptions();
+  TimeTracerRAII TimeTracer(argv[0]);
+  if (!TimeTrace.empty())
+    config.getDebugConfig().enableDebuggerActionHook();
 
   // When reading from stdin and the input is a tty, it is often a user mistake
   // and the process "appears to be stuck". Print a message to let the user know

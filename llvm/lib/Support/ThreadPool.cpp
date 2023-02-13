@@ -13,10 +13,12 @@
 #include "llvm/Support/ThreadPool.h"
 
 #include "llvm/Config/llvm-config.h"
+#include "llvm/Support/TimeProfiler.h"
 
 #if LLVM_ENABLE_THREADS
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/Threading.h"
+
 #else
 #include "llvm/Support/raw_ostream.h"
 #endif
@@ -46,7 +48,9 @@ void ThreadPool::grow(int requested) {
     Threads.emplace_back([this, ThreadID] {
       set_thread_name(formatv("llvm-worker-{0}", ThreadID));
       Strategy.apply_thread_strategy(ThreadID);
+      timeTraceProfilerInitialize(5, "threadpool");
       processTasks(nullptr);
+      timeTraceProfilerFinishThread();
     });
   }
 }

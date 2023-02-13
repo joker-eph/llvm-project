@@ -8,10 +8,15 @@
 
 #include "mlir/Debug/ExecutionContext.h"
 
+#include "mlir/IR/Operation.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/Threading.h"
+#include "llvm/Support/TimeProfiler.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <cstddef>
+#include <pthread.h>
 
 using namespace mlir;
 using namespace mlir::tracing;
@@ -110,9 +115,25 @@ void ExecutionContext::operator()(llvm::function_ref<void()> transform,
     observer->beforeExecute(actionStack, breakpoint, shouldExecuteAction);
 
   if (shouldExecuteAction) {
-    // Execute the action here.
-    transform();
+    {
+      llvm::TimeTraceScope ActionScope(action.getTag(), [&]() {
+        std::string detail;
+        llvm::raw_string_ostream os(detail);
+        action.print(os);
+        os << "\n";
+        for (const IRUnit &unit : action.getContextIRUnits()) {
+          unit.print(os, /*flags*/ OpPrintingFlags()
+                             .skipRegions()
+                             .useLocalScope()
+                             .enableDebugInfo());
+          os << "\n";
+        }
+        return os.str();
+      });
 
+      // Execute the action here.
+      transform();
+    }
     // Notify the observers about completion of the action.
     for (auto *observer : observers)
       observer->afterExecute(actionStack);

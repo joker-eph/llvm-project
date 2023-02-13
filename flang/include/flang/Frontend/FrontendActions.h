@@ -30,6 +30,7 @@
 #include <memory>
 
 namespace Fortran::frontend {
+struct TimeTracerRAII;
 
 // TODO: This is a copy from f18.cpp. It doesn't really belong here and should
 // be moved to a more suitable place in future.
@@ -215,11 +216,12 @@ class CodeGenAction : public FrontendAction {
   void runOptimizationPipeline(llvm::raw_pwrite_stream &os);
 
 protected:
-  CodeGenAction(BackendActionTy act) : action{act} {};
+  CodeGenAction(BackendActionTy act);
   /// @name MLIR
   /// {
   std::unique_ptr<mlir::ModuleOp> mlirModule;
   std::unique_ptr<mlir::tracing::ActionLogger> actionLogger;
+  std::unique_ptr<TimeTracerRAII> timeTracer;
   mlir::tracing::ExecutionContext executionContext;
   std::unique_ptr<llvm::ToolOutputFile> logActionsFile;
   std::vector<std::unique_ptr<mlir::tracing::FileLineColLocBreakpoint>>

@@ -145,6 +145,7 @@ bool executeCompilerInvocation(CompilerInstance *flang) {
     mlir::registerMLIRContextCLOptions();
     mlir::registerPassManagerCLOptions();
     mlir::registerAsmPrinterCLOptions();
+    mlir::registerDefaultTimingManagerCLOptions();
     unsigned numArgs = flang->getFrontendOpts().mlirArgs.size();
     auto args = std::make_unique<const char *[]>(numArgs + 2);
     args[0] = "flang (MLIR option parsing)";
