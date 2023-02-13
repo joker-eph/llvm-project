@@ -47,6 +47,8 @@ public:
 
   /// Register the command line options for debug counters.
   static void registerCLOptions();
+  /// Returns true if any of the CL options is activated.
+  static bool isDebugCounterActivated();
 
 private:
   // Returns true if the next action matching this tag should be executed.

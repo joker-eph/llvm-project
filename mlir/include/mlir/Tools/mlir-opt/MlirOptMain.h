@@ -108,6 +108,15 @@ public:
     return success();
   }
 
+  /// Set the filename to use for logging actions, use "-" for stdout.
+  MlirOptMainConfig &setLogActionsTo(StringRef filename) {
+    logActionsTo = filename;
+    return *this;
+  }
+
+  /// Get the filename to use for logging actions.
+  StringRef getLogActionsTo() const { return logActionsTo; }
+
   /// Deprecated.
   MlirOptMainConfig &setPreloadDialectsInContext(bool preload) {
     preloadDialectsInContext = preload;
@@ -154,6 +163,9 @@ private:
 
   /// Print the pipeline that will be run.
   bool dumpPassPipeline = false;
+
+  /// Log action execution to the given file (or "-" for stdout)
+  std::string logActionsTo;
 
   /// The callback to populate the pass manager.
   std::function<LogicalResult(PassManager &)> passPipelineCallback;

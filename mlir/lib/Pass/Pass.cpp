@@ -463,12 +463,17 @@ LogicalResult OpToOpPassAdaptor::run(Pass *pass, Operation *op,
   if (pi)
     pi->runBeforePass(pass, op);
 
-  // Invoke the virtual runOnOperation method.
-  if (auto *adaptor = dyn_cast<OpToOpPassAdaptor>(pass))
-    adaptor->runOnOperation(verifyPasses);
-  else
-    pass->runOnOperation();
-  bool passFailed = pass->passState->irAndPassFailed.getInt();
+  bool passFailed;
+  op->getContext()->dispatch<PassExecutionAction>(
+      [&]() {
+        // Invoke the virtual runOnOperation method.
+        if (auto *adaptor = dyn_cast<OpToOpPassAdaptor>(pass))
+          adaptor->runOnOperation(verifyPasses);
+        else
+          pass->runOnOperation();
+        passFailed = pass->passState->irAndPassFailed.getInt();
+      },
+      *pass, op);
 
   // Invalidate any non preserved analyses.
   am.invalidate(pass->passState->preservedAnalyses);

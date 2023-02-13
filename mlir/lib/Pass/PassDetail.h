@@ -8,10 +8,26 @@
 #ifndef MLIR_PASS_PASSDETAIL_H_
 #define MLIR_PASS_PASSDETAIL_H_
 
+#include "mlir/IR/Action.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 
 namespace mlir {
+/// Encapsulate the "action" of executing a single pass, used for the MLIR
+/// tracing infrastructure.
+struct PassExecutionAction
+    : public tracing::ActionImpl<PassExecutionAction> {
+  const Pass &pass;
+  PassExecutionAction(const Pass &pass, Operation *op) : pass(pass), op(op) {}
+  static constexpr StringLiteral tag = "pass-execution-action";
+  void print(raw_ostream &os) const override {
+    os << "`" << getTag() << "` "
+       << " running \"" << pass.getName() << "\" on Operation \""
+       << op->getName() << "\"\n";
+  }
+  Operation *op;
+};
+
 namespace detail {
 
 //===----------------------------------------------------------------------===//
