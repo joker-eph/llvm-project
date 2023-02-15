@@ -9,6 +9,7 @@
 #include "mlir/Debug/ExecutionContext.h"
 
 #include "llvm/ADT/ScopeExit.h"
+#include "llvm/Support/FormatVariadic.h"
 
 #include <cstddef>
 
@@ -16,14 +17,36 @@ using namespace mlir;
 using namespace mlir::tracing;
 
 //===----------------------------------------------------------------------===//
+// ActionActiveStack
+//===----------------------------------------------------------------------===//
+
+void ActionActiveStack::print(raw_ostream &os, bool withContext) const {
+  os << "ActionActiveStack depth " << getDepth() << "\n";
+  const ActionActiveStack *current = this;
+  int count = 0;
+  while (current) {
+    llvm::errs() << llvm::formatv("#{0,3}: ", count++);
+    current->action.print(llvm::errs());
+    llvm::errs() << "\n";
+    ArrayRef<IRUnit> context = current->action.getContextIRUnits();
+    if (withContext && !context.empty()) {
+      llvm::errs() << "Context:\n";
+      for (const IRUnit &unit : current->action.getContextIRUnits()) {
+        llvm::errs() << "  - ";
+        printIRUnit(unit, llvm::errs());
+        llvm::errs() << "\n";
+      }
+      llvm::errs() << "\n";
+    }
+    current = current->parent;
+  }
+}
+
+//===----------------------------------------------------------------------===//
 // ExecutionContext
 //===----------------------------------------------------------------------===//
 
 static const thread_local ActionActiveStack *actionStack = nullptr;
-
-void ExecutionContext::setCallback(CallbackTy callback) {
-  onBreakpointControlExecutionCallback = callback;
-}
 
 void ExecutionContext::registerObserver(Observer *observer) {
   observers.push_back(observer);
@@ -72,11 +95,12 @@ void ExecutionContext::operator()(llvm::function_ref<void()> transform,
     if (breakpoint)
       break;
   }
+  info.setBreakpoint(breakpoint);
 
   bool shouldExecuteAction = true;
   // If we have a breakpoint, or if `depthToBreak` was previously set and the
   // current depth matches, we invoke the user-provided callback.
-  if (breakpoint || (depthToBreak && depth <= depthToBreak))
+  if (passThrough || breakpoint || (depthToBreak && depth <= depthToBreak))
     shouldExecuteAction = handleUserInput();
 
   // Notify the observers about the current action.

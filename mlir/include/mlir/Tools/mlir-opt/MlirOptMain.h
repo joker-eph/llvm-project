@@ -132,6 +132,12 @@ public:
     return logActionLocationFilter;
   }
 
+  /// Enable the gdb action hook: it makes GDB able to intercept MLIR Actions.
+  void setEnableGdbActionHook(bool enabled) { useGdbActionHook = enabled; }
+
+  /// Return true if the gdb action hook is enabled.
+  bool isGdbActionHookEnabled() const { return useGdbActionHook; }
+
   /// Deprecated.
   MlirOptMainConfig &setPreloadDialectsInContext(bool preload) {
     preloadDialectsInContext = preload;
@@ -178,6 +184,9 @@ private:
 
   /// Print the pipeline that will be run.
   bool dumpPassPipeline = false;
+
+  /// Enable the gdb action hook: GDB can intercept MLIR Actions.
+  bool useGdbActionHook = false;
 
   /// Log action execution to the given file (or "-" for stdout)
   std::string logActionsTo;

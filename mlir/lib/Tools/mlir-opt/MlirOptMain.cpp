@@ -15,6 +15,7 @@
 #include "mlir/Bytecode/BytecodeWriter.h"
 #include "mlir/Debug/Counter.h"
 #include "mlir/Debug/ExecutionContext.h"
+#include "mlir/Debug/GdbDebugExecutionContextHook.h"
 #include "mlir/Debug/Observers/ActionLogging.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/Attributes.h"
@@ -68,28 +69,36 @@ MlirOptMainConfig &MlirOptMainConfig::setPassPipelineParser(
 class InstallDebugHandler {
 public:
   InstallDebugHandler(MLIRContext &context, const MlirOptMainConfig &config) {
-    if (config.getLogActionsTo().empty()) {
+    if (config.getLogActionsTo().empty() && !config.isGdbActionHookEnabled()) {
       if (tracing::DebugCounter::isDebugCounterActivated())
         context.registerActionHandler(tracing::DebugCounter{});
       return;
     }
+    llvm::errs() << "ExecutionContext registered on the context";
     if (tracing::DebugCounter::isDebugCounterActivated())
       emitError(UnknownLoc::get(&context),
-                "Debug counters are incompatible with --log-actions-to option "
-                "and are disabled");
-    std::string errorMessage;
-    logActionsFile = openOutputFile(config.getLogActionsTo(), &errorMessage);
-    if (!logActionsFile) {
-      llvm::errs() << errorMessage << "\n";
-      return;
+                "Debug counters are incompatible with --log-actions-to and "
+                "--mlir-enable-gdb-hooks options and are disabled");
+    if (!config.getLogActionsTo().empty()) {
+      std::string errorMessage;
+      logActionsFile = openOutputFile(config.getLogActionsTo(), &errorMessage);
+      if (!logActionsFile) {
+        llvm::errs() << "Error handling --log-actions-to: " << errorMessage
+                     << "\n";
+        return;
+      }
+      logActionsFile->keep();
+      raw_fd_ostream &logActionsStream = logActionsFile->os();
+      actionLogger = std::make_unique<tracing::ActionLogger>(logActionsStream);
+      for (const auto *locationBreakpoint : config.getLogActionsLocFilters())
+        actionLogger->addBreakpointManager(locationBreakpoint);
+      executionContext.registerObserver(actionLogger.get());
     }
-    logActionsFile->keep();
-    raw_fd_ostream &logActionsStream = logActionsFile->os();
-    actionLogger = std::make_unique<tracing::ActionLogger>(logActionsStream);
-    for (const auto *locationBreakpoint : config.getLogActionsLocFilters())
-      actionLogger->addBreakpointManager(locationBreakpoint);
-
-    executionContext.registerObserver(actionLogger.get());
+    if (config.isGdbActionHookEnabled()) {
+      llvm::errs() << " (with GDB hook)";
+      setupGdbDebugExecutionContextHook(executionContext);
+    }
+    llvm::errs() << "\n";
     context.registerActionHandler(executionContext);
   }
 
@@ -338,6 +347,10 @@ LogicalResult mlir::MlirOptMain(int argc, char **argv, llvm::StringRef toolName,
           "Comma separated list of locations to filter actions from logging"),
       llvm::cl::CommaSeparated};
 
+  static cl::opt<bool> enableGdbHooks(
+      "mlir-enable-gdb-hooks",
+      cl::desc("Enable gdb hooks for debugging MLIR Actions"));
+
   InitLLVM y(argc, argv);
 
   // Register any command line options.
@@ -390,7 +403,8 @@ LogicalResult mlir::MlirOptMain(int argc, char **argv, llvm::StringRef toolName,
       .setEmitBytecode(emitBytecode)
       .setUseImplicitModule(!noImplicitModule)
       .setDumpPassPipeline(dumpPassPipeline)
-      .setLogActionsTo(logActionsTo);
+      .setLogActionsTo(logActionsTo)
+      .setEnableGdbActionHook(enableGdbHooks);
 
   // Parse the individual location filters and set the breakpoints.
   tracing::FileLineColLocBreakpointManager locBreakpointManager;

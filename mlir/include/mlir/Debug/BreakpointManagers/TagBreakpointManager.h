@@ -49,9 +49,8 @@ class TagBreakpointManager
 public:
   Breakpoint *match(const Action &action) const override {
     auto it = breakpoints.find(action.getTag());
-    if (it != breakpoints.end() && it->second->isEnabled()) {
+    if (it != breakpoints.end() && it->second->isEnabled())
       return it->second.get();
-    }
     return {};
   }
 
