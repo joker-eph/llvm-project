@@ -35,6 +35,10 @@ public:
   /// The list of target specific features to enable or disable, as written on
   /// the command line.
   std::vector<std::string> featuresAsWritten;
+
+  /// MLIR Action debugging
+  std::string logActionTo;
+  std::string logActionFilter;
 };
 
 } // end namespace Fortran::frontend

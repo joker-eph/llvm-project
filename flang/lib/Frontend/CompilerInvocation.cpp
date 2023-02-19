@@ -242,6 +242,15 @@ static void parseTargetArgs(TargetOptions &opts, llvm::opt::ArgList &args) {
     opts.triple = a->getValue();
 
   if (const llvm::opt::Arg *a =
+          args.getLastArg(clang::driver::options::OPT_log_mlir_actions_to))
+    opts.logActionTo = a->getValue();
+
+  if (const llvm::opt::Arg *a = args.getLastArg(
+          clang::driver::options::OPT_log_mlir_actions_filter)) {
+    opts.logActionFilter = a->getValue();
+  }
+
+  if (const llvm::opt::Arg *a =
           args.getLastArg(clang::driver::options::OPT_target_cpu))
     opts.cpu = a->getValue();
 

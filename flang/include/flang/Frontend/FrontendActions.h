@@ -18,9 +18,14 @@
 #include "flang/Parser/parsing.h"
 #include "flang/Semantics/semantics.h"
 
+#include "mlir/Debug/BreakpointManagers/FileLineColLocBreakpointManager.h"
+#include "mlir/Debug/ExecutionContext.h"
+#include "mlir/Debug/GdbDebugExecutionContextHook.h"
+#include "mlir/Debug/Observers/ActionLogging.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include <memory>
 
@@ -214,7 +219,15 @@ protected:
   /// @name MLIR
   /// {
   std::unique_ptr<mlir::ModuleOp> mlirModule;
+  std::unique_ptr<mlir::tracing::ActionLogger> actionLogger;
+  mlir::tracing::ExecutionContext executionContext;
+  std::unique_ptr<llvm::ToolOutputFile> logActionsFile;
+  std::vector<std::unique_ptr<mlir::tracing::FileLineColLocBreakpoint>>
+      locationBreakpoints;
+  mlir::tracing::FileLineColLocBreakpointManager
+      fileLineColLocBreakpointManager;
   std::unique_ptr<mlir::MLIRContext> mlirCtx;
+
   /// }
 
   /// @name LLVM IR

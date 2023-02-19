@@ -3546,6 +3546,8 @@ def : Joined<["-"], "mllvm=">, Flags<[CoreOption,FlangOption]>, Alias<mllvm>,
   HelpText<"Alias for -mllvm">, MetaVarName<"<arg>">;
 def mmlir : Separate<["-"], "mmlir">, Flags<[CoreOption,FC1Option,FlangOption]>,
   HelpText<"Additional arguments to forward to MLIR's option processing">;
+def log_mlir_actions_to : Separate<["--"], "log-mlir-actions-to">, Flags<[FC1Option]>;
+def log_mlir_actions_filter : Separate<["--"], "log-mlir-actions-filter">, Flags<[FC1Option]>;
 def ffuchsia_api_level_EQ : Joined<["-"], "ffuchsia-api-level=">,
   Group<m_Group>, Flags<[CC1Option]>, HelpText<"Set Fuchsia API level">,
   MarshallingInfoInt<LangOpts<"FuchsiaAPILevel">>;

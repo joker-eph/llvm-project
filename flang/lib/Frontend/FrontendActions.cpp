@@ -33,9 +33,11 @@
 #include "flang/Semantics/unparse-with-symbols.h"
 #include "flang/Tools/CrossToolHelpers.h"
 
+#include "mlir/Debug/BreakpointManagers/FileLineColLocBreakpointManager.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Pass/PassManager.h"
+#include "mlir/Support/FileUtilities.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Target/LLVMIR/Import.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
@@ -218,6 +220,41 @@ bool CodeGenAction::beginSourceFileAction() {
   // Load the MLIR dialects required by Flang
   mlir::DialectRegistry registry;
   mlirCtx = std::make_unique<mlir::MLIRContext>(registry);
+  const TargetOptions &targetOpts = ci.getInvocation().getTargetOpts();
+  if (!targetOpts.logActionTo.empty()) {
+    std::string errorMessage;
+    logActionsFile =
+        mlir::openOutputFile(targetOpts.logActionTo, &errorMessage);
+    if (!logActionsFile) {
+      llvm::errs() << "Error handling --log-actions-to: " << errorMessage
+                   << "\n";
+
+    } else {
+      logActionsFile->keep();
+      llvm::raw_fd_ostream &logActionsStream = logActionsFile->os();
+      actionLogger =
+          std::make_unique<mlir::tracing::ActionLogger>(logActionsStream);
+      executionContext.registerObserver(actionLogger.get());
+      if (!targetOpts.logActionFilter.empty()) {
+        auto diag = [](llvm::StringRef msg) { llvm::errs() << msg << "\n"; };
+        auto locBreakpoint =
+            mlir::tracing::FileLineColLocBreakpoint::parseFromString(
+                targetOpts.logActionFilter, diag);
+        if (failed(locBreakpoint)) {
+          llvm::errs() << "Invalid location filter: "
+                       << targetOpts.logActionFilter << "\n";
+          return false;
+        }
+        auto [file, line, col] = *locBreakpoint;
+        fileLineColLocBreakpointManager.addBreakpoint(file, line, col);
+      }
+      actionLogger->addBreakpointManager(&fileLineColLocBreakpointManager);
+    }
+  }
+  mlir::setupGdbDebugExecutionContextHook(executionContext);
+  mlirCtx->registerActionHandler(executionContext);
+  mlirCtx->disableMultithreading();
+
   fir::support::registerNonCodegenDialects(registry);
   fir::support::loadNonCodegenDialects(*mlirCtx);
   fir::support::loadDialects(*mlirCtx);

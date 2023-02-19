@@ -35,7 +35,9 @@ add_flang_library(flangFrontend
   HLFIRTransforms
   MLIRTransforms
   MLIRBuiltinToLLVMIRTranslation
+  MLIRDebug
   MLIRLLVMToLLVMIRTranslation
+  MLIRObservers
   MLIRSCFToControlFlow
   MLIRTargetLLVMIRImport
   ${dialect_libs}
