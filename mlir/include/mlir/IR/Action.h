@@ -55,6 +55,12 @@ public:
   /// Return the set of IR units that are associated with this action.
   virtual ArrayRef<IRUnit> getContextIRUnits() const { return irUnits; }
 
+  /// Return whether this action can be skipped by the action manager without
+  /// breaking the compiler. We assume that the majority of actions are in
+  /// this category, for the others (like lowering passes), the derived classes
+  /// can override.
+  virtual bool canBeSkipped() const { return true; }
+
 protected:
   Action(TypeID actionID, ArrayRef<IRUnit> irUnits)
       : actionID(actionID), irUnits(irUnits) {}
@@ -69,6 +75,7 @@ protected:
 
 /// CRTP Implementation of an action. This class provides a base class for
 /// implementing specific actions.
+///
 ///  Derived classes are expected to provide the following:
 ///   * static constexpr StringLiteral tag = "...";
 ///     - This method returns a unique string identifier, similar to a command
