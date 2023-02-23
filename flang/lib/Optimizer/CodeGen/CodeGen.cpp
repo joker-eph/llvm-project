@@ -39,7 +39,6 @@
 #include "mlir/Dialect/OpenMP/OpenMPDialect.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Matchers.h"
-#include "mlir/IR/Threading.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
@@ -3732,12 +3731,10 @@ public:
     }
 
     // apply the patterns
-    mlir::FrozenRewritePatternSet frozenPattern(std::move(pattern));
-    if (failed(mlir::failableParallelForEach(
-            context, mod.getOps(), [&](mlir::Operation &op) {
-              return mlir::applyFullConversion(&op, target, frozenPattern);
-            })))
+    if (mlir::failed(mlir::applyFullConversion(getModule(), target,
+                                               std::move(pattern)))) {
       signalPassFailure();
+    }
   }
 
 private:
