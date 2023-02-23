@@ -190,45 +190,52 @@ inline void createDefaultFIROptimizerPassPipeline(mlir::PassManager &pm,
   // simplify the IR
   mlir::GreedyRewriteConfig config;
   config.enableRegionSimplification = false;
-  pm.addPass(mlir::createCSEPass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
   fir::addAVC(pm, optLevel);
   pm.addNestedPass<mlir::func::FuncOp>(fir::createCharacterConversionPass());
-  pm.addPass(mlir::createCanonicalizerPass(config));
-  pm.addPass(fir::createSimplifyRegionLitePass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass(config));
+  pm.addNestedPass<mlir::func::FuncOp>(fir::createSimplifyRegionLitePass());
   if (optLevel.isOptimizingForSpeed()) {
     // These passes may increase code size.
     pm.addPass(fir::createSimplifyIntrinsicsPass());
-    pm.addPass(fir::createAlgebraicSimplificationPass(config));
+    pm.addNestedPass<mlir::func::FuncOp>(fir::createAlgebraicSimplificationPass(config));
   }
 
   if (loopVersioning)
     pm.addPass(fir::createLoopVersioningPass());
 
-  pm.addPass(mlir::createCSEPass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
 
   if (stackArrays)
-    pm.addPass(fir::createStackArraysPass());
+    pm.addNestedPass<mlir::func::FuncOp>(fir::createStackArraysPass());
   else
     fir::addMemoryAllocationOpt(pm);
 
   // The default inliner pass adds the canonicalizer pass with the default
   // configuration. Create the inliner pass with tco config.
   llvm::StringMap<mlir::OpPassManager> pipelines;
+<<<<<<< HEAD
   pm.addPass(mlir::createInlinerPass(
       pipelines, addCanonicalizerPassWithoutRegionSimplification));
   pm.addPass(fir::createSimplifyRegionLitePass());
   pm.addPass(mlir::createCSEPass());
+=======
+  pm.addPass(
+      mlir::createInlinerPass(pipelines, addCanonicalizerPassWithoutRegionSimplification));
+  pm.addNestedPass<mlir::func::FuncOp>(fir::createSimplifyRegionLitePass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+>>>>>>> 4defd2362a15 (Fix flang MLIR FIR pipeline to properly nest passes that can run on individual functions (NFC))
 
   // Polymorphic types
   pm.addPass(fir::createPolymorphicOpConversionPass());
 
   // convert control flow to CFG form
   fir::addCfgConversionPass(pm);
-  pm.addPass(mlir::createConvertSCFToCFPass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertSCFToCFPass());
 
-  pm.addPass(mlir::createCanonicalizerPass(config));
-  pm.addPass(fir::createSimplifyRegionLitePass());
-  pm.addPass(mlir::createCSEPass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass(config));
+  pm.addNestedPass<mlir::func::FuncOp>(fir::createSimplifyRegionLitePass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
 }
 
 /// Create a pass pipeline for lowering from HLFIR to FIR
