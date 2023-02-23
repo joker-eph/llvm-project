@@ -990,6 +990,9 @@ void CodeGenAction::executeAction() {
   if (!llvmModule)
     generateLLVMIR();
 
+  if (!llvmModule)
+    return;
+
   // Set the triple based on the targetmachine (this comes compiler invocation
   // and the command-line target option if specified, or the default if not
   // given on the command-line).
