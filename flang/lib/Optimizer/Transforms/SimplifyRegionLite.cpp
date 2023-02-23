@@ -35,13 +35,13 @@ public:
 } // namespace
 
 void SimplifyRegionLitePass::runOnOperation() {
-  auto op = getOperation();
+  auto *op = getOperation();
   auto regions = op->getRegions();
-  mlir::RewritePatternSet patterns(op.getContext());
-  DummyRewriter rewriter(op.getContext());
   if (regions.empty())
     return;
 
+  mlir::RewritePatternSet patterns(op->getContext());
+  DummyRewriter rewriter(op->getContext());
   (void)mlir::eraseUnreachableBlocks(rewriter, regions);
   (void)mlir::runRegionDCE(rewriter, regions);
 }

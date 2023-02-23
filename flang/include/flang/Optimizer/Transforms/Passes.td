@@ -252,7 +252,7 @@ def StackArrays : Pass<"stack-arrays", "mlir::ModuleOp"> {
   let constructor = "::fir::createStackArraysPass()";
 }
 
-def SimplifyRegionLite : Pass<"simplify-region-lite", "mlir::ModuleOp"> {
+def SimplifyRegionLite : Pass<"simplify-region-lite"> {
   let summary = "Region simplification";
   let description = [{
     Run region DCE and erase unreachable blocks in regions.
