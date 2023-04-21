@@ -1154,7 +1154,8 @@ ExtractOp::inferReturnTypes(MLIRContext *, std::optional<Location>,
                             ValueRange operands, DictionaryAttr attributes,
                             OpaqueProperties properties, RegionRange,
                             SmallVectorImpl<Type> &inferredReturnTypes) {
-  ExtractOp::Adaptor op(operands, attributes);
+  ExtractOp::Adaptor op(operands, attributes,
+                        *properties.as<ExtractOp::Properties *>());
   auto vectorType = op.getVector().getType().cast<VectorType>();
   if (static_cast<int64_t>(op.getPosition().size()) == vectorType.getRank()) {
     inferredReturnTypes.push_back(vectorType.getElementType());
@@ -2086,7 +2087,8 @@ ShuffleOp::inferReturnTypes(MLIRContext *, std::optional<Location>,
                             ValueRange operands, DictionaryAttr attributes,
                             OpaqueProperties properties, RegionRange,
                             SmallVectorImpl<Type> &inferredReturnTypes) {
-  ShuffleOp::Adaptor op(operands, attributes);
+  ShuffleOp::Adaptor op(operands, attributes,
+                        *properties.as<ShuffleOp::Properties *>());
   auto v1Type = op.getV1().getType().cast<VectorType>();
   auto v1Rank = v1Type.getRank();
   // Construct resulting type: leading dimension matches mask
