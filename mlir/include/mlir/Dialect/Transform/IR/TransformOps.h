@@ -9,6 +9,7 @@
 #ifndef MLIR_DIALECT_TRANSFORM_IR_TRANSFORMOPS_H
 #define MLIR_DIALECT_TRANSFORM_IR_TRANSFORMOPS_H
 
+#include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/Dialect/Transform/IR/MatchInterfaces.h"
 #include "mlir/Dialect/Transform/IR/TransformAttrs.h"

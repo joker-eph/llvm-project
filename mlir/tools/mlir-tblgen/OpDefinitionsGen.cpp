@@ -1103,6 +1103,21 @@ void OpEmitter::genPropertiesSupport() {
                   "getDiag"))
           ->body();
 
+  auto &readPropertiesMethod =
+      opClass
+          .addStaticMethod(
+              "::mlir::LogicalResult", "readProperties",
+              MethodParameter("::mlir::DialectBytecodeReader &", "reader"),
+              MethodParameter("::mlir::OperationState &", "state"))
+          ->body();
+
+  auto &writePropertiesMethod =
+      opClass
+          .addMethod(
+              "void", "writeProperties",
+              MethodParameter("::mlir::DialectBytecodeWriter &", "writer"))
+          ->body();
+
   opClass.declare<UsingDeclaration>("Properties", "FoldAdaptor::Properties");
 
   // Convert the property to the attribute form.
@@ -1304,6 +1319,28 @@ void OpEmitter::genPropertiesSupport() {
     }
   }
   verifyInherentAttrsMethod << "    return ::mlir::success();";
+
+  // Populate bytecode serialization logic.
+  readPropertiesMethod
+      << "  auto &prop = state.getOrAddProperties<Properties>();";
+  writePropertiesMethod << "  auto &prop = getProperties();";
+  for (const auto &attrOrProp : attrOrProperties) {
+    if (const auto *namedProperty =
+            attrOrProp.dyn_cast<const NamedProperty *>()) {
+      // TODO
+      continue;
+    }
+    const auto *namedAttr = attrOrProp.dyn_cast<const AttributeMetadata *>();
+    StringRef name = namedAttr->attrName;
+    readPropertiesMethod << formatv(R"(
+      if (failed(reader.readAttribute(prop.{0})))
+        return failure();
+    )",
+                                    name);
+    writePropertiesMethod << formatv("    writer.writeAttribute(prop.{0});\n",
+                                     name);
+  }
+  readPropertiesMethod << "  return success();";
 }
 
 void OpEmitter::genAttrGetters() {
@@ -3299,6 +3336,9 @@ void OpEmitter::genTraits() {
   // OpInvariants wrapps the verifyInvariants which needs to be run before
   // native/interface traits and after all the traits with `StructuralOpTrait`.
   opClass.addTrait("::mlir::OpTrait::OpInvariants");
+
+  if (emitHelper.hasProperties())
+    opClass.addTrait("::mlir::BytecodeOpInterface::Trait");
 
   // Add the native and interface traits.
   for (const auto &trait : op.getTraits()) {

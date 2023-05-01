@@ -10,6 +10,7 @@
 #include "../Encoding.h"
 #include "IRNumbering.h"
 #include "mlir/Bytecode/BytecodeImplementation.h"
+#include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/IR/OpImplementation.h"
 #include "llvm/ADT/CachedHashString.h"
 #include "llvm/ADT/MapVector.h"
@@ -688,10 +689,19 @@ void BytecodeWriter::writeOp(EncodingEmitter &emitter, Operation *op) {
   emitter.emitVarInt(numberingState.getNumber(op->getLoc()));
 
   // Emit the attributes of this operation.
-  DictionaryAttr attrs = op->getAttrDictionary();
+  DictionaryAttr attrs = op->getDiscardableAttrDictionary();
   if (!attrs.empty()) {
     opEncodingMask |= bytecode::OpEncodingMask::kHasAttrs;
-    emitter.emitVarInt(numberingState.getNumber(op->getAttrDictionary()));
+    emitter.emitVarInt(numberingState.getNumber(attrs));
+  }
+
+  // Emit the properties of this operation.
+  if (op->getPropertiesStorageSize()) {
+    opEncodingMask |= bytecode::OpEncodingMask::kHasProperties;
+    auto iface = cast<BytecodeOpInterface>(op);
+    DialectWriter propertiesWriter(config.bytecodeVersion, emitter,
+                                   numberingState, stringSection);
+    iface.writeProperties(propertiesWriter);
   }
 
   // Emit the result types of the operation.

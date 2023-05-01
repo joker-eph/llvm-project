@@ -13,8 +13,10 @@
 #include "../Encoding.h"
 #include "mlir/AsmParser/AsmParser.h"
 #include "mlir/Bytecode/BytecodeImplementation.h"
+#include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Verifier.h"
 #include "mlir/IR/Visitors.h"
@@ -1775,6 +1777,18 @@ BytecodeReader::Impl::parseOpWithoutRegions(EncodingReader &reader,
     if (failed(parseAttribute(reader, dictAttr)))
       return failure();
     opState.attributes = dictAttr;
+  }
+
+  if (opMask & bytecode::OpEncodingMask::kHasProperties) {
+    auto *iface = opName->getInterface<BytecodeOpInterface>();
+    if (!iface)
+      return reader.emitError(
+                 "Has properties but missing BytecodeOpInterface for ")
+             << opName->getStringRef();
+    DialectReader dialectReader(attrTypeReader, stringReader, resourceReader,
+                                reader);
+    if (failed(iface->readProperties(dialectReader, opState)))
+      return failure();
   }
 
   /// Parse the results of the operation.
