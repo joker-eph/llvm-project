@@ -87,6 +87,7 @@ enum : uint8_t {
   kHasOperands      = 0b00000100,
   kHasSuccessors    = 0b00001000,
   kHasInlineRegions = 0b00010000,
+  kHasProperties    = 0b00100000,
   // clang-format on
 };
 } // namespace OpEncodingMask

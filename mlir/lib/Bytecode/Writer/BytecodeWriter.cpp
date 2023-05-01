@@ -688,10 +688,17 @@ void BytecodeWriter::writeOp(EncodingEmitter &emitter, Operation *op) {
   emitter.emitVarInt(numberingState.getNumber(op->getLoc()));
 
   // Emit the attributes of this operation.
-  DictionaryAttr attrs = op->getAttrDictionary();
+  DictionaryAttr attrs = op->getDiscardableAttrDictionary();
   if (!attrs.empty()) {
     opEncodingMask |= bytecode::OpEncodingMask::kHasAttrs;
-    emitter.emitVarInt(numberingState.getNumber(op->getAttrDictionary()));
+    emitter.emitVarInt(numberingState.getNumber(attrs));
+  }
+
+  // Emit the properties of this operation.
+  Attribute prop = op->getPropertiesAsAttribute();
+  if (prop) {
+    opEncodingMask |= bytecode::OpEncodingMask::kHasProperties;
+    emitter.emitVarInt(numberingState.getNumber(prop));
   }
 
   // Emit the result types of the operation.

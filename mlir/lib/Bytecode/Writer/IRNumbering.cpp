@@ -272,9 +272,14 @@ void IRNumberingState::number(Operation &op) {
   }
 
   // Only number the operation's dictionary if it isn't empty.
-  DictionaryAttr dictAttr = op.getAttrDictionary();
+  DictionaryAttr dictAttr = op.getDiscardableAttrDictionary();
   if (!dictAttr.empty())
     number(dictAttr);
+
+  // Only number the operation properties if they aren't empty.
+  Attribute propAttr = op.getPropertiesAsAttribute();
+  if (propAttr)
+    number(propAttr);
 
   number(op.getLoc());
 }
