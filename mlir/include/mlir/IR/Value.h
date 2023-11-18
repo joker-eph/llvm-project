@@ -134,12 +134,12 @@ public:
 
   /// If this value is the result of an operation, return the operation that
   /// defines it.
-  Operation *getDefiningOp() const;
+  Operation *getDefiningOp();
 
   /// If this value is the result of an operation of type OpTy, return the
   /// operation that defines it.
   template <typename OpTy>
-  OpTy getDefiningOp() const {
+  OpTy getDefiningOp() {
     return llvm::dyn_cast_or_null<OpTy>(getDefiningOp());
   }
 
@@ -158,12 +158,12 @@ public:
   //===--------------------------------------------------------------------===//
 
   /// Drop all uses of this object from their respective owners.
-  void dropAllUses() const { return impl->dropAllUses(); }
+  void dropAllUses() { return impl->dropAllUses(); }
 
   /// Replace all uses of 'this' value with the new value, updating anything in
   /// the IR that uses 'this' to use the other value instead.  When this returns
   /// there are zero uses of 'this'.
-  void replaceAllUsesWith(Value newValue) const {
+  void replaceAllUsesWith(Value newValue) {
     impl->replaceAllUsesWith(newValue);
   }
 
