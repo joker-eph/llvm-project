@@ -5,10 +5,11 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-
+#include "TestBenchDialect.h"
 #include "mlir/Bytecode/BytecodeReader.h"
 #include "mlir/Bytecode/BytecodeWriter.h"
 #include "mlir/IR/AsmState.h"
+#include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
@@ -51,7 +52,7 @@ public:
 BENCHMARK_DEFINE_F(CreateOps, simple)(benchmark::State& state) {
   for (auto _ : state) {
     for (int j = 0; j < state.range(0); ++j) {
-      OperationState opState(unknownLoc, "foo");
+      OperationState opState(unknownLoc, "testbench.empty");
       Operation::create(opState);
     }
   }
@@ -60,7 +61,7 @@ BENCHMARK_DEFINE_F(CreateOps, simple)(benchmark::State& state) {
 BENCHMARK_REGISTER_F(CreateOps, simple)->Ranges({{10, 10*1000*1000}})->Complexity();
 
 BENCHMARK_DEFINE_F(CreateOps, hoistedOpState)(benchmark::State& state) {
-  OperationState opState(unknownLoc, "foo");
+  OperationState opState(unknownLoc, "testbench.empty");
   for (auto _ : state) {
     for (int j = 0; j < state.range(0); ++j)
       Operation::create(opState);
@@ -71,7 +72,7 @@ BENCHMARK_REGISTER_F(CreateOps, hoistedOpState)->Ranges({{10, 10*1000*1000}})->C
 
 BENCHMARK_DEFINE_F(CreateOps, withInsert)(benchmark::State& state) {
   for (auto _ : state) {
-    OperationState opState(unknownLoc, "foo");
+    OperationState opState(unknownLoc, "testbench.empty");
     for (int j = 0; j < state.range(0); ++j)
       block->push_back(Operation::create(opState));
   }
@@ -79,7 +80,34 @@ BENCHMARK_DEFINE_F(CreateOps, withInsert)(benchmark::State& state) {
 }
 BENCHMARK_REGISTER_F(CreateOps, withInsert)->Ranges({{10, 10*1000*1000}})->Complexity();
 
+BENCHMARK_DEFINE_F(CreateOps, simpleRegistered)(benchmark::State &state) {
+  ctx->loadDialect<TestBenchDialect>();
+  OpBuilder b(ctx.get());
+  for (auto _ : state) {
+    for (int j = 0; j < state.range(0); ++j) {
+      b.create<EmptyOp>(unknownLoc);
+    }
+  }
+  state.SetComplexityN(state.range(0));
+}
+BENCHMARK_REGISTER_F(CreateOps, simpleRegistered)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity();
 
+BENCHMARK_DEFINE_F(CreateOps, withInsertRegistered)(benchmark::State &state) {
+  ctx->loadDialect<TestBenchDialect>();
+  OpBuilder b(ctx.get());
+  b.setInsertionPoint(block.get(), block->begin());
+  for (auto _ : state) {
+    OperationState opState(unknownLoc, "foo");
+    for (int j = 0; j < state.range(0); ++j)
+      b.create<EmptyOp>(unknownLoc);
+  }
+  state.SetComplexityN(state.range(0));
+}
+BENCHMARK_REGISTER_F(CreateOps, withInsertRegistered)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity();
 
 BENCHMARK_MAIN();
 
