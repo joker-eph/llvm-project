@@ -1,4 +1,4 @@
-//===- AdaptorTest.cpp - Adaptor unit tests -------------------------------===//
+//===- CreateOps.cpp - Benchmark Op Creation ----------------------------- ===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,21 +6,17 @@
 //
 //===----------------------------------------------------------------------===//
 #include "TestBenchDialect.h"
-#include "mlir/Bytecode/BytecodeReader.h"
-#include "mlir/Bytecode/BytecodeWriter.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
-#include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/OwningOpRef.h"
-#include "mlir/Parser/Parser.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/Support/InitLLVM.h"
+#include "llvm/IR/IRBuilder.h"
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Endian.h"
-#include "llvm/Support/MemoryBufferRef.h"
 #include <memory>
 
 #include "benchmark/benchmark.h"
@@ -30,6 +26,12 @@ namespace {
 class CreateOps : public benchmark::Fixture {
 public:
   void SetUp(::benchmark::State& state) final {
+    const char *cmd = "bench";
+    const char **argv = &cmd;
+    int argc = 1;
+    // Init LLVM to get backtraces on crash
+    static llvm::InitLLVM initOnce(argc, argv);
+
     ctx = std::make_unique<MLIRContext>();
     ctx->allowUnregisteredDialects();
     unknownLoc = UnknownLoc::get(ctx.get());
@@ -108,6 +110,28 @@ BENCHMARK_DEFINE_F(CreateOps, withInsertRegistered)(benchmark::State &state) {
 BENCHMARK_REGISTER_F(CreateOps, withInsertRegistered)
     ->Ranges({{10, 10 * 1000 * 1000}})
     ->Complexity();
+
+BENCHMARK_DEFINE_F(CreateOps, llvm_withInsertRegistered)(benchmark::State &state) {
+  llvm::LLVMContext ctx;
+  auto module = std::make_unique<llvm::Module>("MyModule", ctx);
+  auto *fTy = llvm::FunctionType::get(llvm::Type::getVoidTy(ctx),
+                                      /*isVarArg=*/false);
+  auto *func = llvm::Function::Create(fTy, llvm::Function::ExternalLinkage, "",
+                                      module.get());
+  auto *block = llvm::BasicBlock::Create(ctx, "", func);
+  llvm::IRBuilder<> builder(block);
+
+  for (auto _ : state) {
+    OperationState opState(unknownLoc, "foo");
+    for (int j = 0; j < state.range(0); ++j)
+      builder.CreateUnreachable();
+  }
+  state.SetComplexityN(state.range(0));
+}
+BENCHMARK_REGISTER_F(CreateOps, llvm_withInsertRegistered)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity();
+
 
 BENCHMARK_MAIN();
 

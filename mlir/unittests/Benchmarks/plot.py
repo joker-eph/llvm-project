@@ -22,6 +22,28 @@ def extract_and_plot_data(benchmarks, output_dir):
             per_benchmark[name]["sizes"].append(size)
             per_benchmark[name]["cpu_times"].append(benchmark['cpu_time'])
 
+    # Ensure the output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+    plt.figure(figsize=(10, 5))
+    for name, results in per_benchmark.items():
+        sizes = results["sizes"]
+        cpu_times = results["cpu_times"]
+        # Sort the data by size because the input might not be ordered
+        sorted_data = sorted(zip(sizes, cpu_times))
+        sizes_sorted, cpu_times_sorted = zip(*sorted_data)
+        plt.plot(sizes_sorted, cpu_times_sorted, marker='o')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel('Size')
+    plt.ylabel('CPU Time (ns)')
+    plt.title(f'Combined Benchmark CPU Time vs Size')
+    plt.grid(True)
+        
+    output_file_path = os.path.join(output_dir, f"combined.png")
+    plt.savefig(output_file_path)
+    print(f"Plot saved to {output_file_path}")
+    plt.close()
+
     for name, results in per_benchmark.items():
         sizes = results["sizes"]
         cpu_times = results["cpu_times"]
@@ -38,8 +60,6 @@ def extract_and_plot_data(benchmarks, output_dir):
         plt.title(f'Benchmark {name} CPU Time vs Size')
         plt.grid(True)
         
-        # Ensure the output directory exists
-        os.makedirs(output_dir, exist_ok=True)
         output_file_path = os.path.join(output_dir, f"{name}.png")
         plt.savefig(output_file_path)
         print(f"Plot saved to {output_file_path}")
