@@ -14,9 +14,11 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/OwningOpRef.h"
+#include "mlir/Interfaces/CastInterfaces.h"
+#include "mlir/Interfaces/ControlFlowInterfaces.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/Support/InitLLVM.h"
-#include "llvm/IR/IRBuilder.h"
 
 #include <memory>
 
@@ -66,7 +68,7 @@ BENCHMARK_DEFINE_F(IRWalk, blockTraveral)(benchmark::State &state) {
 }
 BENCHMARK_REGISTER_F(IRWalk, blockTraveral)
     ->Ranges({{10, 10 * 1000 * 1000}})
-    ->Complexity();
+    ->Complexity(benchmark::oN);
 
 BENCHMARK_DEFINE_F(IRWalk, vectorTraveral)(benchmark::State &state) {
   ctx->loadDialect<TestBenchDialect>();
@@ -84,7 +86,7 @@ BENCHMARK_DEFINE_F(IRWalk, vectorTraveral)(benchmark::State &state) {
 }
 BENCHMARK_REGISTER_F(IRWalk, vectorTraveral)
     ->Ranges({{10, 10 * 1000 * 1000}})
-    ->Complexity();
+    ->Complexity(benchmark::oN);
 
 BENCHMARK_DEFINE_F(IRWalk, simpleWalk)(benchmark::State &state) {
   ctx->loadDialect<TestBenchDialect>();
@@ -92,14 +94,15 @@ BENCHMARK_DEFINE_F(IRWalk, simpleWalk)(benchmark::State &state) {
   for (int j = 0; j < state.range(0); ++j) {
     b.create<EmptyOp>(unknownLoc);
   }
+  Block *block = moduleOp->getBody();
   for (auto _ : state) {
-    moduleOp->walk([](Operation *op) { benchmark::DoNotOptimize(&op); });
+    block->walk([](Operation *op) { benchmark::DoNotOptimize(&op); });
   }
   state.SetComplexityN(state.range(0));
 }
 BENCHMARK_REGISTER_F(IRWalk, simpleWalk)
     ->Ranges({{10, 10 * 1000 * 1000}})
-    ->Complexity();
+    ->Complexity(benchmark::oN);
 
 BENCHMARK_DEFINE_F(IRWalk, filteredOps)(benchmark::State &state) {
   ctx->loadDialect<TestBenchDialect>();
@@ -117,7 +120,7 @@ BENCHMARK_DEFINE_F(IRWalk, filteredOps)(benchmark::State &state) {
 }
 BENCHMARK_REGISTER_F(IRWalk, filteredOps)
     ->Ranges({{10, 10 * 1000 * 1000}})
-    ->Complexity();
+    ->Complexity(benchmark::oN);
 
 BENCHMARK_DEFINE_F(IRWalk, nestedRegion)(benchmark::State &state) {
   ctx->loadDialect<TestBenchDialect>();
@@ -125,7 +128,7 @@ BENCHMARK_DEFINE_F(IRWalk, nestedRegion)(benchmark::State &state) {
   for (int j = 0; j < state.range(0); ++j) {
     auto op = b.create<OpWithRegion>(unknownLoc);
     op.getBody().push_back(new Block);
-    b.setInsertionPoint(&op.getBody().front(), op.getBody().front().begin());
+    // b.setInsertionPoint(&op.getBody().front(), op.getBody().front().begin());
   }
   for (auto _ : state) {
     moduleOp->walk([](Operation *op) { benchmark::DoNotOptimize(&op); });
@@ -135,7 +138,7 @@ BENCHMARK_DEFINE_F(IRWalk, nestedRegion)(benchmark::State &state) {
 BENCHMARK_REGISTER_F(IRWalk, nestedRegion)
     ->RangeMultiplier(4)
     ->Ranges({{10, 8 * 1000}})
-    ->Complexity();
+    ->Complexity(benchmark::oN);
 
 BENCHMARK_DEFINE_F(IRWalk, llvm_blockTraversal)(benchmark::State &state) {
   llvm::LLVMContext ctx;
@@ -159,4 +162,104 @@ BENCHMARK_DEFINE_F(IRWalk, llvm_blockTraversal)(benchmark::State &state) {
 }
 BENCHMARK_REGISTER_F(IRWalk, llvm_blockTraversal)
     ->Ranges({{10, 10 * 1000 * 1000}})
-    ->Complexity();
+    ->Complexity(benchmark::oN);
+
+BENCHMARK_DEFINE_F(IRWalk, vectorTraveralOpCastFail)
+(benchmark::State &state) {
+  ctx->loadDialect<TestBenchDialect>();
+  OpBuilder b = OpBuilder::atBlockBegin(moduleOp->getBody());
+  SmallVector<Operation *> ops;
+  for (int j = 0; j < state.range(0); ++j) {
+    ops.push_back(b.create<EmptyOp>(unknownLoc));
+  }
+  for (auto _ : state) {
+    for (Operation *op : ops) {
+      auto casted = dyn_cast<OpWithRegion>(op);
+      benchmark::DoNotOptimize(&casted);
+    };
+  }
+  state.SetComplexityN(state.range(0));
+}
+BENCHMARK_REGISTER_F(IRWalk, vectorTraveralOpCastFail)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity(benchmark::oN);
+
+BENCHMARK_DEFINE_F(IRWalk, vectorTraveralOpCastSuccess)
+(benchmark::State &state) {
+  ctx->loadDialect<TestBenchDialect>();
+  OpBuilder b = OpBuilder::atBlockBegin(moduleOp->getBody());
+  SmallVector<Operation *> ops;
+  for (int j = 0; j < state.range(0); ++j) {
+    ops.push_back(b.create<EmptyOp>(unknownLoc));
+  }
+  for (auto _ : state) {
+    for (Operation *op : ops) {
+      auto casted = dyn_cast<EmptyOp>(op);
+      benchmark::DoNotOptimize(&casted);
+    };
+  }
+  state.SetComplexityN(state.range(0));
+}
+BENCHMARK_REGISTER_F(IRWalk, vectorTraveralOpCastSuccess)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity(benchmark::oN);
+
+BENCHMARK_DEFINE_F(IRWalk, vectorTraveralWithoutInterfaceCastFail)
+(benchmark::State &state) {
+  ctx->loadDialect<TestBenchDialect>();
+  OpBuilder b = OpBuilder::atBlockBegin(moduleOp->getBody());
+  SmallVector<Operation *> ops;
+  for (int j = 0; j < state.range(0); ++j) {
+    ops.push_back(b.create<EmptyOp>(unknownLoc));
+  }
+  for (auto _ : state) {
+    for (Operation *op : ops) {
+      auto iface = dyn_cast<RegionBranchOpInterface>(op);
+      benchmark::DoNotOptimize(&iface);
+    };
+  }
+  state.SetComplexityN(state.range(0));
+}
+BENCHMARK_REGISTER_F(IRWalk, vectorTraveralWithoutInterfaceCastFail)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity(benchmark::oN);
+
+BENCHMARK_DEFINE_F(IRWalk, vectorTraveralWithInterfaceCastFail)
+(benchmark::State &state) {
+  ctx->loadDialect<TestBenchDialect>();
+  OpBuilder b = OpBuilder::atBlockBegin(moduleOp->getBody());
+  SmallVector<Operation *> ops;
+  for (int j = 0; j < state.range(0); ++j) {
+    ops.push_back(b.create<OpWithRegion>(unknownLoc));
+  }
+  for (auto _ : state) {
+    for (Operation *op : ops) {
+      auto iface = dyn_cast<CastOpInterface>(op);
+      benchmark::DoNotOptimize(&iface);
+    };
+  }
+  state.SetComplexityN(state.range(0));
+}
+BENCHMARK_REGISTER_F(IRWalk, vectorTraveralWithInterfaceCastFail)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity(benchmark::oN);
+
+BENCHMARK_DEFINE_F(IRWalk, vectorTraveralWithInterfaceCastSuccess)
+(benchmark::State &state) {
+  ctx->loadDialect<TestBenchDialect>();
+  OpBuilder b = OpBuilder::atBlockBegin(moduleOp->getBody());
+  SmallVector<Operation *> ops;
+  for (int j = 0; j < state.range(0); ++j) {
+    ops.push_back(b.create<OpWithRegion>(unknownLoc));
+  }
+  for (auto _ : state) {
+    for (Operation *op : ops) {
+      auto iface = dyn_cast<RegionBranchOpInterface>(op);
+      benchmark::DoNotOptimize(&iface);
+    };
+  }
+  state.SetComplexityN(state.range(0));
+}
+BENCHMARK_REGISTER_F(IRWalk, vectorTraveralWithInterfaceCastSuccess)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity(benchmark::oN);
