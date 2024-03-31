@@ -60,7 +60,9 @@ BENCHMARK_DEFINE_F(CreateOps, simple)(benchmark::State& state) {
   }
   state.SetComplexityN(state.range(0));
 }
-BENCHMARK_REGISTER_F(CreateOps, simple)->Ranges({{10, 10*1000*1000}})->Complexity();
+BENCHMARK_REGISTER_F(CreateOps, simple)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity(benchmark::oN);
 
 BENCHMARK_DEFINE_F(CreateOps, hoistedOpState)(benchmark::State& state) {
   OperationState opState(unknownLoc, "testbench.empty");
@@ -70,7 +72,9 @@ BENCHMARK_DEFINE_F(CreateOps, hoistedOpState)(benchmark::State& state) {
   }
   state.SetComplexityN(state.range(0));
 }
-BENCHMARK_REGISTER_F(CreateOps, hoistedOpState)->Ranges({{10, 10*1000*1000}})->Complexity();
+BENCHMARK_REGISTER_F(CreateOps, hoistedOpState)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity(benchmark::oN);
 
 BENCHMARK_DEFINE_F(CreateOps, withInsert)(benchmark::State& state) {
   for (auto _ : state) {
@@ -80,7 +84,9 @@ BENCHMARK_DEFINE_F(CreateOps, withInsert)(benchmark::State& state) {
   }
   state.SetComplexityN(state.range(0));
 }
-BENCHMARK_REGISTER_F(CreateOps, withInsert)->Ranges({{10, 10*1000*1000}})->Complexity();
+BENCHMARK_REGISTER_F(CreateOps, withInsert)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity(benchmark::oN);
 
 BENCHMARK_DEFINE_F(CreateOps, simpleRegistered)(benchmark::State &state) {
   ctx->loadDialect<TestBenchDialect>();
@@ -94,7 +100,7 @@ BENCHMARK_DEFINE_F(CreateOps, simpleRegistered)(benchmark::State &state) {
 }
 BENCHMARK_REGISTER_F(CreateOps, simpleRegistered)
     ->Ranges({{10, 10 * 1000 * 1000}})
-    ->Complexity();
+    ->Complexity(benchmark::oN);
 
 BENCHMARK_DEFINE_F(CreateOps, withInsertRegistered)(benchmark::State &state) {
   ctx->loadDialect<TestBenchDialect>();
@@ -109,7 +115,7 @@ BENCHMARK_DEFINE_F(CreateOps, withInsertRegistered)(benchmark::State &state) {
 }
 BENCHMARK_REGISTER_F(CreateOps, withInsertRegistered)
     ->Ranges({{10, 10 * 1000 * 1000}})
-    ->Complexity();
+    ->Complexity(benchmark::oN);
 
 BENCHMARK_DEFINE_F(CreateOps, llvm_withInsertRegistered)(benchmark::State &state) {
   llvm::LLVMContext ctx;
@@ -130,8 +136,7 @@ BENCHMARK_DEFINE_F(CreateOps, llvm_withInsertRegistered)(benchmark::State &state
 }
 BENCHMARK_REGISTER_F(CreateOps, llvm_withInsertRegistered)
     ->Ranges({{10, 10 * 1000 * 1000}})
-    ->Complexity();
-
+    ->Complexity(benchmark::oN);
 
 BENCHMARK_MAIN();
 

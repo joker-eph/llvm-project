@@ -17,3 +17,7 @@ def OpWithRegion : TESTBench_Op<"with_region",
   [SingleBlock, RegionKindInterface, HasOnlyGraphRegion]> {
   let regions = (region SizedRegion<1>:$body);
 }
+
+// Interfaces with be externally registered
+def OpWithManyInterfaces : TESTBench_Op<"op_with_interfaces"> {
+}
