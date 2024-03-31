@@ -79,3 +79,31 @@ BENCHMARK_DEFINE_F(AttributesBench, newString)(benchmark::State &state) {
 BENCHMARK_REGISTER_F(AttributesBench, newString)
     ->Ranges({{10, 10 * 1000 * 1000}})
     ->Complexity(benchmark::oN);
+
+BENCHMARK_DEFINE_F(AttributesBench, sameStringNoThreading)(benchmark::State &state) {
+  ctx->loadDialect<TestBenchDialect>();
+  ctx->disableMultithreading();
+  for (auto _ : state) {
+    for (int j = 0; j < state.range(0); ++j) {
+      StringAttr::get(ctx.get(), std::to_string(0));
+    }
+  }
+  state.SetComplexityN(state.range(0));
+}
+BENCHMARK_REGISTER_F(AttributesBench, sameStringNoThreading)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity(benchmark::oN);
+
+BENCHMARK_DEFINE_F(AttributesBench, newStringNoThreading)(benchmark::State &state) {
+  ctx->loadDialect<TestBenchDialect>();
+  ctx->disableMultithreading();
+  for (auto _ : state) {
+    for (int j = 0; j < state.range(0); ++j) {
+      StringAttr::get(ctx.get(), std::to_string(j));
+    }
+  }
+  state.SetComplexityN(state.range(0));
+}
+BENCHMARK_REGISTER_F(AttributesBench, newStringNoThreading)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity(benchmark::oN);
