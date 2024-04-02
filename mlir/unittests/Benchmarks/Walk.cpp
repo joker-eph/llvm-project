@@ -263,3 +263,43 @@ BENCHMARK_DEFINE_F(IRWalk, vectorTraveralWithInterfaceCastSuccess)
 BENCHMARK_REGISTER_F(IRWalk, vectorTraveralWithInterfaceCastSuccess)
     ->Ranges({{10, 10 * 1000 * 1000}})
     ->Complexity(benchmark::oN);
+
+BENCHMARK_DEFINE_F(IRWalk, vectorTraveralOpTraitFail)
+(benchmark::State &state) {
+  ctx->loadDialect<TestBenchDialect>();
+  OpBuilder b = OpBuilder::atBlockBegin(moduleOp->getBody());
+  SmallVector<Operation *> ops;
+  for (int j = 0; j < state.range(0); ++j) {
+    ops.push_back(b.create<EmptyOp>(unknownLoc));
+  }
+  for (auto _ : state) {
+    for (Operation *op : ops) {
+      bool hasTrait = op->hasTrait<OpTrait::SingleBlock>();
+      benchmark::DoNotOptimize(&hasTrait);
+    };
+  }
+  state.SetComplexityN(state.range(0));
+}
+BENCHMARK_REGISTER_F(IRWalk, vectorTraveralOpTraitFail)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity(benchmark::oN);
+
+BENCHMARK_DEFINE_F(IRWalk, vectorTraveralOpTraitSuccess)
+(benchmark::State &state) {
+  ctx->loadDialect<TestBenchDialect>();
+  OpBuilder b = OpBuilder::atBlockBegin(moduleOp->getBody());
+  SmallVector<Operation *> ops;
+  for (int j = 0; j < state.range(0); ++j) {
+    ops.push_back(b.create<OpWithRegion>(unknownLoc));
+  }
+  for (auto _ : state) {
+    for (Operation *op : ops) {
+      bool hasTrait = op->hasTrait<OpTrait::SingleBlock>();
+      benchmark::DoNotOptimize(&hasTrait);
+    };
+  }
+  state.SetComplexityN(state.range(0));
+}
+BENCHMARK_REGISTER_F(IRWalk, vectorTraveralOpTraitSuccess)
+    ->Ranges({{10, 10 * 1000 * 1000}})
+    ->Complexity(benchmark::oN);
