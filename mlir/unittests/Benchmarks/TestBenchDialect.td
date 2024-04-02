@@ -29,3 +29,7 @@ def PassthroughOp : TESTBench_Op<"passthrough"> {
   let arguments = (ins AnyType:$in);
   let results = (outs AnyType:$out);
 }
+
+def OpWithAttr : TESTBench_Op<"with_attr"> {
+  let arguments = (ins OptionalAttr<StrAttr>:$attr);
+}

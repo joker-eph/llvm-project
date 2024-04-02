@@ -1,4 +1,5 @@
 #include "TestBenchDialect.h"
+#include "mlir/IR/Builders.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpImplementation.h"
 
