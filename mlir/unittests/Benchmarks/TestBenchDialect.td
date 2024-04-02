@@ -24,3 +24,8 @@ def OpWithRegion : TESTBench_Op<"with_region",
 // Interfaces with be externally registered
 def OpWithManyInterfaces : TESTBench_Op<"op_with_interfaces"> {
 }
+
+def PassthroughOp : TESTBench_Op<"passthrough"> {
+  let arguments = (ins AnyType:$in);
+  let results = (outs AnyType:$out);
+}

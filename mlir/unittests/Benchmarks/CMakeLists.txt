@@ -14,6 +14,7 @@ set(LIBS
 add_benchmark(MLIR_IR_Benchmark
   Attributes.cpp
   ConstantFolding.cpp
+  Cloning.cpp
   CreateOps.cpp
   GreedyRewriter.cpp
   LoopUnrolling.cpp
