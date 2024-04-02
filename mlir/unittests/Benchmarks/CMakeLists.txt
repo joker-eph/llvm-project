@@ -5,6 +5,8 @@ get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 set(LIBS
   ${dialect_libs}
   MLIRIR
+  MLIRBytecodeReader
+  MLIRBytecodeWriter
   MLIRTransformUtils
   LLVMCore
 )
@@ -12,6 +14,7 @@ add_benchmark(MLIR_IR_Benchmark
   Attributes.cpp
   CreateOps.cpp
   GreedyRewriter.cpp
+  ParserPrinter.cpp
   TestBenchDialect.cpp
   Walk.cpp
 
