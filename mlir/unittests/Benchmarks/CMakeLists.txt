@@ -14,6 +14,7 @@ add_benchmark(MLIR_IR_Benchmark
   Attributes.cpp
   CreateOps.cpp
   GreedyRewriter.cpp
+  LoopUnrolling.cpp
   ParserPrinter.cpp
   TestBenchDialect.cpp
   Walk.cpp

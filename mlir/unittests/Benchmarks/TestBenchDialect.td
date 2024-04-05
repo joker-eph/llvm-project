@@ -13,6 +13,9 @@ class TESTBench_Op<string mnemonic, list<Trait> traits = []> :
 def EmptyOp : TESTBench_Op<"empty"> {
 }
 
+def TerminatorOp : TESTBench_Op<"terminator", [Terminator]> {
+}
+
 def OpWithRegion : TESTBench_Op<"with_region",
   [SingleBlock, RegionKindInterface, HasOnlyGraphRegion]> {
   let regions = (region SizedRegion<1>:$body);

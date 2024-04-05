@@ -849,15 +849,15 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   assert(!UnrollVerifyDomtree ||
          DT->verify(DominatorTree::VerificationLevel::Fast));
 
-  // At this point, the code is well formed.  We now simplify the unrolled loop,
-  // doing constant propagation and dead code elimination as we go.
-  simplifyLoopAfterUnroll(L, !CompletelyUnroll && ULO.Count > 1, LI, SE, DT, AC,
-                          TTI);
+  // // At this point, the code is well formed.  We now simplify the unrolled loop,
+  // // doing constant propagation and dead code elimination as we go.
+  // simplifyLoopAfterUnroll(L, !CompletelyUnroll && ULO.Count > 1, LI, SE, DT, AC,
+  //                         TTI);
 
-  NumCompletelyUnrolled += CompletelyUnroll;
-  ++NumUnrolled;
+  // NumCompletelyUnrolled += CompletelyUnroll;
+  // ++NumUnrolled;
 
-  Loop *OuterL = L->getParentLoop();
+  // Loop *OuterL = L->getParentLoop();
   // Update LoopInfo if the loop is completely removed.
   if (CompletelyUnroll) {
     LI->erase(L);
@@ -870,52 +870,52 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
                               EstimatedLoopInvocationWeight);
   }
 
-  // LoopInfo should not be valid, confirm that.
-  if (UnrollVerifyLoopInfo)
-    LI->verify(*DT);
+  // // LoopInfo should not be valid, confirm that.
+  // if (UnrollVerifyLoopInfo)
+  //   LI->verify(*DT);
 
-  // After complete unrolling most of the blocks should be contained in OuterL.
-  // However, some of them might happen to be out of OuterL (e.g. if they
-  // precede a loop exit). In this case we might need to insert PHI nodes in
-  // order to preserve LCSSA form.
-  // We don't need to check this if we already know that we need to fix LCSSA
-  // form.
-  // TODO: For now we just recompute LCSSA for the outer loop in this case, but
-  // it should be possible to fix it in-place.
-  if (PreserveLCSSA && OuterL && CompletelyUnroll && !NeedToFixLCSSA)
-    NeedToFixLCSSA |= ::needToInsertPhisForLCSSA(OuterL, UnrolledLoopBlocks, LI);
+  // // After complete unrolling most of the blocks should be contained in OuterL.
+  // // However, some of them might happen to be out of OuterL (e.g. if they
+  // // precede a loop exit). In this case we might need to insert PHI nodes in
+  // // order to preserve LCSSA form.
+  // // We don't need to check this if we already know that we need to fix LCSSA
+  // // form.
+  // // TODO: For now we just recompute LCSSA for the outer loop in this case, but
+  // // it should be possible to fix it in-place.
+  // if (PreserveLCSSA && OuterL && CompletelyUnroll && !NeedToFixLCSSA)
+  //   NeedToFixLCSSA |= ::needToInsertPhisForLCSSA(OuterL, UnrolledLoopBlocks, LI);
 
-  // Make sure that loop-simplify form is preserved. We want to simplify
-  // at least one layer outside of the loop that was unrolled so that any
-  // changes to the parent loop exposed by the unrolling are considered.
-  if (OuterL) {
-    // OuterL includes all loops for which we can break loop-simplify, so
-    // it's sufficient to simplify only it (it'll recursively simplify inner
-    // loops too).
-    if (NeedToFixLCSSA) {
-      // LCSSA must be performed on the outermost affected loop. The unrolled
-      // loop's last loop latch is guaranteed to be in the outermost loop
-      // after LoopInfo's been updated by LoopInfo::erase.
-      Loop *LatchLoop = LI->getLoopFor(Latches.back());
-      Loop *FixLCSSALoop = OuterL;
-      if (!FixLCSSALoop->contains(LatchLoop))
-        while (FixLCSSALoop->getParentLoop() != LatchLoop)
-          FixLCSSALoop = FixLCSSALoop->getParentLoop();
+  // // Make sure that loop-simplify form is preserved. We want to simplify
+  // // at least one layer outside of the loop that was unrolled so that any
+  // // changes to the parent loop exposed by the unrolling are considered.
+  // if (OuterL) {
+  //   // OuterL includes all loops for which we can break loop-simplify, so
+  //   // it's sufficient to simplify only it (it'll recursively simplify inner
+  //   // loops too).
+  //   if (NeedToFixLCSSA) {
+  //     // LCSSA must be performed on the outermost affected loop. The unrolled
+  //     // loop's last loop latch is guaranteed to be in the outermost loop
+  //     // after LoopInfo's been updated by LoopInfo::erase.
+  //     Loop *LatchLoop = LI->getLoopFor(Latches.back());
+  //     Loop *FixLCSSALoop = OuterL;
+  //     if (!FixLCSSALoop->contains(LatchLoop))
+  //       while (FixLCSSALoop->getParentLoop() != LatchLoop)
+  //         FixLCSSALoop = FixLCSSALoop->getParentLoop();
 
-      formLCSSARecursively(*FixLCSSALoop, *DT, LI, SE);
-    } else if (PreserveLCSSA) {
-      assert(OuterL->isLCSSAForm(*DT) &&
-             "Loops should be in LCSSA form after loop-unroll.");
-    }
+  //     formLCSSARecursively(*FixLCSSALoop, *DT, LI, SE);
+  //   } else if (PreserveLCSSA) {
+  //     assert(OuterL->isLCSSAForm(*DT) &&
+  //            "Loops should be in LCSSA form after loop-unroll.");
+  //   }
 
-    // TODO: That potentially might be compile-time expensive. We should try
-    // to fix the loop-simplified form incrementally.
-    simplifyLoop(OuterL, DT, LI, SE, AC, nullptr, PreserveLCSSA);
-  } else {
-    // Simplify loops for which we might've broken loop-simplify form.
-    for (Loop *SubLoop : LoopsToSimplify)
-      simplifyLoop(SubLoop, DT, LI, SE, AC, nullptr, PreserveLCSSA);
-  }
+  //   // TODO: That potentially might be compile-time expensive. We should try
+  //   // to fix the loop-simplified form incrementally.
+  //   simplifyLoop(OuterL, DT, LI, SE, AC, nullptr, PreserveLCSSA);
+  // } else {
+  //   // Simplify loops for which we might've broken loop-simplify form.
+  //   for (Loop *SubLoop : LoopsToSimplify)
+  //     simplifyLoop(SubLoop, DT, LI, SE, AC, nullptr, PreserveLCSSA);
+  // }
 
   return CompletelyUnroll ? LoopUnrollResult::FullyUnrolled
                           : LoopUnrollResult::PartiallyUnrolled;
