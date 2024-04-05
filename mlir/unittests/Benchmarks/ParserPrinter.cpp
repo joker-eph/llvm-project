@@ -63,9 +63,9 @@ public:
       }
       // Add some attributes.
       if (j % 2) {
-        op->setAttr("some_attr", b.getI32IntegerAttr(44));
+        op->setAttr("some_attr", b.getI32IntegerAttr(j));
       } else {
-        op->setAttr("another_attr", b.getStringAttr("hello"));
+        op->setAttr("another_attr", b.getStringAttr(Twine("hello") + Twine(j)));
       }
     }
   }
