@@ -849,13 +849,13 @@ LogicalResult RegionPatternRewriteDriver::simplify(bool *changed) && {
       // Add operations to the worklist in postorder.
       region.walk([&](Operation *op) {
         if (!insertKnownConstant(op))
-          addToWorklist(op);
+          addSingleOpToWorklist(op);
       });
     } else {
       // Add all nested operations to the worklist in preorder.
       region.walk<WalkOrder::PreOrder>([&](Operation *op) {
         if (!insertKnownConstant(op)) {
-          addToWorklist(op);
+          addSingleOpToWorklist(op);
           return WalkResult::advance();
         }
         return WalkResult::skip();

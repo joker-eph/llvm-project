@@ -1,5 +1,4 @@
-//===- LoopUnrolling.cpp - Benchmark Loop Transform -----------------------
-//===//
+//===- LoopUnrolling.cpp - Benchmark Loop Transform -----------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -112,6 +111,7 @@ public:
       exit(-1);
     }
   }
+
   std::unique_ptr<MLIRContext> ctx;
   OwningOpRef<ModuleOp> moduleOp;
   UnknownLoc unknownLoc;
@@ -139,6 +139,8 @@ BENCHMARK_DEFINE_F(LoopUnrolling, unroll)(benchmark::State &state) {
     };
     for (auto loop : loops)
       (void)loopUnrollByFactor(loop, unrollFactor);
+    // moduleOp->dump();
+    // exit(1);
     state.PauseTiming();
     if (failed(verify(moduleOp.get()))) {
       llvm::errs() << "Verifier failed " << __FILE__ << ":" << __LINE__ << "\n";
@@ -148,8 +150,7 @@ BENCHMARK_DEFINE_F(LoopUnrolling, unroll)(benchmark::State &state) {
   }
   int countOps = 0;
   moduleOp->walk([&](Operation *op) { ++countOps; });
-  int expectedOps = 
-  6 + testSize * (3 + 2 * unrollFactor);
+  int expectedOps = 6 + testSize * (3 + 2 * unrollFactor);
   if (countOps != expectedOps) {
     llvm::errs() << "Got " << countOps << " blocks and expected " << expectedOps
                  << "\n";
@@ -237,6 +238,8 @@ BENCHMARK_DEFINE_F(LoopUnrolling, llvm_unroll)(benchmark::State &state) {
         exit(-1);
       }
     }
+    // llvmFunc->dump();
+    // exit(1);
   }
   int countBlocks = 0;
   for ([[maybe_unused]] llvm::BasicBlock &B : *llvmFunc)

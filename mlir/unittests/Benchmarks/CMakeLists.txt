@@ -8,10 +8,12 @@ set(LIBS
   MLIRBytecodeReader
   MLIRBytecodeWriter
   MLIRTransformUtils
+  LLVMAnalysis
   LLVMCore
 )
 add_benchmark(MLIR_IR_Benchmark
   Attributes.cpp
+  ConstantFolding.cpp
   CreateOps.cpp
   GreedyRewriter.cpp
   LoopUnrolling.cpp

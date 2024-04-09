@@ -50,6 +50,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/NoFolder.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -142,7 +143,7 @@ private:
 };
 
 using CapturingIRBuilder =
-    llvm::IRBuilder<llvm::ConstantFolder, InstructionCapturingInserter>;
+    llvm::IRBuilder<llvm::NoFolder, InstructionCapturingInserter>;
 } // namespace
 
 InstructionCapturingInserter::CollectionScope::CollectionScope(
@@ -1046,7 +1047,7 @@ LogicalResult ModuleTranslation::convertGlobals() {
   // global or itself. So all global variables need to be mapped first.
   for (auto op : getModuleBody(mlirModule).getOps<LLVM::GlobalOp>()) {
     if (Block *initializer = op.getInitializerBlock()) {
-      llvm::IRBuilder<> builder(llvmModule->getContext());
+      llvm::IRBuilder<llvm::NoFolder> builder(llvmModule->getContext());
 
       [[maybe_unused]] int numConstantsHit = 0;
       [[maybe_unused]] int numConstantsErased = 0;
@@ -1787,7 +1788,7 @@ mlir::translateModuleToLLVMIR(Operation *module, llvm::LLVMContext &llvmContext,
   LLVM::legalizeDIExpressionsRecursively(module);
 
   ModuleTranslation translator(module, std::move(llvmModule));
-  llvm::IRBuilder<> llvmBuilder(llvmContext);
+  llvm::IRBuilder<llvm::NoFolder> llvmBuilder(llvmContext);
 
   // Convert module before functions and operations inside, so dialect
   // attributes can be used to change dialect-specific global configurations via
