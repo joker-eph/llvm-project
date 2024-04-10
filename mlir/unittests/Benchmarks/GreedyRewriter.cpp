@@ -122,5 +122,5 @@ BENCHMARK_DEFINE_F(GreedyRewriter, withPatterns)
   state.SetComplexityN(state.range(0));
 }
 BENCHMARK_REGISTER_F(GreedyRewriter, withPatterns)
-    ->Ranges({{1 * 100, 1 * 100}})
+    ->Ranges({{1 * 100, 10 * 1000}})
     ->Complexity();

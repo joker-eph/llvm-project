@@ -23,6 +23,8 @@
 
 #include "TestBenchDialectDialect.h.inc"
 
+#include "TestBenchInterface.h.inc"
+
 #define GET_OP_CLASSES
 #include "TestBenchDialect.h.inc"
 

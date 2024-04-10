@@ -1,6 +1,7 @@
 include "mlir/IR/OpBase.td"
 include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/RegionKindInterface.td"
+include "TestBenchInterface.td"
 
 def TestBench_Dialect : Dialect {
   let name = "testbench";
@@ -22,7 +23,8 @@ def OpWithRegion : TESTBench_Op<"with_region",
 }
 
 // Interfaces with be externally registered
-def OpWithManyInterfaces : TESTBench_Op<"op_with_interfaces"> {
+def OpWithInterface : TESTBench_Op<"op_with_interfaces",
+  [TestBenchInterface]> {
 }
 
 def PassthroughOp : TESTBench_Op<"passthrough"> {

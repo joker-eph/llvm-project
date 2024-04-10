@@ -250,11 +250,15 @@ BENCHMARK_DEFINE_F(IRWalk, vectorTraveralWithInterfaceCastSuccess)
   OpBuilder b = OpBuilder::atBlockBegin(moduleOp->getBody());
   SmallVector<Operation *> ops;
   for (int j = 0; j < state.range(0); ++j) {
-    ops.push_back(b.create<OpWithRegion>(unknownLoc));
+    ops.push_back(b.create<OpWithInterface>(unknownLoc));
   }
   for (auto _ : state) {
     for (Operation *op : ops) {
-      auto iface = dyn_cast<RegionBranchOpInterface>(op);
+      auto iface = dyn_cast<TestBenchInterface>(op);
+      if (!iface) {
+        llvm::errs() << "Cast failed unexpectedly " << __FILE__ << ":" << __LINE__ << "\n";
+        exit(-1);
+      }
       benchmark::DoNotOptimize(&iface);
     };
   }

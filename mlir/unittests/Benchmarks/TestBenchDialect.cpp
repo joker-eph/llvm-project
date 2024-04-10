@@ -7,6 +7,8 @@ using namespace mlir;
 
 TestBenchDialect *sdfsdf;
 
+#include "TestBenchInterface.cpp.inc"
+
 #include "TestBenchDialectDialect.cpp.inc"
 
 void TestBenchDialect::initialize() {

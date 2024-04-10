@@ -5,9 +5,11 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+#include "mlir/Transforms/DialectConversion.h"
 #include "TestBenchDialect.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMPass.h"
+#include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -20,6 +22,7 @@
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/DialectRegistry.h"
+#include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OperationSupport.h"
@@ -74,6 +77,8 @@ public:
   }
 
   void populateTestModule(int num) {
+    moduleOp->getBody()->erase();
+    moduleOp->getBodyRegion().push_back(new Block);
     ctx->loadDialect<arith::ArithDialect>();
     ctx->loadDialect<scf::SCFDialect>();
     ctx->loadDialect<func::FuncDialect>();
@@ -81,33 +86,23 @@ public:
 
     OpBuilder moduleB = OpBuilder::atBlockBegin(moduleOp->getBody());
     auto intTy = IndexType::get(ctx.get());
-    auto fTy = FunctionType::get(ctx.get(), {intTy, intTy}, intTy);
-    auto funcOp = moduleB.create<func::FuncOp>(unknownLoc, "loopUnroll", fTy);
+    auto fTy = FunctionType::get(ctx.get(), {}, intTy);
+    auto funcOp = moduleB.create<func::FuncOp>(unknownLoc, "folding", fTy);
     funcOp.addEntryBlock();
-
-    assert(funcOp.getBody().front().getNumArguments() == 2);
-    auto fArgs = funcOp.getBody().front().getArguments();
-    SmallVector<Value> workingSet;
-    workingSet.push_back(fArgs[0]);
-    workingSet.push_back(fArgs[1]);
-    OpBuilder funcB = OpBuilder::atBlockBegin(&funcOp.getBody().front());
-
-    auto lowerBound = funcB.create<arith::ConstantIndexOp>(unknownLoc, 0);
-    auto upperBound = funcB.create<arith::ConstantIndexOp>(unknownLoc, 32);
-    auto step = funcB.create<arith::ConstantIndexOp>(unknownLoc, 1);
-    Value loopResult[] = {fArgs[0], fArgs[1]};
+    ImplicitLocOpBuilder funcB = ImplicitLocOpBuilder::atBlockBegin(
+        unknownLoc, &funcOp.getBody().front());
+    Value workingSet[2];
+    workingSet[0] = funcB.create<arith::ConstantIndexOp>(13);
+    workingSet[1] = funcB.create<arith::ConstantIndexOp>(7907);
     for (int j = 0; j < num; ++j) {
-      auto loop = funcB.create<scf::ForOp>(unknownLoc, lowerBound, upperBound,
-                                           step, ValueRange(workingSet));
-      loopResult[0] = loop->getResult(0);
-      loopResult[1] = loop->getResult(1);
-      OpBuilder bodyB = OpBuilder::atBlockBegin(loop.getBody());
-      auto args = loop.getBody()->getArguments();
-      auto addOp = bodyB.create<arith::AddIOp>(unknownLoc, args[1], args[2]);
-      auto subOp = bodyB.create<arith::SubIOp>(unknownLoc, args[2], args[1]);
-      bodyB.create<scf::YieldOp>(unknownLoc, ValueRange{subOp, addOp});
+      auto addOp = funcB.create<arith::AddIOp>(workingSet[0], workingSet[1]);
+      auto subOp = funcB.create<arith::SubIOp>(workingSet[1], workingSet[0]);
+      workingSet[0] = addOp;
+      workingSet[1] = subOp;
+      if (j % 2)
+        std::swap(workingSet[0], workingSet[0]);
     }
-    funcB.create<func::ReturnOp>(unknownLoc, ValueRange{loopResult[0]});
+    funcB.create<func::ReturnOp>(ValueRange{workingSet[0]});
     if (failed(verify(moduleOp.get()))) {
       llvm::errs() << "Verifier failed " << __FILE__ << ":" << __LINE__ << "\n";
       exit(-1);
@@ -120,13 +115,56 @@ public:
 };
 } // namespace
 
+BENCHMARK_DEFINE_F(DialectConversion, noPatterns)(benchmark::State &state) {
+  int testSize = state.range(0);
+  populateTestModule(0);
+
+  ConversionTarget target(*ctx);
+  target.addLegalDialect<LLVM::LLVMDialect>();
+  LLVMTypeConverter typeConverter(ctx.get());
+  RewritePatternSet tempPatterns(ctx.get());
+  FrozenRewritePatternSet patterns(std::move(tempPatterns));
+
+  for (auto _ : state) {
+    state.PauseTiming();
+    populateTestModule(testSize);
+    state.ResumeTiming();
+    if (failed(applyPartialConversion(moduleOp.get(), target, patterns))) {
+      llvm::errs() << "Conversion failed " << __FILE__ << ":" << __LINE__
+                   << "\n";
+      exit(-1);
+    }
+  }
+  // exit(1);
+  // llvmFunc->dump();
+  if (failed(verify(moduleOp.get()))) {
+    llvm::errs() << "Verifier failed " << __FILE__ << ":" << __LINE__ << "\n";
+    exit(-1);
+  }
+  int countOps = 0;
+  moduleOp->walk([&](Operation *op) { ++countOps; });
+  // moduleOp->dump();
+  int expectedOps = 5 + testSize * 2;
+  if (countOps != expectedOps) {
+    llvm::errs() << "Got " << countOps << " operation and expected "
+                 << expectedOps << "\n";
+    exit(1);
+  }
+  state.SetComplexityN(state.range(0));
+}
+BENCHMARK_REGISTER_F(DialectConversion, noPatterns)
+    ->Ranges({{1, 1 * 1000 * 1000}})
+    ->Complexity(benchmark::oN);
+
 BENCHMARK_DEFINE_F(DialectConversion, toLLVM)(benchmark::State &state) {
   int testSize = state.range(0);
   DialectRegistry registry;
   registry.insert<LLVM::LLVMDialect>();
   cf::registerConvertControlFlowToLLVMInterface(registry);
   arith::registerConvertArithToLLVMInterface(registry);
+  mlir::registerConvertFuncToLLVMInterface(registry);
   ctx->appendDialectRegistry(registry);
+  populateTestModule(0);
 
   RewritePatternSet tempPatterns(ctx.get());
   ConversionTarget target(*ctx);
@@ -142,6 +180,7 @@ BENCHMARK_DEFINE_F(DialectConversion, toLLVM)(benchmark::State &state) {
       continue;
     iface->populateConvertToLLVMConversionPatterns(target, typeConverter,
                                                    tempPatterns);
+  }
     FrozenRewritePatternSet patterns(std::move(tempPatterns));
 
     for (auto _ : state) {
@@ -164,24 +203,30 @@ BENCHMARK_DEFINE_F(DialectConversion, toLLVM)(benchmark::State &state) {
                      << "\n";
         exit(-1);
       }
-      pm.addPass(createConvertToLLVMPass());
+      state.ResumeTiming();
+      if (failed(applyPartialConversion(moduleOp.get(), target, patterns))) {
+        llvm::errs() << "Conversion failed " << __FILE__ << ":" << __LINE__
+                     << "\n";
+        exit(-1);
+      }
     }
-    // llvmFunc->dump();
     // exit(1);
-  }
-  if (failed(verify(moduleOp.get()))) {
-    llvm::errs() << "Verifier failed " << __FILE__ << ":" << __LINE__ << "\n";
-    exit(-1);
-  }
-  int countBlocks = 0;
-  int expectedBlocks = 1 + 6 * testSize;
-  if (countBlocks != expectedBlocks) {
-    llvm::errs() << "Got " << countBlocks << " blocks and expected "
-                 << expectedBlocks << "\n";
-    exit(1);
-  }
+    // llvmFunc->dump();
+    if (failed(verify(moduleOp.get()))) {
+      llvm::errs() << "Verifier failed " << __FILE__ << ":" << __LINE__ << "\n";
+      exit(-1);
+    }
+    int countOps = 0;
+    moduleOp->walk([&](Operation *op) { ++countOps; });
+    // moduleOp->dump();
+    int expectedOps = 5 + testSize * 2;
+    if (countOps != expectedOps) {
+      llvm::errs() << "Got " << countOps << " operation and expected "
+                   << expectedOps << "\n";
+      exit(1);
+    }
   state.SetComplexityN(state.range(0));
 }
 BENCHMARK_REGISTER_F(DialectConversion, toLLVM)
-    ->Ranges({{1, 1000}})
+    ->Ranges({{1, 1 * 1000 * 1000}})
     ->Complexity(benchmark::oN);

@@ -1,4 +1,7 @@
 add_mlir_dialect(TestBenchDialect testbench)
+
+add_mlir_interface(TestBenchInterface)
+
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
@@ -19,6 +22,7 @@ add_benchmark(MLIR_IR_Benchmark
   CreateOps.cpp
   DialectConversion.cpp
   GreedyRewriter.cpp
+  Interfaces.cpp
   LoopUnrolling.cpp
   ParserPrinter.cpp
   TestBenchDialect.cpp
@@ -26,6 +30,7 @@ add_benchmark(MLIR_IR_Benchmark
 
  DEPENDS
   MLIRTestBenchDialectIncGen
+  MLIRTestBenchInterfaceIncGen
   ${LIBS}
 )
 
