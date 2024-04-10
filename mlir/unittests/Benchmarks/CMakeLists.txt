@@ -17,6 +17,7 @@ add_benchmark(MLIR_IR_Benchmark
   ConstantFolding.cpp
   Cloning.cpp
   CreateOps.cpp
+  DialectConversion.cpp
   GreedyRewriter.cpp
   LoopUnrolling.cpp
   ParserPrinter.cpp
