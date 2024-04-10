@@ -33,3 +33,7 @@ def PassthroughOp : TESTBench_Op<"passthrough"> {
 def OpWithAttr : TESTBench_Op<"with_attr"> {
   let arguments = (ins OptionalAttr<StrAttr>:$attr);
 }
+
+def SymbolOp : TESTBench_Op<"symbol"> {
+  let arguments = (ins StrAttr:$sym_name);
+}

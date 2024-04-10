@@ -12,6 +12,7 @@ set(LIBS
   LLVMCore
 )
 add_benchmark(MLIR_IR_Benchmark
+  Analysis.cpp
   Attributes.cpp
   ConstantFolding.cpp
   Cloning.cpp
