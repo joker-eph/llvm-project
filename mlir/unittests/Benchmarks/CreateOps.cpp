@@ -13,9 +13,9 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/OwningOpRef.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/Support/InitLLVM.h"
-#include "llvm/IR/IRBuilder.h"
 
 #include <memory>
 
@@ -25,7 +25,7 @@ using namespace mlir;
 namespace {
 class CreateOps : public benchmark::Fixture {
 public:
-  void SetUp(::benchmark::State& state) final {
+  void SetUp(::benchmark::State &state) final {
     const char *cmd = "bench";
     const char **argv = &cmd;
     int argc = 1;
@@ -38,20 +38,17 @@ public:
     block = std::make_unique<Block>();
   }
 
-  void TearDown(::benchmark::State& state) final {
+  void TearDown(::benchmark::State &state) final {
     block.reset();
     ctx.reset();
   }
   std::unique_ptr<MLIRContext> ctx;
   std::unique_ptr<Block> block;
   UnknownLoc unknownLoc;
-
 };
-}
+} // namespace
 
-
-
-BENCHMARK_DEFINE_F(CreateOps, simple)(benchmark::State& state) {
+BENCHMARK_DEFINE_F(CreateOps, simple)(benchmark::State &state) {
   for (auto _ : state) {
     for (int j = 0; j < state.range(0); ++j) {
       OperationState opState(unknownLoc, "testbench.empty");
@@ -64,7 +61,7 @@ BENCHMARK_REGISTER_F(CreateOps, simple)
     ->Ranges({{10, 10 * 1000 * 1000}})
     ->Complexity(benchmark::oN);
 
-BENCHMARK_DEFINE_F(CreateOps, hoistedOpState)(benchmark::State& state) {
+BENCHMARK_DEFINE_F(CreateOps, hoistedOpState)(benchmark::State &state) {
   OperationState opState(unknownLoc, "testbench.empty");
   for (auto _ : state) {
     for (int j = 0; j < state.range(0); ++j)
@@ -76,7 +73,7 @@ BENCHMARK_REGISTER_F(CreateOps, hoistedOpState)
     ->Ranges({{10, 10 * 1000 * 1000}})
     ->Complexity(benchmark::oN);
 
-BENCHMARK_DEFINE_F(CreateOps, withInsert)(benchmark::State& state) {
+BENCHMARK_DEFINE_F(CreateOps, withInsert)(benchmark::State &state) {
   for (auto _ : state) {
     OperationState opState(unknownLoc, "testbench.empty");
     for (int j = 0; j < state.range(0); ++j)
@@ -117,7 +114,8 @@ BENCHMARK_REGISTER_F(CreateOps, withInsertRegistered)
     ->Ranges({{10, 10 * 1000 * 1000}})
     ->Complexity(benchmark::oN);
 
-BENCHMARK_DEFINE_F(CreateOps, llvm_withInsertRegistered)(benchmark::State &state) {
+BENCHMARK_DEFINE_F(CreateOps, llvm_withInsertRegistered)
+(benchmark::State &state) {
   llvm::LLVMContext ctx;
   auto module = std::make_unique<llvm::Module>("MyModule", ctx);
   auto *fTy = llvm::FunctionType::get(llvm::Type::getVoidTy(ctx),
@@ -139,4 +137,3 @@ BENCHMARK_REGISTER_F(CreateOps, llvm_withInsertRegistered)
     ->Complexity(benchmark::oN);
 
 BENCHMARK_MAIN();
-
