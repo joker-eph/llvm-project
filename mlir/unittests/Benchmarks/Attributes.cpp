@@ -55,11 +55,10 @@ public:
 } // namespace
 
 BENCHMARK_DEFINE_F(AttributesBench, sameString)(benchmark::State &state) {
-  ctx->loadDialect<TestBenchDialect>();
   for (auto _ : state) {
-    for (int j = 0; j < state.range(0); ++j) {
-      StringAttr::get(ctx.get(), std::to_string(0));
-    }
+    MLIRContext ctx;
+    for (int j = 0; j < state.range(0); ++j)
+      StringAttr::get(&ctx, std::to_string(0));
   }
   state.SetComplexityN(state.range(0));
 }
@@ -68,12 +67,9 @@ BENCHMARK_REGISTER_F(AttributesBench, sameString)
     ->Complexity(benchmark::oN);
 
 BENCHMARK_DEFINE_F(AttributesBench, newString)(benchmark::State &state) {
-  ctx->loadDialect<TestBenchDialect>();
-  for (auto _ : state) {
-    for (int j = 0; j < state.range(0); ++j) {
-      StringAttr::get(ctx.get(), std::to_string(j));
-    }
-  }
+  for (auto _ : state)
+    for (int j = 0; j < state.range(0); ++j)
+      StringAttr::get(&ctx, std::to_string(j));
   state.SetComplexityN(state.range(0));
 }
 BENCHMARK_REGISTER_F(AttributesBench, newString)
@@ -82,12 +78,11 @@ BENCHMARK_REGISTER_F(AttributesBench, newString)
 
 BENCHMARK_DEFINE_F(AttributesBench, sameStringNoThreading)
 (benchmark::State &state) {
-  ctx->loadDialect<TestBenchDialect>();
-  ctx->disableMultithreading();
   for (auto _ : state) {
-    for (int j = 0; j < state.range(0); ++j) {
-      StringAttr::get(ctx.get(), std::to_string(0));
-    }
+    MLIRContext ctx;
+    ctx.disableMultithreading();
+    for (int j = 0; j < state.range(0); ++j)
+      StringAttr::get(&ctx, std::to_string(0));
   }
   state.SetComplexityN(state.range(0));
 }
@@ -97,12 +92,11 @@ BENCHMARK_REGISTER_F(AttributesBench, sameStringNoThreading)
 
 BENCHMARK_DEFINE_F(AttributesBench, newStringNoThreading)
 (benchmark::State &state) {
-  ctx->loadDialect<TestBenchDialect>();
-  ctx->disableMultithreading();
   for (auto _ : state) {
-    for (int j = 0; j < state.range(0); ++j) {
-      StringAttr::get(ctx.get(), std::to_string(j));
-    }
+    MLIRContext ctx;
+    ctx.disableMultithreading();
+    for (int j = 0; j < state.range(0); ++j)
+      StringAttr::get(&ctx, std::to_string(j));
   }
   state.SetComplexityN(state.range(0));
 }
