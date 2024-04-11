@@ -14,20 +14,14 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/OwningOpRef.h"
-#include "mlir/Interfaces/CastInterfaces.h"
-#include "mlir/Interfaces/ControlFlowInterfaces.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/ThreadPool.h"
 
 #include <memory>
 
 #include "benchmark/benchmark.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 using namespace mlir;
+void mlirBenchmarkInitLLVM(int argc, const char **argv);
 namespace {
 
 class AttributesBench : public benchmark::Fixture {
@@ -37,7 +31,7 @@ public:
     const char **argv = &cmd;
     int argc = 1;
     // Init LLVM to get backtraces on crash
-    static llvm::InitLLVM initOnce(argc, argv);
+    mlirBenchmarkInitLLVM(argc, argv);
 
     ctx = std::make_unique<MLIRContext>();
     ctx->allowUnregisteredDialects();

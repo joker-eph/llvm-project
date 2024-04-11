@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 #include "llvm/Analysis/ConstantFolding.h"
 #include "TestBenchDialect.h"
-#include "mlir-c/RegisterEverything.h"
 #include "mlir/Conversion/ConvertToLLVM/ToLLVMPass.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -28,7 +27,6 @@
 #include "mlir/IR/Verifier.h"
 #include "mlir/InitAllExtensions.h"
 #include "mlir/Interfaces/CastInterfaces.h"
-#include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/FoldUtils.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -38,11 +36,6 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/InitLLVM.h"
 #include "llvm/Transforms/Utils/Local.h"
 
 #include <memory>
@@ -54,6 +47,7 @@
 #include "mlir/Target/LLVMIR/Export.h"
 
 using namespace mlir;
+void mlirBenchmarkInitLLVM(int argc, const char **argv);
 namespace {
 
 class ConstantFolding : public benchmark::Fixture,
@@ -75,8 +69,7 @@ public:
     const char **argv = &cmd;
     int argc = 1;
     // Init LLVM to get backtraces on crash
-    static llvm::InitLLVM initOnce(argc, argv);
-
+    mlirBenchmarkInitLLVM(argc, argv);
     ctx = std::make_unique<MLIRContext>();
     ctx->allowUnregisteredDialects();
     unknownLoc = UnknownLoc::get(ctx.get());

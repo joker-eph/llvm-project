@@ -54,6 +54,7 @@
 #include "mlir/Target/LLVMIR/Export.h"
 
 using namespace mlir;
+void mlirBenchmarkInitLLVM(int argc, const char **argv);
 namespace {
 
 class DialectConversion : public benchmark::Fixture {
@@ -63,8 +64,7 @@ public:
     const char **argv = &cmd;
     int argc = 1;
     // Init LLVM to get backtraces on crash
-    static llvm::InitLLVM initOnce(argc, argv);
-
+    mlirBenchmarkInitLLVM(argc, argv);
     ctx = std::make_unique<MLIRContext>();
     ctx->allowUnregisteredDialects();
     unknownLoc = UnknownLoc::get(ctx.get());

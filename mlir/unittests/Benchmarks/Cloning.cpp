@@ -12,13 +12,13 @@
 #include "mlir/IR/Location.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/OwningOpRef.h"
-#include "llvm/Support/InitLLVM.h"
 
 #include <memory>
 
 #include "benchmark/benchmark.h"
 
 using namespace mlir;
+void mlirBenchmarkInitLLVM(int argc, const char **argv);
 
 namespace {
 class Cloning : public benchmark::Fixture {
@@ -28,7 +28,7 @@ public:
     const char **argv = &cmd;
     int argc = 1;
     // Init LLVM to get backtraces on crash
-    static llvm::InitLLVM initOnce(argc, argv);
+    mlirBenchmarkInitLLVM(argc, argv);
 
     ctx = std::make_unique<MLIRContext>();
     ctx->allowUnregisteredDialects();

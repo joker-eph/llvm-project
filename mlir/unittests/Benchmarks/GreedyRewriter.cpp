@@ -23,7 +23,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/LTO/legacy/LTOCodeGenerator.h"
-#include "llvm/Support/InitLLVM.h"
 
 #include <memory>
 
