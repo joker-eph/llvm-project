@@ -15,6 +15,7 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/IR/AsmState.h"
+#include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -137,8 +138,6 @@ BENCHMARK_DEFINE_F(ConstantFolding, folding)(benchmark::State &state) {
       llvm::errs() << "Missing funcOp in module\n";
       exit(-1);
     }
-    // funcOp->dump();
-    existingConstants.clear();
     SmallVector<OpFoldResult, 8> foldResults;
     DenseMap<Attribute, Operation *> constantsMap;
     state.ResumeTiming();
@@ -155,6 +154,7 @@ BENCHMARK_DEFINE_F(ConstantFolding, folding)(benchmark::State &state) {
         }
         continue;
       }
+      foldResults.clear();
       if (succeeded(op.fold(foldResults))) {
         // Check to see if the operation was just updated in place.
         if (foldResults.empty())
@@ -164,8 +164,13 @@ BENCHMARK_DEFINE_F(ConstantFolding, folding)(benchmark::State &state) {
         OpBuilder b(&op);
         auto loc = op.getLoc();
         for (auto [cst, res] : llvm::zip(foldResults, op.getResults())) {
+          if (cst.is<Value>()) {
+            res.replaceAllUsesWith(cst.get<Value>());
+            if (op.use_empty())
+              op.erase();
+            continue;
+          }
           constValue = cst.get<Attribute>();
-
           auto it = constantsMap.find(constValue);
           if (it != constantsMap.end()) {
             res.replaceAllUsesWith(it->getSecond()->getResult(0));
@@ -178,7 +183,6 @@ BENCHMARK_DEFINE_F(ConstantFolding, folding)(benchmark::State &state) {
           // Ask the dialect to materialize a constant operation for this value.
           if (auto *constOp =
                   dialect->materializeConstant(b, constValue, type, loc)) {
-            existingConstants.push_back(constOp);
             res.replaceAllUsesWith(constOp->getResult(0));
             if (op.use_empty())
               op.erase();
@@ -204,9 +208,10 @@ BENCHMARK_DEFINE_F(ConstantFolding, folding)(benchmark::State &state) {
     }
     state.ResumeTiming();
   }
+  // moduleOp->dump();
+  // exit(-1);
   int countOps = 0;
   moduleOp->walk([&](Operation *op) { ++countOps; });
-  // moduleOp->dump();
   int expectedOps = 4; // module + func + constant + return
   if (countOps != expectedOps) {
     llvm::errs() << "Got " << countOps << " operation and expected "
