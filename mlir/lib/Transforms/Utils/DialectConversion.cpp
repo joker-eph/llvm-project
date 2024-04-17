@@ -2030,13 +2030,13 @@ OperationLegalizer::legalize(Operation *op,
   // If the operation isn't legal, try to fold it in-place.
   // TODO: Should we always try to do this, even if the op is
   // already legal?
-  if (succeeded(legalizeWithFold(op, rewriter))) {
-    LLVM_DEBUG({
-      logSuccess(logger, "operation was folded");
-      logger.startLine() << logLineComment;
-    });
-    return success();
-  }
+  // if (succeeded(legalizeWithFold(op, rewriter))) {
+  //   LLVM_DEBUG({
+  //     logSuccess(logger, "operation was folded");
+  //     logger.startLine() << logLineComment;
+  //   });
+  //   return success();
+  // }
 
   // Otherwise, we need to apply a legalization pattern to this operation.
   if (succeeded(legalizeWithPattern(op, rewriter))) {

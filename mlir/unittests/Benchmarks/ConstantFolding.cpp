@@ -327,6 +327,16 @@ BENCHMARK_DEFINE_F(ConstantFolding, llvm_folding)
     // llvmFunc->print(llvm::errs());
     // llvm::errs() << '\n';
     // exit(1);
+    int countOps = 0;
+    for ([[maybe_unused]] llvm::Instruction &I : llvmFunc->getEntryBlock()) {
+      countOps++;
+    }
+    int expectedOp = 2 * testSize + 1;
+    if (countOps != expectedOp) {
+      llvm::errs() << "Got " << countOps << " ops and expected " << expectedOp
+                   << "\n";
+      exit(1);
+    }
 
     llvm::DataLayout DL(llvmMod.get());
     llvm::TargetLibraryInfoImpl TLII;
@@ -361,8 +371,8 @@ BENCHMARK_DEFINE_F(ConstantFolding, llvm_folding)
   }
   int expectedOp = 1;
   if (countOps != expectedOp) {
-    llvm::errs() << "Got " << countBlocks << " ops and expected "
-                 << expectedBlocks << "\n";
+    llvm::errs() << "Got " << countOps << " ops and expected " << expectedOp
+                 << "\n";
     exit(1);
   }
   state.SetComplexityN(state.range(0));

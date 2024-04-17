@@ -126,7 +126,6 @@ BENCHMARK_DEFINE_F(CreateOps, llvm_withInsertRegistered)
   llvm::IRBuilder<> builder(block);
 
   for (auto _ : state) {
-    OperationState opState(unknownLoc, "foo");
     for (int j = 0; j < state.range(0); ++j)
       builder.CreateUnreachable();
   }
