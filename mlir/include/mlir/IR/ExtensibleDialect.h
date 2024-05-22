@@ -367,8 +367,8 @@ public:
 /// instance of this class.
 class DynamicOpDefinition : public OperationName::Impl {
 public:
-  using GetCanonicalizationPatternsFn =
-      llvm::unique_function<void(RewritePatternSet &, MLIRContext *) const>;
+  using GetCanonicalizationPatternsFn = llvm::unique_function<void(
+      RewritePatternSet &, MLIRContext *, bool conservativeOnly) const>;
 
   /// Create a new op at runtime. The op is registered only after passing it to
   /// the dialect using registerDynamicOp.
@@ -442,9 +442,9 @@ public:
                          SmallVectorImpl<OpFoldResult> &results) final {
     return foldHookFn(op, attrs, results);
   }
-  void getCanonicalizationPatterns(RewritePatternSet &set,
-                                   MLIRContext *context) final {
-    getCanonicalizationPatternsFn(set, context);
+  void getCanonicalizationPatterns(RewritePatternSet &set, MLIRContext *context,
+                                   bool conservativeOnly) final {
+    getCanonicalizationPatternsFn(set, context, conservativeOnly);
   }
   bool hasTrait(TypeID id) final { return false; }
   OperationName::ParseAssemblyFn getParseAssemblyFn() final {

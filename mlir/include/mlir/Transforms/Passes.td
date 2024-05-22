@@ -40,6 +40,9 @@ def Canonicalizer : Pass<"canonicalize"> {
            "Max. iterations between applying patterns / simplifying regions">,
     Option<"maxNumRewrites", "max-num-rewrites", "int64_t", /*default=*/"-1",
            "Max. number of pattern rewrites within an iteration">,
+    Option<"conservative", "conservative", "bool", /*default=*/"false",
+           "This limits canonicalization to a subset of patterns that have been "
+           "considered 'conservative' instead of the full-set.">,
     Option<"testConvergence", "test-convergence", "bool", /*default=*/"false",
            "Test only: Fail pass on non-convergence to detect cyclic pattern">
   ] # RewritePassUtils.options;

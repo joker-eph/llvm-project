@@ -820,7 +820,7 @@ OperationName::UnregisteredOpModel::foldHook(Operation *, ArrayRef<Attribute>,
   return failure();
 }
 void OperationName::UnregisteredOpModel::getCanonicalizationPatterns(
-    RewritePatternSet &, MLIRContext *) {}
+    RewritePatternSet &, MLIRContext *, bool conservativeOnly) {}
 bool OperationName::UnregisteredOpModel::hasTrait(TypeID) { return false; }
 
 OperationName::ParseAssemblyFn

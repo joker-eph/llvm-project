@@ -199,7 +199,8 @@ public:
   /// This hook returns any canonicalization pattern rewrites that the operation
   /// supports, for use by the canonicalization pass.
   static void getCanonicalizationPatterns(RewritePatternSet &results,
-                                          MLIRContext *context) {}
+                                          MLIRContext *context,
+                                          bool conservativeOnly = false) {}
 
   /// This hook populates any unset default attrs.
   static void populateDefaultAttrs(const OperationName &, NamedAttrList &) {}

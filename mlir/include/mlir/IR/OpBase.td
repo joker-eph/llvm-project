@@ -419,6 +419,10 @@ class Op<Dialect dialect, string mnemonic, list<Trait> props = []> {
   // rewrite patterns".
   bit hasCanonicalizeMethod = 0;
 
+  // Whether this op is using the new canonicalization API allowing to support
+  // "conservativeOnly" canonicalization.
+  bit hasConservativeCanonicalizer = 0;
+
   // Whether this op has a folder.
   bit hasFolder = 0;
 

@@ -165,8 +165,9 @@ struct TestRemoveOpWithInnerOps
 //===----------------------------------------------------------------------===//
 
 void TestOpWithRegionPattern::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.add<TestRemoveOpWithInnerOps>(context);
+    RewritePatternSet &results, MLIRContext *context, bool conservativeOnly) {
+  if (!conservativeOnly)
+    results.add<TestRemoveOpWithInnerOps>(context);
 }
 
 //===----------------------------------------------------------------------===//

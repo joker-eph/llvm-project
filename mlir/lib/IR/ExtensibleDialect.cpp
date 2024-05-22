@@ -338,8 +338,8 @@ std::unique_ptr<DynamicOpDefinition> DynamicOpDefinition::get(
     return failure();
   };
 
-  auto getCanonicalizationPatternsFn = [](RewritePatternSet &, MLIRContext *) {
-  };
+  auto getCanonicalizationPatternsFn = [](RewritePatternSet &, MLIRContext *,
+                                          bool conservativeOnly) {};
 
   auto populateDefaultAttrsFn = [](const OperationName &, NamedAttrList &) {};
 

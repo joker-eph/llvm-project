@@ -1248,6 +1248,7 @@ def : Pat<(OpAllAttrConstraint1
 def TestOpWithRegionPattern : TEST_Op<"op_with_region_pattern"> {
   let regions = (region SizedRegion<1>:$region);
   let hasCanonicalizer = 1;
+  let hasConservativeCanonicalizer = 1;
 }
 
 def TestOpConstant : TEST_Op<"constant", [ConstantLike, NoMemoryEffect]> {

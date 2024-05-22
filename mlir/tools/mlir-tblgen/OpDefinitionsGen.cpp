@@ -3236,6 +3236,8 @@ void OpEmitter::genCanonicalizerDecls() {
   bool hasCanonicalizer = def.getValueAsBit("hasCanonicalizer");
   if (!hasCanonicalizeMethod && !hasCanonicalizer)
     return;
+  bool hasConservativeCanonicalizer =
+      def.getValueAsBit("hasConservativeCanonicalizer");
 
   // We get a body for 'getCanonicalizationPatterns' when using a 'canonicalize'
   // method, but not implementing 'getCanonicalizationPatterns' manually.
@@ -3246,10 +3248,20 @@ void OpEmitter::genCanonicalizerDecls() {
   SmallVector<MethodParameter> paramList;
   paramList.emplace_back("::mlir::RewritePatternSet &", "results");
   paramList.emplace_back("::mlir::MLIRContext *", "context");
+  if (hasConservativeCanonicalizer)
+    paramList.emplace_back("bool", "conservativeOnly");
   auto kind = hasBody ? Method::Static : Method::StaticDeclaration;
   auto *method = opClass.addMethod("void", "getCanonicalizationPatterns", kind,
                                    std::move(paramList));
-
+  if (!hasConservativeCanonicalizer) {
+    paramList.emplace_back("bool", "conservativeOnly");
+    auto *trampolineMethod =
+        opClass.addMethod("void", "getCanonicalizationPatterns", Method::Static,
+                          std::move(paramList));
+    ERROR_IF_PRUNED(method, "getCanonicalizationPatterns", op);
+    trampolineMethod->body()
+        << "  getCanonicalizationPatterns(results, context);\n";
+  }
   // If synthesizing the method, fill it.
   if (hasBody) {
     ERROR_IF_PRUNED(method, "getCanonicalizationPatterns", op);

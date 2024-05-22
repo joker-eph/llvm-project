@@ -112,8 +112,8 @@ public:
     virtual ~InterfaceConcept() = default;
     virtual LogicalResult foldHook(Operation *, ArrayRef<Attribute>,
                                    SmallVectorImpl<OpFoldResult> &) = 0;
-    virtual void getCanonicalizationPatterns(RewritePatternSet &,
-                                             MLIRContext *) = 0;
+    virtual void getCanonicalizationPatterns(RewritePatternSet &, MLIRContext *,
+                                             bool conservativeOnly) = 0;
     virtual bool hasTrait(TypeID) = 0;
     virtual OperationName::ParseAssemblyFn getParseAssemblyFn() = 0;
     virtual void populateDefaultAttrs(const OperationName &,
@@ -196,7 +196,8 @@ protected:
     using Impl::Impl;
     LogicalResult foldHook(Operation *, ArrayRef<Attribute>,
                            SmallVectorImpl<OpFoldResult> &) final;
-    void getCanonicalizationPatterns(RewritePatternSet &, MLIRContext *) final;
+    void getCanonicalizationPatterns(RewritePatternSet &, MLIRContext *,
+                                     bool conservativeOnly) final;
     bool hasTrait(TypeID) final;
     OperationName::ParseAssemblyFn getParseAssemblyFn() final;
     void populateDefaultAttrs(const OperationName &, NamedAttrList &) final;
@@ -269,8 +270,10 @@ public:
   /// This hook returns any canonicalization pattern rewrites that the
   /// operation supports, for use by the canonicalization pass.
   void getCanonicalizationPatterns(RewritePatternSet &results,
-                                   MLIRContext *context) const {
-    return getImpl()->getCanonicalizationPatterns(results, context);
+                                   MLIRContext *context,
+                                   bool convervativeOnly = false) const {
+    return getImpl()->getCanonicalizationPatterns(results, context,
+                                                  convervativeOnly);
   }
 
   /// Returns true if the operation was registered with a particular trait, e.g.
@@ -539,8 +542,9 @@ public:
       return ConcreteOp::getFoldHookFn()(op, attrs, results);
     }
     void getCanonicalizationPatterns(RewritePatternSet &set,
-                                     MLIRContext *context) final {
-      ConcreteOp::getCanonicalizationPatterns(set, context);
+                                     MLIRContext *context,
+                                     bool conservativeOnly) final {
+      ConcreteOp::getCanonicalizationPatterns(set, context, conservativeOnly);
     }
     bool hasTrait(TypeID id) final { return ConcreteOp::getHasTraitFn()(id); }
     OperationName::ParseAssemblyFn getParseAssemblyFn() final {

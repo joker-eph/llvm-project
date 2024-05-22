@@ -52,7 +52,7 @@ struct Canonicalizer : public impl::CanonicalizerBase<Canonicalizer> {
     for (auto *dialect : context->getLoadedDialects())
       dialect->getCanonicalizationPatterns(owningPatterns);
     for (RegisteredOperationName op : context->getRegisteredOperations())
-      op.getCanonicalizationPatterns(owningPatterns, context);
+      op.getCanonicalizationPatterns(owningPatterns, context, conservative);
 
     patterns = std::make_shared<FrozenRewritePatternSet>(
         std::move(owningPatterns), disabledPatterns, enabledPatterns);

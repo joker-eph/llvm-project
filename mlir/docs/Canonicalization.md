@@ -113,6 +113,32 @@ LogicalResult OtherOp::canonicalize(OtherOp op, PatternRewriter &rewriter) {
 }
 ```
 
+We allow to differentiate the regular canonicalization patterns from a subset
+defined as "conservative". The conservative subsets of patterns is limiting
+itself to patterns that are <TODO>.
+
+```tablegen
+def MyOp : ... {
+  // I want to define a fully general set of patterns for this op.
+  let hasCanonicalizer = 1;
+  // I want to exclude some patterns from the "conservative" canonicalization,
+  // by default all patterns are enabled.
+  bit hasConservativeCanonicalizer = 1;
+}
+```
+
+In this case an extra argument is available to filter out patterns:
+
+```c++
+void MyOp::getCanonicalizationPatterns(RewritePatternSet &patterns,
+                                       MLIRContext *context,
+                                       bool conservativeOnly
+                                       ) {
+  if (!conservativeOnly)
+    patterns.add<...>(...);
+}
+```
+
 See the [quickstart guide](Tutorials/QuickstartRewrites.md) for information on
 defining operation rewrites.
 
