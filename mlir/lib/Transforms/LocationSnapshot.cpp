@@ -144,22 +144,10 @@ private:
   /// build the flags from the command line arguments to the pass
   OpPrintingFlags getFlags() {
     OpPrintingFlags flags;
-    if (elementsAttrHexElementLimit.getNumOccurrences())
-      flags.elideLargeElementsAttrs(elementsAttrHexElementLimit);
-    if (elideElementsAttrIfLarger.getNumOccurrences())
-      flags.printLargeElementsAttrWithHex(elideElementsAttrIfLarger);
-    if (elideResourceStringsIfLarger.getNumOccurrences())
-      flags.elideLargeResourceString(elideResourceStringsIfLarger);
     flags.enableDebugInfo(enableDebugInfo, printPrettyDebugInfo);
     flags.printGenericOpForm(printGenericOpForm);
-    flags.skipRegions(skipRegions);
-    if (assumeVerified)
-      flags.assumeVerified();
     if (useLocalScope)
       flags.useLocalScope();
-    if (printValueUsers)
-      flags.printValueUsers();
-    flags.printUniqueSSAIDs(printUniqueSSAIDs);
     return flags;
   }
 };

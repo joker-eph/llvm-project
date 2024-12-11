@@ -337,32 +337,15 @@ def LocationSnapshot : Pass<"snapshot-op-locations"> {
     Option<"tag", "tag", "std::string", /*default=*/"",
            "A tag to use when fusing the new locations with the "
            "original. If unset, the locations are replaced.">,
-    Option<"elementsAttrHexElementLimit", "mlir-print-elementsattrs-with-hex-if-larger",
-           "int", /*default=*/"",
-           "Print DenseElementsAttrs with a hex string that have "
-           "more elements than the given upper limit (use -1 to disable)">,
-    Option<"elideElementsAttrIfLarger", "mlir-elide-elementsattrs-if-larger", "int", /*default=*/"",
-           "Elide ElementsAttrs with \\\"...\\\" that have more elements than the given upper limit">,
-    Option<"elideResourceStringsIfLarger", "mlir-elide-resource-strings-if-larger", "int", /*default=*/"",
-           "Elide printing value of resources if string is too long in chars.">,
-    Option<"enableDebugInfo", "mlir-print-debuginfo", "bool", /*default=*/"false",
+    Option<"enableDebugInfo", "print-debuginfo", "bool", /*default=*/"false",
            "Print debug info in MLIR output">,
-    Option<"printGenericOpForm", "mlir-print-op-generic", "bool", /*default=*/"false",
+    Option<"printGenericOpForm", "print-op-generic", "bool", /*default=*/"false",
            "Print the generic op form">,
-    Option<"skipRegions", "mlir-print-skip-regions", "bool", /*default=*/"false",
-           "Skip regions when printing ops.">,
-    Option<"assumeVerified", "mlir-print-assume-verified", "bool", /*default=*/"false",
-      "Skip op verification when using custom printers">,
-    Option<"useLocalScope", "mlir-print-local-scope", "bool", /*default=*/"false",
+    Option<"useLocalScope", "print-local-scope", "bool", /*default=*/"false",
            "Print with local scope and inline information (eliding "
            "aliases for attributes, types, and locations">,
-    Option<"printValueUsers", "mlir-print-value-users", "bool", /*default=*/"false",
-           "Print users of operation results and block arguments as a comment">,
-    Option<"printPrettyDebugInfo", "mlir-pretty-debuginfo", "bool", /*default=*/"false",
+    Option<"printPrettyDebugInfo", "pretty-debuginfo", "bool", /*default=*/"false",
            "Print pretty debug info in MLIR output">,
-    Option<"printUniqueSSAIDs", "mlir-print-unique-ssa-ids", "bool", /*default=*/"false",
-           "Print unique SSA ID numbers for values, block arguments "
-           "and naming conflicts across all regions">,
   ];
 }
 
