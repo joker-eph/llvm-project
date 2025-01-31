@@ -17,7 +17,7 @@ using namespace mlir::detail;
 
 /// If this value is the result of an Operation, return the operation that
 /// defines it.
-Operation *Value::getDefiningOp() const {
+Operation *Value::getDefiningOp() {
   if (auto result = llvm::dyn_cast<OpResult>(*this))
     return result.getOwner();
   return nullptr;
