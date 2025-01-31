@@ -42,13 +42,10 @@ add_llvm_component_library(LLVMObject
   llvm_vcsrevision_h
 
   LINK_COMPONENTS
-  BitReader
-  Core
-  MC
-  IRReader
   BinaryFormat
+  Demangle
+  MC
   MCParser
   Support
   TargetParser
-  TextAPI
   )

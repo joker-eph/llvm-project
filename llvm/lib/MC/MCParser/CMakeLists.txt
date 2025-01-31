@@ -18,7 +18,6 @@ add_llvm_component_library(LLVMMCParser
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/MC/MCParser
 
   LINK_COMPONENTS
-  MC
   Support
   TargetParser
   )

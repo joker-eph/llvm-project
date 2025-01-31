@@ -6,15 +6,50 @@ if( CMAKE_HOST_UNIX AND HAVE_LIBRT )
   set(rt_lib rt)
 endif()
 
-add_llvm_component_library(LLVMOrcJIT
+add_llvm_component_library(LLVMOrcJITLight
   AbsoluteSymbols.cpp
+  Core.cpp
+  ExecutorProcessControl.cpp
+  ObjectLayer.cpp
+  LinkGraphLayer.cpp
+  LinkGraphLinkingLayer.cpp
+  LoadLinkableFile.cpp
+  ObjectFileInterface.cpp
+  ObjectLinkingLayer.cpp
+  ObjectTransformLayer.cpp
+  RTDyldObjectLinkingLayer.cpp
+  TaskDispatch.cpp
+  ThreadSafeModule.cpp
+  DebugUtils.cpp
+
+  PARTIAL_SOURCES_INTENDED
+
+  DEPENDS
+  intrinsics_gen
+
+  LINK_LIBS
+  ${LLVM_PTHREAD_LIB}
+  ${rt_lib}
+  ${atomic_lib}
+
+  LINK_COMPONENTS
+  BinaryFormat
+  ExecutionEngine
+  JITLink
+  Object
+  OrcShared
+  OrcTargetProcess
+  RuntimeDyld
+  Support
+)
+
+add_llvm_component_library(LLVMOrcJIT
   COFFVCRuntimeSupport.cpp
   COFFPlatform.cpp
   CompileOnDemandLayer.cpp
   CompileUtils.cpp
   Core.cpp
   DebugObjectManagerPlugin.cpp
-  DebugUtils.cpp
   EHFrameRegistrationPlugin.cpp
   EPCDynamicLibrarySearchGenerator.cpp
   EPCDebugObjectRegistrar.cpp
@@ -24,19 +59,15 @@ add_llvm_component_library(LLVMOrcJIT
   EPCGenericRTDyldMemoryManager.cpp
   EPCIndirectionUtils.cpp
   ExecutionUtils.cpp
-  ObjectFileInterface.cpp
   IndirectionUtils.cpp
   IRCompileLayer.cpp
   IRTransformLayer.cpp
   IRPartitionLayer.cpp
   JITTargetMachineBuilder.cpp
   JITLinkReentryTrampolines.cpp
+  Layer.cpp
   LazyObjectLinkingLayer.cpp
   LazyReexports.cpp
-  Layer.cpp
-  LinkGraphLayer.cpp
-  LinkGraphLinkingLayer.cpp
-  LoadLinkableFile.cpp
   LookupAndRecordAddrs.cpp
   LLJIT.cpp
   MachO.cpp
@@ -45,24 +76,20 @@ add_llvm_component_library(LLVMOrcJIT
   MemoryMapper.cpp
   ELFNixPlatform.cpp
   Mangling.cpp
-  ObjectLinkingLayer.cpp
-  ObjectTransformLayer.cpp
   OrcABISupport.cpp
   OrcV2CBindings.cpp
-  RTDyldObjectLinkingLayer.cpp
   SectCreate.cpp
   SimpleRemoteEPC.cpp
   Speculation.cpp
   SpeculateAnalyses.cpp
-  ExecutorProcessControl.cpp
-  TaskDispatch.cpp
-  ThreadSafeModule.cpp
   RedirectionManager.cpp
   JITLinkRedirectableSymbolManager.cpp
   ReOptimizeLayer.cpp
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/ExecutionEngine/Orc
 
+
+  PARTIAL_SOURCES_INTENDED
   DEPENDS
   intrinsics_gen
 
@@ -77,6 +104,7 @@ add_llvm_component_library(LLVMOrcJIT
   ExecutionEngine
   JITLink
   Object
+  OrcJITLight
   OrcShared
   OrcTargetProcess
   WindowsDriver

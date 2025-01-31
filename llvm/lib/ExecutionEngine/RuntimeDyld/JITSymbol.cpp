@@ -11,59 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ExecutionEngine/JITSymbol.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalAlias.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/ModuleSummaryIndex.h"
 #include "llvm/Object/ObjectFile.h"
 
 using namespace llvm;
-
-JITSymbolFlags llvm::JITSymbolFlags::fromGlobalValue(const GlobalValue &GV) {
-  assert(GV.hasName() && "Can't get flags for anonymous symbol");
-
-  JITSymbolFlags Flags = JITSymbolFlags::None;
-  if (GV.hasWeakLinkage() || GV.hasLinkOnceLinkage())
-    Flags |= JITSymbolFlags::Weak;
-  if (GV.hasCommonLinkage())
-    Flags |= JITSymbolFlags::Common;
-  if (!GV.hasLocalLinkage() && !GV.hasHiddenVisibility())
-    Flags |= JITSymbolFlags::Exported;
-
-  if (isa<Function>(GV))
-    Flags |= JITSymbolFlags::Callable;
-  else if (isa<GlobalAlias>(GV) &&
-           isa<Function>(cast<GlobalAlias>(GV).getAliasee()))
-    Flags |= JITSymbolFlags::Callable;
-
-  // Check for a linker-private-global-prefix on the symbol name, in which
-  // case it must be marked as non-exported.
-  if (auto *M = GV.getParent()) {
-    const auto &DL = M->getDataLayout();
-    StringRef LPGP = DL.getLinkerPrivateGlobalPrefix();
-    if (!LPGP.empty() && GV.getName().front() == '\01' &&
-        GV.getName().substr(1).starts_with(LPGP))
-      Flags &= ~JITSymbolFlags::Exported;
-  }
-
-  return Flags;
-}
-
-JITSymbolFlags llvm::JITSymbolFlags::fromSummary(GlobalValueSummary *S) {
-  JITSymbolFlags Flags = JITSymbolFlags::None;
-  auto L = S->linkage();
-  if (GlobalValue::isWeakLinkage(L) || GlobalValue::isLinkOnceLinkage(L))
-    Flags |= JITSymbolFlags::Weak;
-  if (GlobalValue::isCommonLinkage(L))
-    Flags |= JITSymbolFlags::Common;
-  if (GlobalValue::isExternalLinkage(L) || GlobalValue::isExternalWeakLinkage(L))
-    Flags |= JITSymbolFlags::Exported;
-
-  if (isa<FunctionSummary>(S))
-    Flags |= JITSymbolFlags::Callable;
-
-  return Flags;
-}
 
 Expected<JITSymbolFlags>
 llvm::JITSymbolFlags::fromObjectSymbol(const object::SymbolRef &Symbol) {

@@ -96,48 +96,6 @@ Error extractFromObject(const ObjectFile &Obj,
   return Error::success();
 }
 
-Error extractFromBitcode(MemoryBufferRef Buffer,
-                         SmallVectorImpl<OffloadFile> &Binaries) {
-  LLVMContext Context;
-  SMDiagnostic Err;
-  std::unique_ptr<Module> M = getLazyIRModule(
-      MemoryBuffer::getMemBuffer(Buffer, /*RequiresNullTerminator=*/false), Err,
-      Context);
-  if (!M)
-    return createStringError(inconvertibleErrorCode(),
-                             "Failed to create module");
-
-  // Extract offloading data from globals referenced by the
-  // `llvm.embedded.object` metadata with the `.llvm.offloading` section.
-  auto *MD = M->getNamedMetadata("llvm.embedded.objects");
-  if (!MD)
-    return Error::success();
-
-  for (const MDNode *Op : MD->operands()) {
-    if (Op->getNumOperands() < 2)
-      continue;
-
-    MDString *SectionID = dyn_cast<MDString>(Op->getOperand(1));
-    if (!SectionID || SectionID->getString() != ".llvm.offloading")
-      continue;
-
-    GlobalVariable *GV =
-        mdconst::dyn_extract_or_null<GlobalVariable>(Op->getOperand(0));
-    if (!GV)
-      continue;
-
-    auto *CDS = dyn_cast<ConstantDataSequential>(GV->getInitializer());
-    if (!CDS)
-      continue;
-
-    MemoryBufferRef Contents(CDS->getAsString(), M->getName());
-    if (Error Err = extractOffloadFiles(Contents, Binaries))
-      return Err;
-  }
-
-  return Error::success();
-}
-
 Error extractFromArchive(const Archive &Library,
                          SmallVectorImpl<OffloadFile> &Binaries) {
   // Try to extract device code from each file stored in the static archive.
@@ -270,8 +228,6 @@ Error object::extractOffloadBinaries(MemoryBufferRef Buffer,
                                      SmallVectorImpl<OffloadFile> &Binaries) {
   file_magic Type = identify_magic(Buffer.getBuffer());
   switch (Type) {
-  case file_magic::bitcode:
-    return extractFromBitcode(Buffer, Binaries);
   case file_magic::elf_relocatable:
   case file_magic::elf_executable:
   case file_magic::elf_shared_object:

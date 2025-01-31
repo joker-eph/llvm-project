@@ -44,10 +44,10 @@ SymbolicFile::createSymbolicFile(MemoryBufferRef Object, file_magic Type,
     return errorCodeToError(object_error::invalid_file_type);
 
   switch (Type) {
-  case file_magic::bitcode:
-    // Context is guaranteed to be non-null here, because bitcode magic only
-    // indicates a symbolic file when Context is non-null.
-    return IRObjectFile::create(Object, *Context);
+  // case file_magic::bitcode:
+  //   // Context is guaranteed to be non-null here, because bitcode magic only
+  //   // indicates a symbolic file when Context is non-null.
+  //   return IRObjectFile::create(Object, *Context);
   case file_magic::elf:
   case file_magic::elf_executable:
   case file_magic::elf_shared_object:
@@ -79,16 +79,16 @@ SymbolicFile::createSymbolicFile(MemoryBufferRef Object, file_magic Type,
     if (!Obj || !Context)
       return std::move(Obj);
 
-    Expected<MemoryBufferRef> BCData =
-        IRObjectFile::findBitcodeInObject(*Obj->get());
-    if (!BCData) {
-      consumeError(BCData.takeError());
-      return std::move(Obj);
-    }
+    // Expected<MemoryBufferRef> BCData =
+    //     IRObjectFile::findBitcodeInObject(*Obj->get());
+    // if (!BCData) {
+    //   consumeError(BCData.takeError());
+    //   return std::move(Obj);
+    // }
 
-    return IRObjectFile::create(
-        MemoryBufferRef(BCData->getBuffer(), Object.getBufferIdentifier()),
-        *Context);
+    // return IRObjectFile::create(
+    //     MemoryBufferRef(BCData->getBuffer(), Object.getBufferIdentifier()),
+    //     *Context);
   }
   default:
     llvm_unreachable("Unexpected Binary File Type");

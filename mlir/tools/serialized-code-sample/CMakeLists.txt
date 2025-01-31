@@ -8,5 +8,5 @@ add_executable(
 target_link_libraries(
   binary-loader-test
   PRIVATE
-  LLVMOrcJIT
+  LLVMOrcJITLight
 )

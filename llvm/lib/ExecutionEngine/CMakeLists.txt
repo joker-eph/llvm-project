@@ -14,13 +14,10 @@ add_llvm_component_library(LLVMExecutionEngine
   intrinsics_gen
 
   LINK_COMPONENTS
-  Core
-  MC
   Object
   OrcTargetProcess
   RuntimeDyld
   Support
-  Target
   TargetParser
   )
 

@@ -97,8 +97,6 @@ Expected<std::unique_ptr<Binary>> object::createBinary(MemoryBufferRef Buffer,
     return OffloadBinary::create(Buffer);
   case file_magic::minidump:
     return MinidumpFile::create(Buffer);
-  case file_magic::tapi_file:
-    return TapiUniversal::create(Buffer);
   }
   llvm_unreachable("Unexpected Binary File Type");
 }

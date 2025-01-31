@@ -14,6 +14,7 @@
 #define LLVM_IR_MANGLER_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 
 namespace llvm {
@@ -59,7 +60,20 @@ std::optional<std::string> getArm64ECMangledFunctionName(StringRef Name);
 
 /// Returns the ARM64EC demangled function name, unless the input is not
 /// mangled.
-std::optional<std::string> getArm64ECDemangledFunctionName(StringRef Name);
+inline std::optional<std::string>
+getArm64ECDemangledFunctionName(StringRef Name) {
+  // For non-C++ names, drop the "#" prefix.
+  if (Name[0] == '#')
+    return std::optional<std::string>(Name.substr(1));
+  if (Name[0] != '?')
+    return std::nullopt;
+
+  // Drop the ARM64EC "$$h" tag.
+  std::pair<StringRef, StringRef> Pair = Name.split("$$h");
+  if (Pair.second.empty())
+    return std::nullopt;
+  return std::optional<std::string>((Pair.first + Pair.second).str());
+}
 
 /// Check if an ARM64EC function name is mangled.
 bool inline isArm64ECMangledFunctionName(StringRef Name) {
