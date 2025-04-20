@@ -26,8 +26,10 @@
 
 #include "mlir/IR/Verifier.h"
 #include "mlir/IR/Attributes.h"
+#include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/Dominance.h"
+#include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/RegionKindInterface.h"
 #include "mlir/IR/Threading.h"
@@ -211,6 +213,28 @@ LogicalResult OperationVerifier::verifyOnEntrance(Operation &op) {
 }
 
 LogicalResult OperationVerifier::verifyOnExit(Operation &op) {
+  if (op.hasTrait<OpTrait::ConstantLike>()) {
+    // Fold the constant to an attribute.
+    SmallVector<OpFoldResult, 1> foldedOp;
+    if (failed(op.fold(/*operands=*/std::nullopt, foldedOp)))
+      return emitError(op.getLoc(),
+                       "declared as ConstantLike but folding fails");
+    if (foldedOp.empty())
+      return emitError(
+          op.getLoc(),
+          "declared as ConstantLike but folding does not produce any result");
+    auto constAttr = dyn_cast<Attribute>(foldedOp.front());
+    if (!constAttr)
+      return emitError(
+          op.getLoc(),
+          "declared as ConstantLike but folding does not produce an attribute");
+    if (auto typedAttr = llvm::dyn_cast<TypedAttr>(constAttr)) {
+      if (typedAttr.getType() != op.getResult(0).getType())
+        return emitError(op.getLoc(), "ConstantLike must fold to a TypedAttr "
+                                      "matching the op return type: ")
+               << typedAttr;
+    }
+  }
   SmallVector<Operation *> opsWithIsolatedRegions;
   if (verifyRecursively) {
     for (Region &region : op.getRegions())
