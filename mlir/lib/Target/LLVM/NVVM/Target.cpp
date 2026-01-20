@@ -232,6 +232,9 @@ public:
   /// is LLVMIR or ISA.
   std::optional<int64_t> getISAToBinaryTimeInMs();
 
+  /// Get the compiler log from ISA compiler.
+  StringRef getISACompilerLog() const;
+
 private:
   using TmpFile = std::pair<llvm::SmallString<128>, llvm::FileRemover>;
 
@@ -253,6 +256,9 @@ private:
 
   /// ISA->Binary perf result.
   std::optional<int64_t> isaToBinaryTimeInMs;
+
+  /// Compiler log from ptxas or libnvptxcompiler.
+  std::string isaCompilerLog;
 };
 } // namespace
 
@@ -284,6 +290,8 @@ std::optional<int64_t> NVPTXSerializer::getLLVMIRToISATimeInMs() {
 std::optional<int64_t> NVPTXSerializer::getISAToBinaryTimeInMs() {
   return isaToBinaryTimeInMs;
 }
+
+StringRef NVPTXSerializer::getISACompilerLog() const { return isaCompilerLog; }
 
 gpu::GPUModuleOp NVPTXSerializer::getOperation() {
   return dyn_cast<gpu::GPUModuleOp>(&SerializeGPUModuleBase::getOperation());
@@ -484,6 +492,11 @@ NVPTXSerializer::compileToBinary(StringRef ptxCode) {
                                 /*MemoryLimit=*/0,
                                 /*ErrMsg=*/&message))
     return emitLogError("`ptxas`");
+
+  if (target.hasFlag("collect-compiler-diagnostics")) {
+    if (auto logBuffer = llvm::MemoryBuffer::getFile(logFile->first))
+      isaCompilerLog = (*logBuffer)->getBuffer().str();
+  }
 #define DEBUG_TYPE "dump-sass"
   LLVM_DEBUG({
     std::optional<std::string> nvdisasm = findTool("nvdisasm");
@@ -547,7 +560,7 @@ NVPTXSerializer::compileToBinary(StringRef ptxCode) {
     if (auto status = (expr)) {                                                \
       emitError(loc) << llvm::Twine(#expr).concat(" failed with error code ")  \
                      << status;                                                \
-      return failure();                                                  \
+      return failure();                                                        \
     }                                                                          \
   } while (false)
 
@@ -559,7 +572,7 @@ NVPTXSerializer::compileToBinary(StringRef ptxCode) {
     if (result != nvFatbinResult::NVFATBIN_SUCCESS) {                          \
       emitError(loc) << llvm::Twine(#expr).concat(" failed with error: ")      \
                      << nvFatbinGetErrorString(result);                        \
-      return failure();                                                  \
+      return failure();                                                        \
     }                                                                          \
   } while (false)
 
@@ -611,21 +624,32 @@ NVPTXSerializer::compileToBinaryNVPTX(StringRef ptxCode) {
   RETURN_ON_NVPTXCOMPILER_ERROR(
       nvPTXCompilerGetCompiledProgram(compiler, (void *)binary.data()));
 
+  // Lambda to fetch info log; returns empty vector on failure or no log.
+  auto fetchInfoLog = [&]() -> SmallVector<char> {
+    size_t size = 0;
+    if (nvPTXCompilerGetInfoLogSize(compiler, &size) != NVPTXCOMPILE_SUCCESS ||
+        size == 0)
+      return {};
+    SmallVector<char> log(size + 1, 0);
+    if (nvPTXCompilerGetInfoLog(compiler, log.data()) != NVPTXCOMPILE_SUCCESS)
+      return {};
+    return log;
+  };
+
+  if (target.hasFlag("collect-compiler-diagnostics")) {
+    if (auto log = fetchInfoLog(); !log.empty())
+      isaCompilerLog = log.data();
+  }
+
 // Dump the log of the compiler, helpful if the verbose flag was passed.
 #define DEBUG_TYPE "serialize-to-binary"
   LLVM_DEBUG({
-    RETURN_ON_NVPTXCOMPILER_ERROR(
-        nvPTXCompilerGetInfoLogSize(compiler, &logSize));
-    if (logSize != 0) {
-      SmallVector<char> log(logSize + 1, 0);
-      RETURN_ON_NVPTXCOMPILER_ERROR(
-          nvPTXCompilerGetInfoLog(compiler, log.data()));
+    if (auto log = fetchInfoLog(); !log.empty())
       LDBG() << "NVPTX compiler invocation for module: "
              << getOperation().getNameAttr()
              << "\nArguments: " << llvm::interleaved(cmdOpts.second, " ")
              << "\nOutput\n"
              << log.data();
-    }
   });
 #undef DEBUG_TYPE
   RETURN_ON_NVPTXCOMPILER_ERROR(nvPTXCompilerDestroy(&compiler));
@@ -747,6 +771,11 @@ NVVMTargetAttrImpl::serializeToObject(Attribute attribute, Operation *module,
   if (isaToBinaryTimeInMs.has_value())
     module->setAttr("ISAToBinaryTimeInMs",
                     builder.getI64IntegerAttr(*isaToBinaryTimeInMs));
+  StringRef isaCompilerLog = serializer.getISACompilerLog();
+  if (!isaCompilerLog.empty())
+    module->setDiscardableAttr("ISACompilerLog",
+                               builder.getStringAttr(isaCompilerLog));
+
   return result;
 }
 
@@ -774,6 +803,10 @@ NVVMTargetAttrImpl::createObject(Attribute attribute, Operation *module,
           perfName, builder.getI64IntegerAttr(attr.getInt())));
     }
   }
+
+  if (StringAttr attr = llvm::dyn_cast_or_null<StringAttr>(
+          module->getDiscardableAttr("ISACompilerLog")))
+    properties.push_back(builder.getNamedAttr("ISACompilerLog", attr));
 
   if (!properties.empty())
     objectProps = builder.getDictionaryAttr(properties);
