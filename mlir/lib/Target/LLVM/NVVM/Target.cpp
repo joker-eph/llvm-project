@@ -59,12 +59,12 @@ namespace {
 class NVVMTargetAttrImpl
     : public gpu::TargetAttrInterface::FallbackModel<NVVMTargetAttrImpl> {
 public:
-  std::optional<SmallVector<char, 0>>
+  std::optional<mlir::gpu::SerializedObject>
   serializeToObject(Attribute attribute, Operation *module,
                     const gpu::TargetOptions &options) const;
 
   Attribute createObject(Attribute attribute, Operation *module,
-                         const SmallVector<char, 0> &object,
+                         const mlir::gpu::SerializedObject &object,
                          const gpu::TargetOptions &options) const;
 };
 } // namespace
@@ -749,7 +749,7 @@ NVPTXSerializer::moduleToObject(llvm::Module &llvmModule) {
   return result;
 }
 
-std::optional<SmallVector<char, 0>>
+std::optional<mlir::gpu::SerializedObject>
 NVVMTargetAttrImpl::serializeToObject(Attribute attribute, Operation *module,
                                       const gpu::TargetOptions &options) const {
   Builder builder(attribute.getContext());
@@ -763,31 +763,37 @@ NVVMTargetAttrImpl::serializeToObject(Attribute attribute, Operation *module,
   NVPTXSerializer serializer(*module, cast<NVVMTargetAttr>(attribute), options);
   serializer.init();
   std::optional<SmallVector<char, 0>> result = serializer.run();
+  if (!result)
+    return std::nullopt;
+  SmallVector<NamedAttribute, 4> properties;
   auto llvmToISATimeInMs = serializer.getLLVMIRToISATimeInMs();
   if (llvmToISATimeInMs.has_value())
-    module->setAttr("LLVMIRToISATimeInMs",
-                    builder.getI64IntegerAttr(*llvmToISATimeInMs));
+    properties.push_back(builder.getNamedAttr(
+        "LLVMIRToISATimeInMs", builder.getI64IntegerAttr(*llvmToISATimeInMs)));
   auto isaToBinaryTimeInMs = serializer.getISAToBinaryTimeInMs();
   if (isaToBinaryTimeInMs.has_value())
-    module->setAttr("ISAToBinaryTimeInMs",
-                    builder.getI64IntegerAttr(*isaToBinaryTimeInMs));
+    properties.push_back(
+        builder.getNamedAttr("ISAToBinaryTimeInMs",
+                             builder.getI64IntegerAttr(*isaToBinaryTimeInMs)));
   StringRef isaCompilerLog = serializer.getISACompilerLog();
   if (!isaCompilerLog.empty())
-    module->setDiscardableAttr("ISACompilerLog",
-                               builder.getStringAttr(isaCompilerLog));
+    properties.push_back(builder.getNamedAttr(
+        "ISACompilerLog", builder.getStringAttr(isaCompilerLog)));
 
-  return result;
+  return gpu::SerializedObject{std::move(*result),
+                               builder.getDictionaryAttr(properties)};
 }
 
 Attribute
 NVVMTargetAttrImpl::createObject(Attribute attribute, Operation *module,
-                                 const SmallVector<char, 0> &object,
+                                 const mlir::gpu::SerializedObject &object,
                                  const gpu::TargetOptions &options) const {
   auto target = cast<NVVMTargetAttr>(attribute);
   gpu::CompilationTarget format = options.getCompilationTarget();
   DictionaryAttr objectProps;
   Builder builder(attribute.getContext());
-  SmallVector<NamedAttribute, 4> properties;
+  SmallVector<NamedAttribute> properties =
+      llvm::to_vector(object.getMetadata().getValue());
   if (format == gpu::CompilationTarget::Assembly)
     properties.push_back(
         builder.getNamedAttr("O", builder.getI32IntegerAttr(target.getO())));
@@ -796,23 +802,12 @@ NVVMTargetAttrImpl::createObject(Attribute attribute, Operation *module,
     properties.push_back(builder.getNamedAttr(gpu::elfSectionName,
                                               builder.getStringAttr(section)));
 
-  for (const auto *perfName : {"LLVMIRToISATimeInMs", "ISAToBinaryTimeInMs"}) {
-    if (module->hasAttr(perfName)) {
-      IntegerAttr attr = llvm::dyn_cast<IntegerAttr>(module->getAttr(perfName));
-      properties.push_back(builder.getNamedAttr(
-          perfName, builder.getI64IntegerAttr(attr.getInt())));
-    }
-  }
-
-  if (StringAttr attr = llvm::dyn_cast_or_null<StringAttr>(
-          module->getDiscardableAttr("ISACompilerLog")))
-    properties.push_back(builder.getNamedAttr("ISACompilerLog", attr));
-
   if (!properties.empty())
     objectProps = builder.getDictionaryAttr(properties);
 
   return builder.getAttr<gpu::ObjectAttr>(
       attribute, format,
-      builder.getStringAttr(StringRef(object.data(), object.size())),
+      builder.getStringAttr(
+          StringRef(object.getObject().data(), object.getObject().size())),
       objectProps, /*kernels=*/nullptr);
 }

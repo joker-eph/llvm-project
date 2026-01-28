@@ -51,12 +51,12 @@ namespace {
 class XeVMTargetAttrImpl
     : public gpu::TargetAttrInterface::FallbackModel<XeVMTargetAttrImpl> {
 public:
-  std::optional<SmallVector<char, 0>>
+  std::optional<mlir::gpu::SerializedObject>
   serializeToObject(Attribute attribute, Operation *module,
                     const gpu::TargetOptions &options) const;
 
   Attribute createObject(Attribute attribute, Operation *module,
-                         const SmallVector<char, 0> &object,
+                         const mlir::gpu::SerializedObject &object,
                          const gpu::TargetOptions &options) const;
 };
 } // namespace
@@ -354,7 +354,7 @@ SPIRVSerializer::translateToSPIRVBinary(llvm::Module &llvmModule,
   return targetISA;
 }
 
-std::optional<SmallVector<char, 0>>
+std::optional<mlir::gpu::SerializedObject>
 XeVMTargetAttrImpl::serializeToObject(Attribute attribute, Operation *module,
                                       const gpu::TargetOptions &options) const {
   if (!module)
@@ -391,7 +391,7 @@ XeVMTargetAttrImpl::serializeToObject(Attribute attribute, Operation *module,
 
 Attribute
 XeVMTargetAttrImpl::createObject(Attribute attribute, Operation *module,
-                                 const SmallVector<char, 0> &object,
+                                 const mlir::gpu::SerializedObject &object,
                                  const gpu::TargetOptions &options) const {
   Builder builder(attribute.getContext());
   gpu::CompilationTarget format = options.getCompilationTarget();
@@ -407,6 +407,7 @@ XeVMTargetAttrImpl::createObject(Attribute attribute, Operation *module,
 
   return builder.getAttr<gpu::ObjectAttr>(
       attribute, format,
-      builder.getStringAttr(StringRef(object.data(), object.size())),
+      builder.getStringAttr(
+          StringRef(object.getObject().data(), object.getObject().size())),
       objectProps, /*kernels=*/nullptr);
 }
