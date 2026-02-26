@@ -875,6 +875,27 @@ func.func @truncUitofp_nneg(%arg0: i32) -> f32 {
   return %trunc : f32
 }
 
+// Folding uitofp/sitofp with a 0-bit integer input must not crash.
+// CHECK-LABEL: @uitofp_i0_no_fold
+//       CHECK:   %[[cst:.+]] = arith.constant dense<0> : vector<1xi0>
+//       CHECK:   arith.uitofp %[[cst]] : vector<1xi0> to vector<1xf32>
+func.func @uitofp_i0_no_fold() -> vector<1xf32> {
+  %mask = vector.constant_mask [1] : vector<1xi1>
+  %i0val = arith.trunci %mask : vector<1xi1> to vector<1xi0>
+  %result = arith.uitofp %i0val : vector<1xi0> to vector<1xf32>
+  return %result : vector<1xf32>
+}
+
+// CHECK-LABEL: @sitofp_i0_no_fold
+//       CHECK:   %[[cst:.+]] = arith.constant dense<0> : vector<1xi0>
+//       CHECK:   arith.sitofp %[[cst]] : vector<1xi0> to vector<1xf32>
+func.func @sitofp_i0_no_fold() -> vector<1xf32> {
+  %mask = vector.constant_mask [1] : vector<1xi1>
+  %i0val = arith.trunci %mask : vector<1xi1> to vector<1xi0>
+  %result = arith.sitofp %i0val : vector<1xi0> to vector<1xf32>
+  return %result : vector<1xf32>
+}
+
 // TODO: We should also add a test for not folding arith.extf on information loss.
 // This may happen when extending f8E5M2FNUZ to f16.
 

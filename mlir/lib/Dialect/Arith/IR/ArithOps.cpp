@@ -1744,6 +1744,11 @@ OpFoldResult arith::UIToFPOp::fold(FoldAdaptor adaptor) {
         FloatType floatTy = llvm::cast<FloatType>(resEleType);
         APFloat apf(floatTy.getFloatSemantics(),
                     APInt::getZero(floatTy.getWidth()));
+        // APInt::convertFromAPInt requires a non-zero bit width.
+        if (a.getBitWidth() == 0) {
+          castStatus = false;
+          return apf;
+        }
         apf.convertFromAPInt(a, /*IsSigned=*/false,
                              APFloat::rmNearestTiesToEven);
         return apf;
@@ -1766,6 +1771,11 @@ OpFoldResult arith::SIToFPOp::fold(FoldAdaptor adaptor) {
         FloatType floatTy = llvm::cast<FloatType>(resEleType);
         APFloat apf(floatTy.getFloatSemantics(),
                     APInt::getZero(floatTy.getWidth()));
+        // APInt::convertFromAPInt requires a non-zero bit width.
+        if (a.getBitWidth() == 0) {
+          castStatus = false;
+          return apf;
+        }
         apf.convertFromAPInt(a, /*IsSigned=*/true,
                              APFloat::rmNearestTiesToEven);
         return apf;
