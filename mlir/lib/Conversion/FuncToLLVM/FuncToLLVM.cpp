@@ -64,7 +64,12 @@ static bool shouldUseBarePtrCallConv(Operation *op,
 static void filterFuncAttributes(FunctionOpInterface func,
                                  SmallVectorImpl<NamedAttribute> &result) {
   for (const NamedAttribute &attr : func->getDiscardableAttrs()) {
+    // Filter "llvm.linkage" (dialect-qualified convention) and "linkage"
+    // (the inherent property name on LLVMFuncOp). Both are handled explicitly
+    // by convertFuncOpToLLVMFuncOp; passing them through would create
+    // duplicate attributes in the resulting LLVMFuncOp.
     if (attr.getName() == linkageAttrName ||
+        attr.getName() == StringRef("linkage") ||
         attr.getName() == varargsAttrName ||
         attr.getName() == LLVM::LLVMDialect::getReadnoneAttrName())
       continue;
@@ -323,9 +328,13 @@ FailureOr<LLVM::LLVMFuncOp> mlir::convertFuncOpToLLVMFuncOp(
   // Create an LLVM function, use external linkage by default until MLIR
   // functions have linkage.
   LLVM::Linkage linkage = LLVM::Linkage::External;
-  if (funcOp->hasAttr(linkageAttrName)) {
-    auto attr =
-        dyn_cast<mlir::LLVM::LinkageAttr>(funcOp->getAttr(linkageAttrName));
+  // Recognise both "llvm.linkage" (dialect-qualified attribute set by users on
+  // func.func) and the plain "linkage" name (the inherent LLVMFuncOp property).
+  Attribute linkageAttrVal = funcOp->getAttr(linkageAttrName);
+  if (!linkageAttrVal)
+    linkageAttrVal = funcOp->getAttr("linkage");
+  if (linkageAttrVal) {
+    auto attr = dyn_cast<mlir::LLVM::LinkageAttr>(linkageAttrVal);
     if (!attr) {
       funcOp->emitError() << "Contains " << linkageAttrName
                           << " attribute not of type LLVM::LinkageAttr";

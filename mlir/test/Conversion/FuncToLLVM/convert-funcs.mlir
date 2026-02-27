@@ -96,3 +96,15 @@ func.func private @badllvmlinkage(i32) attributes { "llvm.linkage" = 3 : i64 } /
 func.func @variadic_func(%arg0: i32) attributes { "func.varargs" = true, "llvm.emit_c_interface" } {
   return
 }
+
+// -----
+
+// Regression test for https://github.com/llvm/llvm-project/issues/175959:
+// When a func.func carries a plain "linkage" attribute (the inherent property
+// name of LLVMFuncOp), convert-func-to-llvm must not produce a duplicate
+// attribute, which would crash DictionaryAttr::sortInPlace.
+// CHECK-LABEL: llvm.func internal @plain_linkage_attr
+func.func @plain_linkage_attr(%arg0: i32) -> i32
+    attributes { linkage = #llvm.linkage<internal> } {
+  return %arg0 : i32
+}
