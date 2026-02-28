@@ -701,7 +701,9 @@ def InParallelOp : SCF_Op<"forall.in_parallel", [
 def IfOp : SCF_Op<"if", [DeclareOpInterfaceMethods<RegionBranchOpInterface, [
     "getNumRegionInvocations", "getRegionInvocationBounds",
     "getEntrySuccessorRegions", "getSuccessorInputs"]>,
-    InferTypeOpAdaptor, SingleBlockImplicitTerminator<"scf::YieldOp">,
+    PropagateControlFlowBreak,
+    InferTypeOpAdaptor,
+    SingleBlockImplicitTerminator<"scf::IfOpImplicitTerminatorType">,
     RecursiveMemoryEffects, RecursivelySpeculatable, NoRegionArguments]> {
   let summary = "if-then-else operation";
   let description = [{
@@ -1197,12 +1199,162 @@ def IndexSwitchOp : SCF_Op<"index_switch", [RecursiveMemoryEffects,
 }
 
 //===----------------------------------------------------------------------===//
+// BreakOp
+//===----------------------------------------------------------------------===//
+
+def BreakOp : SCF_Op<"break", [
+    Terminator,
+    DeclareOpInterfaceMethods<BreakingTerminatorOpInterface,
+        ["getNumBreakingRegions"]>,
+    DeclareOpInterfaceMethods<RegionBranchTerminatorOpInterface,
+        ["getMutableSuccessorOperands"]>,
+    ParentOneOf<["IfOp", "LoopOp"]>]> {
+  let summary = "breaking control flow terminator";
+  let description = [{
+    The `scf.break` operation is a terminator that exits one or more nested
+    region levels. The integer operand `breakingRegionCount` specifies how
+    many region levels to break out of:
+
+    - A value of 1 exits the immediately enclosing region (the enclosing
+      `scf.loop`).
+    - A value of K > 1 exits K region levels: the K-1 intermediate ops must
+      carry the `PropagateControlFlowBreak` trait (e.g., `scf.if`), and the
+      op at level K must implement `HasBreakingControlFlowOpInterface`
+      (e.g., `scf.loop`).
+
+    Example:
+    ```mlir
+    // Simple break out of a loop:
+    scf.loop {
+      scf.break 1
+    }
+
+    // Break through an scf.if to exit the enclosing loop:
+    scf.loop {
+      scf.if %cond {
+        scf.break 2
+      }
+    }
+    ```
+  }];
+
+  let arguments = (ins I64Prop:$breakingRegionCount, Variadic<AnyType>:$values);
+
+  let hasCustomAssemblyFormat = 1;
+  let hasVerifier = 1;
+
+  let extraClassDefinition = [{
+    unsigned $cppClass::getNumBreakingRegions() {
+      return static_cast<unsigned>(getBreakingRegionCount());
+    }
+    ::mlir::MutableOperandRange $cppClass::getMutableSuccessorOperands(
+        ::mlir::RegionSuccessor successor) {
+      return getValuesMutable();
+    }
+  }];
+}
+
+//===----------------------------------------------------------------------===//
+// ContinueOp
+//===----------------------------------------------------------------------===//
+
+def ContinueOp : SCF_Op<"continue", [
+    Terminator,
+    DeclareOpInterfaceMethods<BreakingTerminatorOpInterface,
+        ["getNumBreakingRegions"]>,
+    DeclareOpInterfaceMethods<RegionBranchTerminatorOpInterface,
+        ["getMutableSuccessorOperands"]>,
+    ParentOneOf<["IfOp", "LoopOp"]>]> {
+  let summary = "continue control flow terminator";
+  let description = [{
+    The `scf.continue` operation is a terminator that re-enters the nearest
+    enclosing loop, skipping the remaining operations in the current iteration.
+    The integer operand `breakingRegionCount` specifies how many region levels
+    to break out of before re-entering the loop:
+
+    - A value of 1 continues the immediately enclosing `scf.loop`.
+    - A value of K > 1 propagates through K-1 intermediate ops (which must
+      have `PropagateControlFlowBreak`) and then re-enters the `scf.loop` at
+      level K.
+
+    Example:
+    ```mlir
+    scf.loop {
+      scf.if %cond {
+        scf.continue 2  // exits scf.if, then continues scf.loop
+      }
+      // ... rest of loop body, only reached if condition is false
+    }
+    ```
+  }];
+
+  let arguments = (ins I64Prop:$breakingRegionCount, Variadic<AnyType>:$values);
+
+  let hasCustomAssemblyFormat = 1;
+  let hasVerifier = 1;
+
+  let extraClassDefinition = [{
+    unsigned $cppClass::getNumBreakingRegions() {
+      return static_cast<unsigned>(getBreakingRegionCount());
+    }
+    ::mlir::MutableOperandRange $cppClass::getMutableSuccessorOperands(
+        ::mlir::RegionSuccessor successor) {
+      return getValuesMutable();
+    }
+  }];
+}
+
+//===----------------------------------------------------------------------===//
+// LoopOp
+//===----------------------------------------------------------------------===//
+
+def LoopOp : SCF_Op<"loop", [
+    PropagateControlFlowBreak,
+    DeclareOpInterfaceMethods<RegionBranchOpInterface,
+        ["getSuccessorRegions"]>,
+    HasBreakingControlFlowOpInterface,
+    SingleBlockImplicitTerminator<"scf::LoopOpImplicitTerminatorType">,
+    RecursiveMemoryEffects]> {
+  let summary = "infinite loop with break/continue support";
+  let description = [{
+    The `scf.loop` operation represents an infinite loop whose body is
+    executed repeatedly until a `scf.break` terminates it. A `scf.continue`
+    skips the rest of the current iteration and starts the next one.
+
+    The loop body is a single-block region that must end with `scf.yield`
+    (continue looping), `scf.break` (exit the loop), or `scf.continue`
+    (re-enter the loop from the top).
+
+    Example:
+    ```mlir
+    scf.loop {
+      %done = func.call @check() : () -> i1
+      scf.if %done {
+        scf.break 2   // exits scf.if then exits scf.loop
+      }
+      scf.yield       // continue looping
+    }
+    ```
+  }];
+
+  let regions = (region SizedRegion<1>:$body);
+  let skipDefaultBuilders = 1;
+  let builders = [
+    OpBuilder<(ins
+      CArg<"function_ref<void(OpBuilder &, Location)>", "nullptr">:$bodyBuilder)>
+  ];
+
+  let hasCustomAssemblyFormat = 1;
+  let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
 // YieldOp
 //===----------------------------------------------------------------------===//
 
 def YieldOp : SCF_Op<"yield", [Pure, ReturnLike, Terminator,
     ParentOneOf<["ExecuteRegionOp", "ForOp", "IfOp", "IndexSwitchOp",
-                 "WhileOp"]>]> {
+                 "LoopOp", "WhileOp"]>]> {
   let summary = "loop yield and termination operation";
   let description = [{
     The `scf.yield` operation yields an SSA value from the SCF dialect op region and

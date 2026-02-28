@@ -36,6 +36,21 @@ public:
   static RegionKind getRegionKind(unsigned index) { return RegionKind::Graph; }
   static bool hasSSADominance(unsigned index) { return false; }
 };
+
+/// A trait that marks an operation as transparently propagating breaking
+/// control flow upward without consuming it. An op in the middle of a break
+/// chain (levels 1..K-1 for a K-level break) must have this trait.
+template <typename ConcreteType>
+class PropagateControlFlowBreak
+    : public TraitBase<ConcreteType, PropagateControlFlowBreak> {
+public:
+  static LogicalResult verifyTrait(Operation *op) {
+    if (op->getNumRegions() == 0)
+      return op->emitOpError(
+          "'PropagateControlFlowBreak' requires at least one region");
+    return success();
+  }
+};
 } // namespace OpTrait
 
 /// Return "true" if the given region may have SSA dominance. This function also

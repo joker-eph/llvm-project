@@ -1909,17 +1909,18 @@ IfOp::inferReturnTypes(MLIRContext *ctx, std::optional<Location> loc,
                        SmallVectorImpl<Type> &inferredReturnTypes) {
   if (adaptor.getRegions().empty())
     return failure();
-  Region *r = &adaptor.getThenRegion();
-  if (r->empty())
-    return failure();
-  Block &b = r->front();
-  if (b.empty())
-    return failure();
-  auto yieldOp = llvm::dyn_cast<YieldOp>(b.back());
-  if (!yieldOp)
-    return failure();
-  TypeRange types = yieldOp.getOperandTypes();
-  llvm::append_range(inferredReturnTypes, types);
+  // Walk through the then and else regions to find a yield op whose operand
+  // types define the result types of the if. Branches that terminate with
+  // break or continue do not contribute result types.
+  for (Region *r : {&adaptor.getThenRegion(), &adaptor.getElseRegion()}) {
+    if (r->empty() || r->front().empty())
+      continue;
+    if (auto yieldOp = llvm::dyn_cast<YieldOp>(r->front().back())) {
+      llvm::append_range(inferredReturnTypes, yieldOp.getOperandTypes());
+      return success();
+    }
+  }
+  // No yield found — both branches must use break/continue. No results.
   return success();
 }
 
@@ -2043,20 +2044,27 @@ ParseResult IfOp::parse(OpAsmParser &parser, OperationState &result) {
 }
 
 void IfOp::print(OpAsmPrinter &p) {
-  bool printBlockTerminators = false;
+  // Print the terminator explicitly when the op has results (so the yielded
+  // values are visible) OR when a region ends with break/continue (which is
+  // not a zero-arg yield and must not be elided).
+  auto hasNonYieldTerminator = [](Region &r) -> bool {
+    if (r.empty() || r.front().empty())
+      return false;
+    return !isa<YieldOp>(r.front().back());
+  };
+  bool printBlockTerminators = !getResults().empty() ||
+                               hasNonYieldTerminator(getThenRegion()) ||
+                               hasNonYieldTerminator(getElseRegion());
 
   p << " " << getCondition();
-  if (!getResults().empty()) {
+  if (!getResults().empty())
     p << " -> (" << getResultTypes() << ")";
-    // Print yield explicitly if the op defines values.
-    printBlockTerminators = true;
-  }
   p << ' ';
   p.printRegion(getThenRegion(),
                 /*printEntryBlockArgs=*/false,
                 /*printBlockTerminators=*/printBlockTerminators);
 
-  // Print the 'else' regions if it exists and has a block.
+  // Print the 'else' region if it exists and has a block.
   auto &elseRegion = getElseRegion();
   if (!elseRegion.empty()) {
     p << " else ";
@@ -3860,6 +3868,158 @@ void IndexSwitchOp::getCanonicalizationPatterns(RewritePatternSet &results,
       results, IndexSwitchOp::getOperationName());
   populateRegionBranchOpInterfaceInliningPattern(
       results, IndexSwitchOp::getOperationName());
+}
+
+//===----------------------------------------------------------------------===//
+// BreakOp
+//===----------------------------------------------------------------------===//
+
+ParseResult BreakOp::parse(OpAsmParser &parser, OperationState &result) {
+  // Parse the breaking region count (integer literal).
+  int64_t count;
+  if (parser.parseInteger(count))
+    return failure();
+  result.getOrAddProperties<Properties>().breakingRegionCount = count;
+
+  // Optionally parse values: `(` operand-list `:` type-list `)`
+  SmallVector<OpAsmParser::UnresolvedOperand> operands;
+  SmallVector<Type> types;
+  if (succeeded(parser.parseOptionalLParen())) {
+    if (parser.parseOperandList(operands) || parser.parseColon() ||
+        parser.parseTypeList(types) || parser.parseRParen() ||
+        parser.resolveOperands(operands, types, parser.getCurrentLocation(),
+                               result.operands))
+      return failure();
+  }
+
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return failure();
+  return success();
+}
+
+void BreakOp::print(OpAsmPrinter &p) {
+  p << ' ' << getBreakingRegionCount();
+  if (!getValues().empty())
+    p << " (" << getValues() << " : " << getValues().getTypes() << ")";
+  p.printOptionalAttrDict((*this)->getAttrs());
+}
+
+LogicalResult BreakOp::verify() {
+  if (getBreakingRegionCount() < 1)
+    return emitOpError("breaking region count must be at least 1");
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ContinueOp
+//===----------------------------------------------------------------------===//
+
+ParseResult ContinueOp::parse(OpAsmParser &parser, OperationState &result) {
+  // Parse the breaking region count (integer literal).
+  int64_t count;
+  if (parser.parseInteger(count))
+    return failure();
+  result.getOrAddProperties<Properties>().breakingRegionCount = count;
+
+  // Optionally parse values: `(` operand-list `:` type-list `)`
+  SmallVector<OpAsmParser::UnresolvedOperand> operands;
+  SmallVector<Type> types;
+  if (succeeded(parser.parseOptionalLParen())) {
+    if (parser.parseOperandList(operands) || parser.parseColon() ||
+        parser.parseTypeList(types) || parser.parseRParen() ||
+        parser.resolveOperands(operands, types, parser.getCurrentLocation(),
+                               result.operands))
+      return failure();
+  }
+
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return failure();
+  return success();
+}
+
+void ContinueOp::print(OpAsmPrinter &p) {
+  p << ' ' << getBreakingRegionCount();
+  if (!getValues().empty())
+    p << " (" << getValues() << " : " << getValues().getTypes() << ")";
+  p.printOptionalAttrDict((*this)->getAttrs());
+}
+
+LogicalResult ContinueOp::verify() {
+  if (getBreakingRegionCount() < 1)
+    return emitOpError("breaking region count must be at least 1");
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// LoopOp
+//===----------------------------------------------------------------------===//
+
+void LoopOp::build(OpBuilder &builder, OperationState &result,
+                   function_ref<void(OpBuilder &, Location)> bodyBuilder) {
+  Region *bodyRegion = result.addRegion();
+  OpBuilder::InsertionGuard guard(builder);
+  builder.createBlock(bodyRegion);
+  if (bodyBuilder)
+    bodyBuilder(builder, result.location);
+  else
+    YieldOp::create(builder, result.location);
+}
+
+ParseResult LoopOp::parse(OpAsmParser &parser, OperationState &result) {
+  Region *body = result.addRegion();
+  if (parser.parseRegion(*body, /*arguments=*/{}, /*argTypes=*/{}))
+    return failure();
+  LoopOp::ensureTerminator(*body, parser.getBuilder(), result.location);
+
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return failure();
+  return success();
+}
+
+void LoopOp::print(OpAsmPrinter &p) {
+  // Suppress zero-arg scf.yield (the implicit terminator); always print
+  // scf.break and scf.continue since they carry meaningful information.
+  bool hasNonYieldTerminator = false;
+  Block &body = getBody().front();
+  if (!body.empty())
+    hasNonYieldTerminator = !isa<YieldOp>(body.back());
+  p << ' ';
+  p.printRegion(getBody(), /*printEntryBlockArgs=*/false,
+                /*printBlockTerminators=*/hasNonYieldTerminator);
+  p.printOptionalAttrDict((*this)->getAttrs());
+}
+
+LogicalResult LoopOp::verify() {
+  Block &body = getBody().front();
+  if (body.empty())
+    return emitOpError("loop body must have at least one op");
+  Operation &terminator = body.back();
+  if (!isa<YieldOp, BreakOp, ContinueOp>(terminator))
+    return emitOpError("loop body must be terminated by scf.yield, scf.break, "
+                       "or scf.continue")
+               .attachNote(terminator.getLoc())
+           << "terminator here";
+  return success();
+}
+
+void LoopOp::getSuccessorRegions(RegionBranchPoint point,
+                                 SmallVectorImpl<RegionSuccessor> &regions) {
+  // From the parent op, control flows into the body.
+  if (point.isParent()) {
+    regions.push_back(RegionSuccessor(&getBody()));
+    return;
+  }
+  // From the body, control either loops back (yield/continue) or exits (break).
+  regions.push_back(RegionSuccessor(&getBody()));
+  regions.push_back(RegionSuccessor::parent());
+}
+
+void LoopOp::getSuccessorRegions(Region &region,
+                                 SmallVectorImpl<RegionSuccessor> &regions) {
+  assert(&region == &getBody() && "expected body region");
+  // The body loops back to itself or exits to the parent.
+  regions.push_back(RegionSuccessor(&getBody()));
+  regions.push_back(RegionSuccessor::parent());
 }
 
 //===----------------------------------------------------------------------===//

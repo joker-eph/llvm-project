@@ -957,6 +957,38 @@ public:
 // SingleBlockImplicitTerminator
 //===----------------------------------------------------------------------===//
 
+/// This class provides APIs for ops that have nested terminator operations
+/// of the specified types that may jump to this op via breaking control flow.
+/// Used with HasBreakingControlFlowOpInterface: the `acceptsTerminator` and
+/// `hasNestedPredecessors` methods are available on the concrete op class and
+/// can satisfy the interface requirements.
+template <typename... AcceptedOpTypes>
+struct HasNestedTerminator {
+  template <typename ConcreteType>
+  class Impl : public TraitBase<ConcreteType, Impl> {
+  public:
+    static LogicalResult verifyTrait(Operation *op) { return success(); }
+
+    /// Returns true if the given op is one of the accepted terminator types.
+    bool acceptsTerminator(Operation *op) {
+      return llvm::isa_and_nonnull<AcceptedOpTypes...>(op);
+    }
+
+    /// Returns true if any nested op is one of the accepted terminator types.
+    bool hasNestedPredecessors() {
+      bool found = false;
+      this->getOperation()->walk([&](Operation *nested) -> WalkResult {
+        if (llvm::isa_and_nonnull<AcceptedOpTypes...>(nested)) {
+          found = true;
+          return WalkResult::interrupt();
+        }
+        return WalkResult::advance();
+      });
+      return found;
+    }
+  };
+};
+
 /// This class provides APIs and verifiers for ops with regions having a single
 /// block that must terminate with `TerminatorOpType`.
 template <typename TerminatorOpType>

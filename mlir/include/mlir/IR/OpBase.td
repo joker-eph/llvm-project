@@ -133,6 +133,12 @@ class SingleBlockImplicitTerminator<string op>
 // Op's regions don't have terminator.
 def NoTerminator : NativeOpTrait<"NoTerminator">, StructuralOpTrait;
 
+// Op has nested terminator ops from the given list that may jump to it.
+// Used in conjunction with HasBreakingControlFlowOpInterface to specify
+// which terminator types can target this op via breaking control flow.
+class HasNestedTerminator<list<string> ops>
+    : ParamNativeOpTrait<"HasNestedTerminator", !interleave(ops, ", ")>;
+
 // Op's parent operation is the provided one.
 class HasParent<string op>
     : ParamNativeOpTrait<"HasParent", op>, StructuralOpTrait;

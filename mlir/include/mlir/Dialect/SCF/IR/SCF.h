@@ -34,6 +34,48 @@ void buildTerminatedBody(OpBuilder &builder, Location loc);
 
 #include "mlir/Dialect/SCF/IR/SCFOpsDialect.h.inc"
 
+namespace mlir {
+namespace scf {
+
+// Forward declarations needed by the implicit terminator helper types.
+class BreakOp;
+class ContinueOp;
+class YieldOp;
+
+namespace detail {
+/// A helper type for use with `SingleBlockImplicitTerminator` that accepts
+/// a set of valid terminator op types. `DefaultOpT` is the op type inserted
+/// when an implicit terminator is needed; `AcceptedOpTs...` are additional
+/// op types that pass verification. The `classof` method enables LLVM
+/// `isa<>` to work with this type on `Operation *` / `Operation &`.
+///
+/// Template member functions are only instantiated when called, so forward
+/// declarations of op types are sufficient here.
+template <typename DefaultOpT, typename... AcceptedOpTs>
+struct ControlFlowImplicitTerminatorOpType {
+  static ::llvm::StringRef getOperationName() {
+    return DefaultOpT::getOperationName();
+  }
+  /// Build the default (implicit) terminator — a zero-operand YieldOp.
+  static void build(::mlir::OpBuilder &, ::mlir::OperationState &) {}
+  /// Accept any of the listed op types.
+  static bool classof(const ::mlir::Operation *op) {
+    return ::mlir::isa<DefaultOpT, AcceptedOpTs...>(op);
+  }
+};
+} // namespace detail
+
+/// Implicit-terminator type for IfOp: accepts yield, break, or continue.
+using IfOpImplicitTerminatorType =
+    detail::ControlFlowImplicitTerminatorOpType<YieldOp, BreakOp, ContinueOp>;
+
+/// Implicit-terminator type for LoopOp: accepts yield, break, or continue.
+using LoopOpImplicitTerminatorType =
+    detail::ControlFlowImplicitTerminatorOpType<YieldOp, BreakOp, ContinueOp>;
+
+} // namespace scf
+} // namespace mlir
+
 #define GET_OP_CLASSES
 #include "mlir/Dialect/SCF/IR/SCFOps.h.inc"
 

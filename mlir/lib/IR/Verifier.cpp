@@ -129,6 +129,52 @@ LogicalResult OperationVerifier::verifyOnEntrance(Block &block) {
     if (op.getNumSuccessors() != 0 && &op != &block.back())
       return op.emitError(
           "operation with block successors must terminate its parent block");
+
+    // Verify the breaking control flow chain for ops that exit more than one
+    // region level at once (e.g. scf.break 2 inside scf.if inside scf.loop).
+    if (auto breakingOp = dyn_cast<BreakingTerminatorOpInterface>(&op)) {
+      int numBreaking = static_cast<int>(breakingOp.getNumBreakingRegions());
+      if (numBreaking > 0) {
+        Operation *currentOp = &op;
+        for (int i : llvm::seq<int>(0, numBreaking)) {
+          currentOp = currentOp->getParentOp();
+          if (!currentOp)
+            return op.emitError("operation with breaking control regions "
+                                "exceeding the number of enclosing parent ops");
+          if (numBreaking == 1)
+            continue;
+          if (i == numBreaking - 1) {
+            if (currentOp->isRegistered()) {
+              auto successorOp =
+                  dyn_cast<HasBreakingControlFlowOpInterface>(currentOp);
+              if (!successorOp)
+                return currentOp
+                           ->emitError(
+                               "operation has a nested predecessor but does "
+                               "not have the "
+                               "HasBreakingControlFlowOpInterface trait.")
+                           .attachNote(op.getLoc())
+                       << " for this predecessor operation (" << op.getName()
+                       << ")";
+              if (!successorOp.acceptsTerminator(&op))
+                return currentOp
+                           ->emitError("operation with breaking control "
+                                       "regions does not accept terminator: ")
+                           .attachNote(op.getLoc())
+                       << " for this predecessor operation (" << op.getName()
+                       << ")";
+            }
+          } else {
+            if (!currentOp
+                     ->mightHaveTrait<OpTrait::PropagateControlFlowBreak>())
+              return op.emitError(
+                         "breaking control regions through an op that does not "
+                         "have the PropagateControlFlowBreak trait: ")
+                     << currentOp->getName();
+          }
+        }
+      }
+    }
   }
 
   return success();

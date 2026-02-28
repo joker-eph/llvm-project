@@ -52,6 +52,79 @@ def RegionKindInterface : OpInterface<"RegionKindInterface"> {
 
 def HasOnlyGraphRegion : NativeOpTrait<"HasOnlyGraphRegion">;
 
+//===----------------------------------------------------------------------===//
+// Breaking Control Flow Trait and Interface
+//===----------------------------------------------------------------------===//
+
+/// Trait for ops that transparently pass breaking control flow upward without
+/// consuming it. An intermediate op in a break chain must have this trait.
+def PropagateControlFlowBreak : NativeOpTrait<"PropagateControlFlowBreak">;
+
+/// Interface for terminator ops that can break out of more than one nested
+/// region level at once (e.g., `scf.break 2` exits through an intermediate
+/// `scf.if` to reach the enclosing `scf.loop`). The default implementation
+/// returns 1, meaning the terminator exits only the immediately enclosing
+/// region (normal behaviour). Ops in the IR layer can query this interface
+/// without depending on ControlFlowInterfaces.
+def BreakingTerminatorOpInterface
+    : OpInterface<"BreakingTerminatorOpInterface"> {
+  let description = [{
+    Implemented by terminator operations that may exit more than one nested
+    region level.  A value of 1 (the default) exits only the immediately
+    enclosing region.  A value of K exits K levels: the K-1 intermediate
+    enclosing ops must carry `PropagateControlFlowBreak`, and the op at
+    level K must implement `HasBreakingControlFlowOpInterface`.
+  }];
+  let cppNamespace = "::mlir";
+
+  let methods = [
+    InterfaceMethod<[{
+        Returns the number of nested region levels this terminator breaks out
+        of.  1 means exit the immediately enclosing region; K means exit K
+        levels.
+      }],
+      "unsigned", "getNumBreakingRegions", (ins), "",
+      /*defaultImplementation=*/ "return 1;"
+    >,
+  ];
+}
+
+/// Interface for ops that can be targeted by breaking control flow terminators
+/// (e.g., scf.break, scf.continue). Ops implementing this interface can
+/// receive break/continue operations that break out of nested regions.
+def HasBreakingControlFlowOpInterface
+    : OpInterface<"HasBreakingControlFlowOpInterface"> {
+  let description = [{
+    This interface is implemented by operations that can be targeted by
+    breaking control flow (e.g., loop operations that accept `scf.break`
+    and `scf.continue` terminators jumping out of nested regions).
+
+    An operation implementing this interface can appear as the final target
+    in a break chain: intermediate ops (those at levels 1..K-1 for a K-level
+    break) must carry `PropagateControlFlowBreak`, while the target op at
+    level K must implement `HasBreakingControlFlowOpInterface`.
+  }];
+  let cppNamespace = "::mlir";
+
+  let methods = [
+    InterfaceMethod<[{
+        Returns true if the given terminator operation can target this op to
+        perform a break or continue. By default, all terminators are accepted.
+      }],
+      "bool", "acceptsTerminator",
+      (ins "::mlir::Operation *":$op), "",
+      /*defaultImplementation=*/ "return true;"
+    >,
+    InterfaceMethod<[{
+        Returns true if this op has nested terminator operations that may
+        break to or continue at this op. Used for analysis purposes.
+      }],
+      "bool", "hasNestedPredecessors", (ins), "",
+      /*defaultImplementation=*/ "return false;"
+    >,
+  ];
+}
+
 // Op's regions that don't need a terminator: requires some other traits
 // so it defines a list that must be concatenated.
 def GraphRegionNoTerminator : TraitList<[
