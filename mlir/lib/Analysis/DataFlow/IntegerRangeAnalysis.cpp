@@ -77,6 +77,15 @@ void IntegerValueRangeLattice::onUpdate(DataFlowSolver *solver) const {
   else
     dialect = value.getParentBlock()->getParentOp()->getDialect();
 
+  // Guard against type mismatches (e.g., invalid IR where return types don't
+  // match the actual returned value types). The constant's APInt width must
+  // agree with what the type requires; if not, don't propagate a constant.
+  unsigned expectedWidth =
+      ConstantIntRanges::getStorageBitwidth(value.getType());
+  if (constant->getBitWidth() != expectedWidth)
+    return solver->propagateIfChanged(
+        cv, cv->join(ConstantValue::getUnknownConstant()));
+
   Attribute cstAttr;
   if (isa<IntegerType, IndexType>(value.getType())) {
     cstAttr = IntegerAttr::get(value.getType(), *constant);

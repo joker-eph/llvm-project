@@ -108,9 +108,26 @@ func.func @no_integer_or_index(%arg0: vector<1xi32>) -> vector<1xi1> {
 
 // CHECK-LABEL: @gpu_func
 func.func @gpu_func(%arg0: memref<2x32xf32>, %arg1: memref<2x32xf32>, %arg2: memref<32xf32>, %arg3: f32, %arg4: !gpu.async.token, %arg5: index, %arg6: index) -> memref<2x32xf32> {
-  %c1 = arith.constant 1 : index  
+  %c1 = arith.constant 1 : index
   %2 = gpu.launch async [%arg4] blocks(%arg7, %arg8, %arg9) in (%arg13 = %c1, %arg14 = %c1, %arg15 = %c1) threads(%arg10, %arg11, %arg12) in (%arg16 = %c1, %arg17 = %c1, %arg18 = %c1) {
     gpu.terminator
-  } 
-  return %arg1 : memref<2x32xf32> 
+  }
+  return %arg1 : memref<2x32xf32>
+}
+
+// Regression test: a function whose declared return type differs from the
+// actual returned value's type (invalid IR using llvm.return to bypass the
+// func.return verifier) must not crash IntegerValueRangeLattice::onUpdate
+// when the constant APInt width doesn't match the declared type's storage
+// width. https://github.com/llvm/llvm-project/issues/74937
+
+// CHECK-LABEL: func private @type_mismatch_callee
+func.func private @type_mismatch_callee() -> index {
+  %1 = arith.constant 1 : i1
+  llvm.return %1 : i1
+}
+// CHECK-LABEL: func @type_mismatch_caller
+func.func @type_mismatch_caller() {
+  %8 = call @type_mismatch_callee() : () -> index
+  llvm.return
 }
