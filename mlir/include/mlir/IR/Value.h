@@ -117,12 +117,12 @@ public:
 
   /// If this value is the result of an operation, return the operation that
   /// defines it.
-  Operation *getDefiningOp() const;
+  Operation *getDefiningOp();
 
   /// If this value is the result of an operation of type OpTy, return the
   /// operation that defines it.
   template <typename OpTy>
-  OpTy getDefiningOp() const {
+  OpTy getDefiningOp() {
     return llvm::dyn_cast_or_null<OpTy>(getDefiningOp());
   }
 
