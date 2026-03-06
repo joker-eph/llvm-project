@@ -364,3 +364,18 @@ func.func @test_external_callee(%arg0: i32, %m0: memref<i32>) {
   memref.store %1, %m0[] {tag_name = "a"} : memref<i32>
   return
 }
+
+// -----
+
+// Regression test for https://github.com/llvm/llvm-project/issues/128339.
+// A private function with no callers is dead code. The backward analysis does
+// not visit dead blocks, but the test pass must not crash when looking up
+// lattice values for operations inside such functions.
+
+// CHECK-LABEL: test_tag: in_private2
+// CHECK:       operand #0: []
+// CHECK:       result #0: []
+func.func private @private2(%0 : i32) -> () {
+  %cond = arith.index_cast %0 {tag = "in_private2"} : i32 to index
+  func.return
+}

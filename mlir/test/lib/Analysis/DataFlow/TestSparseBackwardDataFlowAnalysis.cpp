@@ -190,6 +190,19 @@ struct TestWrittenToPass
     if (failed(solver.initializeAndRun(op)))
       return signalPassFailure();
 
+    // The backward analysis framework doesn't visit operations in dead blocks
+    // (e.g. private functions with no callers). Explicitly create default
+    // lattice entries for all values not covered by the analysis so that the
+    // walk below never encounters a missing lattice.
+    op->walk([&](Operation *innerOp) {
+      for (Value result : innerOp->getResults())
+        solver.getOrCreateState<WrittenTo>(result);
+      for (Region &region : innerOp->getRegions())
+        for (Block &block : region)
+          for (BlockArgument arg : block.getArguments())
+            solver.getOrCreateState<WrittenTo>(arg);
+    });
+
     raw_ostream &os = llvm::outs();
     op->walk([&](Operation *op) {
       auto tag = op->getAttrOfType<StringAttr>("tag");
