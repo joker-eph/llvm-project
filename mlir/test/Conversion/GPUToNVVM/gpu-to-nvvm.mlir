@@ -1197,3 +1197,19 @@ gpu.module @test_module_cluster_block_ops {
   }
 }
 
+// -----
+
+// Regression test for https://github.com/llvm/llvm-project/issues/185174.
+// A gpu.func with an explicit llvm.linkage attribute must not crash when
+// lowered: the linkage must be extracted and passed to LLVMFuncOp::create
+// rather than duplicated in the extra-attributes list, which would trigger
+// an assertion in DictionaryAttr::sortInPlace.
+
+// CHECK-LABEL: llvm.func internal @kernel_with_internal_linkage
+gpu.module @linkage_test {
+  gpu.func @kernel_with_internal_linkage() kernel
+      attributes {linkage = #llvm.linkage<internal>} {
+    gpu.return
+  }
+}
+

@@ -178,6 +178,12 @@ GPUFuncOpLowering::matchAndRewrite(gpu::GPUFuncOp gpuFuncOp, OpAdaptor adaptor,
   // not specific to function modeling.
   SmallVector<NamedAttribute, 4> attributes;
   ArrayAttr argAttrs;
+  // If the gpu.func carries an explicit LLVM linkage attribute, extract it
+  // here so we can pass it to LLVMFuncOp::create.  The build method adds the
+  // "linkage" attribute itself; if we also copy it from the gpu.func we end up
+  // with duplicate attribute names which triggers an assertion in
+  // DictionaryAttr::sortInPlace.
+  LLVM::Linkage funcLinkage = LLVM::Linkage::External;
   for (const auto &attr : gpuFuncOp->getAttrs()) {
     if (attr.getName() == SymbolTable::getSymbolAttrName() ||
         attr.getName() == gpuFuncOp.getFunctionTypeAttrName() ||
@@ -191,6 +197,13 @@ GPUFuncOpLowering::matchAndRewrite(gpu::GPUFuncOp gpuFuncOp, OpAdaptor adaptor,
       continue;
     if (attr.getName() == gpuFuncOp.getArgAttrsAttrName()) {
       argAttrs = gpuFuncOp.getArgAttrsAttr();
+      continue;
+    }
+    // LLVMFuncOp::build adds a "linkage" attribute from its linkage parameter.
+    // If the gpu.func already carries a LinkageAttr with that name, use it and
+    // skip it here to avoid a duplicate that would crash DictionaryAttr.
+    if (auto linkageAttr = dyn_cast<LLVM::LinkageAttr>(attr.getValue())) {
+      funcLinkage = linkageAttr.getLinkage();
       continue;
     }
     attributes.push_back(attr);
@@ -232,8 +245,8 @@ GPUFuncOpLowering::matchAndRewrite(gpu::GPUFuncOp gpuFuncOp, OpAdaptor adaptor,
                                       ? kernelCallingConvention
                                       : nonKernelCallingConvention;
   auto llvmFuncOp = LLVM::LLVMFuncOp::create(
-      rewriter, gpuFuncOp.getLoc(), gpuFuncOp.getName(), funcType,
-      LLVM::Linkage::External, /*dsoLocal=*/false, callingConvention,
+      rewriter, gpuFuncOp.getLoc(), gpuFuncOp.getName(), funcType, funcLinkage,
+      /*dsoLocal=*/false, callingConvention,
       /*comdat=*/nullptr, attributes);
 
   {
