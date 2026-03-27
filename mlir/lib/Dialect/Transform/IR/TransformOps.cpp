@@ -842,6 +842,11 @@ transform::ApplyRegisteredPassOp::apply(transform::TransformRewriter &rewriter,
 
   // Create pass manager and add the pass or pass pipeline.
   PassManager pm(getContext());
+  // Propagate --mlir-print-* command line options to the nested pass manager so
+  // that passes applied via this op respect IR printing options set by the
+  // user.
+  if (failed(applyPassManagerCLOptions(pm)))
+    return emitDefiniteFailure() << "failed to apply pass manager options";
   if (failed(info->addToPipeline(pm, options, [&](const Twine &msg) {
         emitError(msg);
         return failure();
