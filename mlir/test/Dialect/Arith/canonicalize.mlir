@@ -724,6 +724,56 @@ func.func @indexCastUIFoldVectorIndexToInt() -> vector<3xi32> {
   return %int : vector<3xi32>
 }
 
+// CHECK-LABEL: @indexCastOfIndexCastSafe
+//       CHECK:   return %arg0
+// Fold is safe when the intermediate type is wider (index, treated as 64-bit).
+func.func @indexCastOfIndexCastSafe(%arg0: i8) -> i8 {
+  %idx = arith.index_cast %arg0 : i8 to index
+  %back = arith.index_cast %idx : index to i8
+  return %back : i8
+}
+
+// -----
+
+// CHECK-LABEL: @indexCastUIOfIndexCastUISafe
+//       CHECK:   return %arg0
+// Fold is safe when the intermediate type is wider (index, treated as 64-bit).
+func.func @indexCastUIOfIndexCastUISafe(%arg0: i8) -> i8 {
+  %idx = arith.index_castui %arg0 : i8 to index
+  %back = arith.index_castui %idx : index to i8
+  return %back : i8
+}
+
+// -----
+
+// CHECK-LABEL: @indexCastOfIndexCastNarrow
+//       CHECK:   %[[tmp:.+]] = arith.index_cast %arg0 : index to i8
+//       CHECK:   %[[back:.+]] = arith.index_cast %[[tmp]] : i8 to index
+//       CHECK:   return %[[back]]
+// Fold is NOT safe when the intermediate type is narrower than the source.
+// (index -> i8 -> index may lose bits for values > 127.)
+func.func @indexCastOfIndexCastNarrow(%arg0: index) -> index {
+  %narrow = arith.index_cast %arg0 : index to i8
+  %back = arith.index_cast %narrow : i8 to index
+  return %back : index
+}
+
+// -----
+
+// CHECK-LABEL: @indexCastUIOfIndexCastUINarrow
+//       CHECK:   %[[tmp:.+]] = arith.index_castui %arg0 : index to i8
+//       CHECK:   %[[back:.+]] = arith.index_castui %[[tmp]] : i8 to index
+//       CHECK:   return %[[back]]
+// Fold is NOT safe when the intermediate type is narrower than the source.
+// (index -> i8 -> index may lose bits for values > 255.)
+func.func @indexCastUIOfIndexCastUINarrow(%arg0: index) -> index {
+  %narrow = arith.index_castui %arg0 : index to i8
+  %back = arith.index_castui %narrow : i8 to index
+  return %back : index
+}
+
+// -----
+
 // CHECK-LABEL: @signExtendConstant
 //       CHECK:   %[[cres:.+]] = arith.constant -2 : i16
 //       CHECK:   return %[[cres]]

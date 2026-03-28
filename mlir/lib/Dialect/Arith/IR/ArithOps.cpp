@@ -138,6 +138,17 @@ static int64_t getScalarOrElementWidth(Value value) {
   return getScalarOrElementWidth(value.getType());
 }
 
+// Returns the effective bit width for index_cast / index_castui purposes.
+// index type is treated as 64-bit; integer types return their actual width.
+static int64_t getIndexCastWidth(Value value) {
+  Type elemTy = getElementTypeOrSelf(value.getType());
+  if (elemTy.isIndex())
+    return 64;
+  if (auto intTy = dyn_cast<IntegerType>(elemTy))
+    return intTy.getWidth();
+  return -1;
+}
+
 static FailureOr<APInt> getIntOrSplatIntValue(Attribute attr) {
   APInt value;
   if (matchPattern(attr, m_ConstantInt(&value)))

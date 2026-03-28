@@ -288,11 +288,14 @@ def SelectI1ToNot :
 // IndexCastOp
 //===----------------------------------------------------------------------===//
 
-// index_cast(index_cast(x)) -> x, if dstType == srcType.
+// index_cast(index_cast(x)) -> x, if dstType == srcType and the intermediate
+// type is at least as wide as the source type (so the round-trip is lossless).
 def IndexCastOfIndexCast :
-    Pat<(Arith_IndexCastOp:$res (Arith_IndexCastOp $x)),
+    Pat<(Arith_IndexCastOp:$res (Arith_IndexCastOp:$inner $x)),
         (replaceWithValue $x),
-        [(Constraint<CPred<"$0.getType() == $1.getType()">> $res, $x)]>;
+        [(Constraint<CPred<"$0.getType() == $1.getType()">> $res, $x),
+         (Constraint<CPred<"getIndexCastWidth($0) >= getIndexCastWidth($1)">>
+              $inner, $x)]>;
 
 // index_cast(extsi(x)) -> index_cast(x)
 def IndexCastOfExtSI :
@@ -302,11 +305,14 @@ def IndexCastOfExtSI :
 // IndexCastUIOp
 //===----------------------------------------------------------------------===//
 
-// index_castui(index_castui(x)) -> x, if dstType == srcType.
+// index_castui(index_castui(x)) -> x, if dstType == srcType and the
+// intermediate type is at least as wide as the source type.
 def IndexCastUIOfIndexCastUI :
-    Pat<(Arith_IndexCastUIOp:$res (Arith_IndexCastUIOp $x, $nneg1), $nneg2),
+    Pat<(Arith_IndexCastUIOp:$res (Arith_IndexCastUIOp:$inner $x, $nneg1), $nneg2),
         (replaceWithValue $x),
-        [(Constraint<CPred<"$0.getType() == $1.getType()">> $res, $x)]>;
+        [(Constraint<CPred<"$0.getType() == $1.getType()">> $res, $x),
+         (Constraint<CPred<"getIndexCastWidth($0) >= getIndexCastWidth($1)">>
+              $inner, $x)]>;
 
 // index_castui(extui(x)) -> index_castui(x)
 def IndexCastUIOfExtUI :
