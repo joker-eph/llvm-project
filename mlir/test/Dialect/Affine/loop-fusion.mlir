@@ -1576,3 +1576,72 @@ func.func @producer_consumer_with_outmost_user(%arg0 : f16) {
 
 // Add further tests in mlir/test/Transforms/loop-fusion-4.mlir
 
+// -----
+
+// CHECK-LABEL: func @should_not_fuse_across_memref_cast_alias
+// Regression test for https://github.com/llvm/llvm-project/issues/49433:
+// affine-loop-fusion must not fuse loop nests that have RAW/WAW dependences
+// through a memref.cast alias.  All three loops must be preserved in order.
+func.func @should_not_fuse_across_memref_cast_alias(%arg0: memref<5xf32>) {
+  %A = memref.alloc() : memref<5xf32>
+  %B = memref.cast %A : memref<5xf32> to memref<?xf32>
+  %C = memref.alloc() : memref<5xf32>
+  %cst = arith.constant 1.2 : f32
+  // Loop 0: write %A
+  affine.for %i = 0 to 5 {
+    %a = affine.load %arg0[%i] : memref<5xf32>
+    affine.store %a, %A[%i] : memref<5xf32>
+  }
+  // Loop 1: read and write %B (alias of %A). Must not be fused with loop 0 or
+  // loop 2 because it both reads values written by loop 0 and overwrites values
+  // that loop 2 will read.
+  affine.for %i = 0 to 5 {
+    %a = affine.load %B[%i] : memref<?xf32>
+    %b = arith.mulf %a, %cst : f32
+    affine.store %b, %B[%i] : memref<?xf32>
+  }
+  // Loop 2: read %A
+  affine.for %i = 0 to 5 {
+    %a = affine.load %A[%i] : memref<5xf32>
+    %b = arith.addf %a, %cst : f32
+    affine.store %b, %C[%i] : memref<5xf32>
+  }
+  // All three loops must be preserved; none may be fused into another.
+  // CHECK:      affine.for
+  // CHECK:        affine.load
+  // CHECK:        affine.store
+  // CHECK:      affine.for
+  // CHECK:        affine.load
+  // CHECK:        arith.mulf
+  // CHECK:        affine.store
+  // CHECK:      affine.for
+  // CHECK:        affine.load
+  // CHECK:        arith.addf
+  // CHECK:        affine.store
+  return
+}
+
+// CHECK-LABEL: func @should_fuse_non_aliasing_cast
+// Positive regression guard: a memref.cast that does NOT alias an independently
+// allocated memref must not suppress fusion.
+func.func @should_fuse_non_aliasing_cast() -> f32 {
+  %A = memref.alloc() : memref<4xf32>
+  %B = memref.alloc() : memref<4xf32>
+  %castB = memref.cast %B : memref<4xf32> to memref<?xf32>
+  %cst = arith.constant 1.0 : f32
+  %zero = arith.constant 0.0 : f32
+  // Loop 0 writes %A. Loop 1 reads %A but only accesses %B via castB; the two
+  // buffers are independent so fusion is legal.
+  affine.for %i = 0 to 4 {
+    affine.store %cst, %A[%i] : memref<4xf32>
+  }
+  // CHECK: affine.for
+  affine.for %i = 0 to 4 {
+    %a = affine.load %A[%i] : memref<4xf32>
+    affine.store %a, %B[%i] : memref<4xf32>
+  }
+  // CHECK-NOT: affine.for
+  %r = affine.load %B[0] : memref<4xf32>
+  return %r : f32
+}
+

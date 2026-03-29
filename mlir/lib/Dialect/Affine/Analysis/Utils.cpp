@@ -160,6 +160,17 @@ void Node::getLoadAndStoreMemrefSet(
   }
 }
 
+/// Returns the underlying memref by following chains of memref.cast ops.
+/// Only identity-preserving casts (memref.cast) are stripped; shape-changing
+/// views such as memref.subview are left in place because they may alias only
+/// a sub-range of the underlying buffer.  If `memref` is not defined by a
+/// memref.cast, it is returned as-is.
+static Value getUnderlyingMemRef(Value memref) {
+  while (auto castOp = memref.getDefiningOp<memref::CastOp>())
+    memref = castOp.getSource();
+  return memref;
+}
+
 /// Returns the values that this op has a memref effect of type `EffectTys` on,
 /// not considering recursive effects.
 template <typename... EffectTys>
@@ -202,11 +213,21 @@ addNodeToMDG(Operation *nodeOp, MemRefDependenceGraph &mdg,
     node.loads.push_back(op);
     auto memref = cast<AffineReadOpInterface>(op).getMemRef();
     memrefAccesses[memref].insert(node.id);
+    // Also register under the base memref to catch alias dependences through
+    // view-like ops (e.g. memref.cast).
+    Value baseMemref = getUnderlyingMemRef(memref);
+    if (baseMemref != memref)
+      memrefAccesses[baseMemref].insert(node.id);
   }
   for (Operation *op : collector.storeOpInsts) {
     node.stores.push_back(op);
     auto memref = cast<AffineWriteOpInterface>(op).getMemRef();
     memrefAccesses[memref].insert(node.id);
+    // Also register under the base memref to catch alias dependences through
+    // view-like ops (e.g. memref.cast).
+    Value baseMemref = getUnderlyingMemRef(memref);
+    if (baseMemref != memref)
+      memrefAccesses[baseMemref].insert(node.id);
   }
   for (Operation *op : collector.memrefLoads) {
     SmallVector<Value> effectedValues;
@@ -318,13 +339,23 @@ static bool mayDependence(const Node &srcNode, const Node &dstNode,
   for (auto *srcMemOp :
        llvm::concat<Operation *const>(srcNode.stores, srcNode.loads)) {
     MemRefAccess srcAcc(srcMemOp);
-    if (srcAcc.memref != memref)
+    if (srcAcc.memref != memref) {
+      // Conservatively assume a dependence if this access is to an alias of
+      // `memref` (e.g. via memref.cast). Compare underlying memrefs on both
+      // sides to handle either direction of the cast relationship.
+      if (getUnderlyingMemRef(srcAcc.memref) == getUnderlyingMemRef(memref))
+        return true;
       continue;
+    }
     for (auto *destMemOp :
          llvm::concat<Operation *const>(dstNode.stores, dstNode.loads)) {
       MemRefAccess destAcc(destMemOp);
-      if (destAcc.memref != memref)
+      if (destAcc.memref != memref) {
+        // Same conservative alias check for the destination.
+        if (getUnderlyingMemRef(destAcc.memref) == getUnderlyingMemRef(memref))
+          return true;
         continue;
+      }
       // Check for a top-level dependence between srcNode and destNode's ops.
       if (!noDependence(checkMemrefAccessDependence(
               srcAcc, destAcc, getNestingDepth(srcNode.op) + 1)))
@@ -430,13 +461,30 @@ bool MemRefDependenceGraph::init(bool fullAffineDependences) {
     for (unsigned i = 0; i < n; ++i) {
       unsigned srcId = memrefAndList.second[i];
       Node *srcNode = getNode(srcId);
-      bool srcHasStoreOrFree =
-          srcNode->hasStore(srcMemRef) || srcNode->hasFree(srcMemRef);
+      // Check for store/free to srcMemRef or to any alias (view-like op) of it.
+      auto nodeHasStoreOrFreeOnAlias = [&](const Node *node) {
+        if (node->hasStore(srcMemRef) || node->hasFree(srcMemRef))
+          return true;
+        for (Operation *storeOp :
+             llvm::concat<Operation *const>(node->stores, node->memrefStores)) {
+          Value storedMemRef;
+          if (auto affineStore = dyn_cast<AffineWriteOpInterface>(storeOp))
+            storedMemRef = affineStore.getMemRef();
+          else if (auto memrefStore = dyn_cast<memref::StoreOp>(storeOp))
+            storedMemRef = memrefStore.getMemRef();
+          else
+            continue;
+          if (getUnderlyingMemRef(storedMemRef) ==
+              getUnderlyingMemRef(srcMemRef))
+            return true;
+        }
+        return false;
+      };
+      bool srcHasStoreOrFree = nodeHasStoreOrFreeOnAlias(srcNode);
       for (unsigned j = i + 1; j < n; ++j) {
         unsigned dstId = memrefAndList.second[j];
         Node *dstNode = getNode(dstId);
-        bool dstHasStoreOrFree =
-            dstNode->hasStore(srcMemRef) || dstNode->hasFree(srcMemRef);
+        bool dstHasStoreOrFree = nodeHasStoreOrFreeOnAlias(dstNode);
         if ((srcHasStoreOrFree || dstHasStoreOrFree)) {
           // Check precise affine deps if asked for; otherwise, conservative.
           if (!fullAffineDependences ||
