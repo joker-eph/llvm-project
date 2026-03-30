@@ -2179,3 +2179,31 @@ func.func @negative_unpack_pack_memref_no_canonicalization(%packed: memref<16x8x
   linalg.pack %unpacked inner_dims_pos = [0, 1] inner_tiles = [8, 32] into %dest : memref<128x256xf32> -> memref<16x8x8x32xf32>
   return
 }
+
+// -----
+
+// FoldTensorCastPackOp must not fire when the inner tile size is a dynamic
+// SSA value but the corresponding dimension in the new result type would be
+// static.  Replacing the dynamic tile with the static dest-shape value would
+// silently change semantics.  Verify the pattern simply bails out.
+//
+// CHECK-LABEL: func.func @no_fold_pack_cast_dynamic_tile_into_static_dim
+// CHECK-SAME:  %[[SRC:.+]]: tensor<?x3xi32>,
+// CHECK-SAME:  %[[DEST:.+]]: tensor<?x3x8x1xi32>,
+// CHECK-SAME:  %[[TILE:.+]]: index
+// CHECK:       %[[CAST:.+]] = tensor.cast %[[DEST]] : tensor<?x3x8x1xi32> to tensor<?x?x?x1xi32>
+// CHECK:       linalg.pack %[[SRC]] inner_dims_pos = [0, 1]
+// CHECK-SAME:    inner_tiles = [%[[TILE]], 1]
+// CHECK-SAME:    into %[[CAST]] : tensor<?x3xi32> -> tensor<?x?x?x1xi32>
+// CHECK:       tensor.cast
+func.func @no_fold_pack_cast_dynamic_tile_into_static_dim(
+    %src: tensor<?x3xi32>, %dest: tensor<?x3x8x1xi32>,
+    %tile_size: index) -> tensor<?x3x8x1xi32> {
+  %dest_dyn = tensor.cast %dest : tensor<?x3x8x1xi32> to tensor<?x?x?x1xi32>
+  %pack = linalg.pack %src
+    inner_dims_pos = [0, 1]
+    inner_tiles = [%tile_size, 1]
+    into %dest_dyn : tensor<?x3xi32> -> tensor<?x?x?x1xi32>
+  %cast_back = tensor.cast %pack : tensor<?x?x?x1xi32> to tensor<?x3x8x1xi32>
+  return %cast_back : tensor<?x3x8x1xi32>
+}

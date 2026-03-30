@@ -6016,9 +6016,24 @@ struct FoldTensorCastPackOp : public OpRewritePattern<PackOp> {
     SmallVector<Value> newOperands =
         tensor::getUpdatedOperandsAfterCastOpFolding(op, newResultTypes);
 
+    // For pack, the tile sizes drive the semantics; the dest shape is derived
+    // from them. If any tile is dynamic (an SSA value) but the corresponding
+    // inner dim in the new result type is static, we cannot safely replace the
+    // dynamic tile with the static dest size, so bail out.
+    SmallVector<OpFoldResult> mixedTiles = op.getMixedTiles();
+    ArrayRef<int64_t> newPackedShape =
+        cast<ShapedType>(newResultTypes[0]).getShape();
+    ArrayRef<int64_t> innerDims = newPackedShape.take_back(mixedTiles.size());
+    for (auto [tile, dimSize] : llvm::zip(mixedTiles, innerDims)) {
+      if (dimSize != ShapedType::kDynamic &&
+          !llvm::dyn_cast_if_present<Attribute>(tile) &&
+          !getConstantIntValue(tile))
+        return failure();
+    }
+
     // Get the updated mixed-tile-sizes attribute.
     SmallVector<OpFoldResult> newMixedTileSizes =
-        getNewMixedTileSizes(rewriter, newResultTypes[0], op.getMixedTiles());
+        getNewMixedTileSizes(rewriter, newResultTypes[0], mixedTiles);
     if (llvm::any_of(newMixedTileSizes, isZeroInteger))
       return failure();
 
