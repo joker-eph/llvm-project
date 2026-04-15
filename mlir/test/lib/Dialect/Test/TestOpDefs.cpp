@@ -1715,20 +1715,35 @@ TestMultiSlotAlloca::getDestructurableSlots() {
 }
 
 DenseMap<Attribute, MemorySlot> TestMultiSlotAlloca::destructure(
-    const DestructurableMemorySlot &slot,
-    const SmallPtrSetImpl<Attribute> &usedIndices, OpBuilder &builder,
+    const DestructurableMemorySlot &slot, const DenseSet<int64_t> &usedIndices,
+    OpBuilder &builder,
     SmallVectorImpl<DestructurableAllocationOpInterface> &newAllocators) {
   OpBuilder::InsertionGuard guard(builder);
   builder.setInsertionPointAfter(*this);
 
   DenseMap<Attribute, MemorySlot> slotMap;
 
-  for (Attribute usedIndex : usedIndices) {
-    Type elemType = slot.subelementTypes.lookup(usedIndex);
+  auto memrefType = cast<MemRefType>(slot.elemType);
+  ArrayRef<int64_t> shape = memrefType.getShape();
+  Type indexType = IndexType::get(getContext());
+  // Convert a linear index back to the ArrayAttr form (dimension 0 is least
+  // significant, matching getLinearIndexFromIndexOperands in MemRefMemorySlot).
+  auto linearToAttr = [&](int64_t linear) {
+    SmallVector<Attribute> coords;
+    for (int64_t dim : shape) {
+      coords.push_back(IntegerAttr::get(indexType, linear % dim));
+      linear /= dim;
+    }
+    return ArrayAttr::get(getContext(), coords);
+  };
+
+  for (int64_t i : usedIndices) {
+    Attribute attrIndex = linearToAttr(i);
+    Type elemType = slot.subelementTypes.lookup(attrIndex);
     MemRefType elemPtr = MemRefType::get({}, elemType);
     auto subAlloca = TestMultiSlotAlloca::create(builder, getLoc(), elemPtr);
     newAllocators.push_back(subAlloca);
-    slotMap.try_emplace<MemorySlot>(usedIndex,
+    slotMap.try_emplace<MemorySlot>(attrIndex,
                                     {subAlloca.getResult(0), elemType});
   }
 

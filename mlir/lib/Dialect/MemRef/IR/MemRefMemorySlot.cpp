@@ -58,6 +58,20 @@ static void walkIndicesAsAttr(MLIRContext *ctx, ArrayRef<int64_t> shape,
   } while (succeeded(nextIndex(shape, shapeIter)));
 }
 
+/// Converts a linear index (as returned by getLinearIndexFromIndexOperands)
+/// back to the ArrayAttr form used as a MemRef subelement key. The inverse of
+/// getLinearIndexFromIndexOperands: dimension 0 is the least significant.
+static ArrayAttr linearIndexToAttr(MLIRContext *ctx, ArrayRef<int64_t> shape,
+                                   int64_t linear) {
+  Type indexType = IndexType::get(ctx);
+  SmallVector<Attribute> coords;
+  for (int64_t dim : shape) {
+    coords.push_back(IntegerAttr::get(indexType, linear % dim));
+    linear /= dim;
+  }
+  return ArrayAttr::get(ctx, coords);
+}
+
 //===----------------------------------------------------------------------===//
 //  Interfaces for AllocaOp
 //===----------------------------------------------------------------------===//
@@ -109,16 +123,19 @@ memref::AllocaOp::getDestructurableSlots() {
 }
 
 DenseMap<Attribute, MemorySlot> memref::AllocaOp::destructure(
-    const DestructurableMemorySlot &slot,
-    const SmallPtrSetImpl<Attribute> &usedIndices, OpBuilder &builder,
+    const DestructurableMemorySlot &slot, const DenseSet<int64_t> &usedIndices,
+    OpBuilder &builder,
     SmallVectorImpl<DestructurableAllocationOpInterface> &newAllocators) {
   builder.setInsertionPointAfter(*this);
 
   DenseMap<Attribute, MemorySlot> slotMap;
 
-  auto memrefType = llvm::cast<DestructurableTypeInterface>(getType());
-  for (Attribute usedIndex : usedIndices) {
-    Type elemType = memrefType.getTypeAtIndex(usedIndex);
+  auto memrefType = llvm::cast<MemRefType>(getType());
+  auto destructurableType = llvm::cast<DestructurableTypeInterface>(getType());
+  for (int64_t i : usedIndices) {
+    ArrayAttr usedIndex =
+        linearIndexToAttr(getContext(), memrefType.getShape(), i);
+    Type elemType = destructurableType.getTypeAtIndex(usedIndex);
     MemRefType elemPtr = MemRefType::get({}, elemType);
     auto subAlloca = memref::AllocaOp::create(builder, getLoc(), elemPtr);
     newAllocators.push_back(subAlloca);
@@ -174,6 +191,27 @@ DeletionKind memref::LoadOp::removeBlockingUses(
   return DeletionKind::Delete;
 }
 
+/// Returns the index of a memref as a linear integer, given its indices.
+/// Returns nullopt if the indices are not compile-time constants or are out of
+/// bounds. The linearization matches the iteration order of walkIndicesAsAttr
+/// (dimension 0 varies fastest, i.e. column-major / Fortran order).
+static std::optional<int64_t>
+getLinearIndexFromIndexOperands(ValueRange indices, MemRefType memrefType) {
+  ArrayRef<int64_t> shape = memrefType.getShape();
+  int64_t linear = 0, stride = 1;
+  for (size_t i = 0; i < shape.size(); i++) {
+    IntegerAttr coordAttr;
+    if (!matchPattern(indices[i], m_Constant<IntegerAttr>(&coordAttr)))
+      return std::nullopt;
+    std::optional<uint64_t> coordInt = coordAttr.getValue().tryZExtValue();
+    if (!coordInt || (int64_t)*coordInt >= shape[i])
+      return std::nullopt;
+    linear += (int64_t)*coordInt * stride;
+    stride *= shape[i];
+  }
+  return linear;
+}
+
 /// Returns the index of a memref in attribute form, given its indices. Returns
 /// a null pointer if whether the indices form a valid index for the provided
 /// MemRefType cannot be computed. The indices must come from a valid memref
@@ -196,16 +234,16 @@ static Attribute getAttributeIndexFromIndexOperands(MLIRContext *ctx,
 }
 
 bool memref::LoadOp::canRewire(const DestructurableMemorySlot &slot,
-                               SmallPtrSetImpl<Attribute> &usedIndices,
+                               DenseSet<int64_t> &usedIndices,
                                SmallVectorImpl<MemorySlot> &mustBeSafelyUsed,
                                const DataLayout &dataLayout) {
   if (slot.ptr != getMemRef())
     return false;
-  Attribute index = getAttributeIndexFromIndexOperands(
-      getContext(), getIndices(), getMemRefType());
+  std::optional<int64_t> index =
+      getLinearIndexFromIndexOperands(getIndices(), getMemRefType());
   if (!index)
     return false;
-  usedIndices.insert(index);
+  usedIndices.insert(*index);
   return true;
 }
 
@@ -252,16 +290,16 @@ DeletionKind memref::StoreOp::removeBlockingUses(
 }
 
 bool memref::StoreOp::canRewire(const DestructurableMemorySlot &slot,
-                                SmallPtrSetImpl<Attribute> &usedIndices,
+                                DenseSet<int64_t> &usedIndices,
                                 SmallVectorImpl<MemorySlot> &mustBeSafelyUsed,
                                 const DataLayout &dataLayout) {
   if (slot.ptr != getMemRef() || getValue() == slot.ptr)
     return false;
-  Attribute index = getAttributeIndexFromIndexOperands(
-      getContext(), getIndices(), getMemRefType());
-  if (!index || !slot.subelementTypes.contains(index))
+  std::optional<int64_t> index =
+      getLinearIndexFromIndexOperands(getIndices(), getMemRefType());
+  if (!index)
     return false;
-  usedIndices.insert(index);
+  usedIndices.insert(*index);
   return true;
 }
 
