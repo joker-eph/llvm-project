@@ -180,6 +180,15 @@ public:
   }
   bool shouldShowDialects() const { return showDialectsFlag; }
 
+  /// Set the list of dialects to preload before processing the input.
+  MlirOptMainConfig &setPreloadDialects(ArrayRef<std::string> dialects) {
+    preloadDialectNamesFlag.assign(dialects.begin(), dialects.end());
+    return *this;
+  }
+  ArrayRef<std::string> getPreloadDialects() const {
+    return preloadDialectNamesFlag;
+  }
+
   /// Set the marker on which to split the input into chunks and process each
   /// chunk independently. Input is not split if empty.
   MlirOptMainConfig &
@@ -366,6 +375,9 @@ protected:
 
   /// The reproducer output filename (no crash required).
   std::string generateReproducerFileFlag = "";
+
+  /// Dialects to preload before processing the input.
+  std::vector<std::string> preloadDialectNamesFlag;
 };
 
 /// This defines the function type used to setup the pass manager. This can be

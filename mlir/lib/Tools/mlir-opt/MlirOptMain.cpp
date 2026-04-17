@@ -293,6 +293,14 @@ struct MlirOptMainConfigCLOptions : public MlirOptMainConfig {
         "load-dialect-plugin", cl::desc("Load dialects from plugin library"));
     this->dialectPlugins = std::addressof(dialectPlugins);
 
+    static cl::list<std::string> preloadDialects(
+        "mlir-preload-dialects",
+        cl::desc("Preload specified dialects before processing the input"),
+        cl::value_desc("dialect-name"), cl::CommaSeparated);
+    preloadDialects.setCallback([&](const std::string &dialectName) {
+      preloadDialectNamesFlag.push_back(dialectName);
+    });
+
     static PassPipelineCLParser passPipeline("", "Compiler passes to run", "p");
     setPassPipelineParser(passPipeline);
   }
@@ -662,6 +670,15 @@ processBuffer(raw_ostream &os, std::unique_ptr<MemoryBuffer> ownedBuffer,
   StringRef irdlFile = config.getIrdlFile();
   if (!irdlFile.empty() && failed(loadIRDLDialects(irdlFile, context)))
     return failure();
+
+  // Preload dialects requested via --mlir-preload-dialects.
+  for (StringRef dialectName : config.getPreloadDialects()) {
+    if (!context.getOrLoadDialect(dialectName)) {
+      emitError(UnknownLoc::get(&context))
+          << "unknown dialect '" << dialectName << "'";
+      return failure();
+    }
+  }
 
   // Parse the input file.
   context.allowUnregisteredDialects(config.shouldAllowUnregisteredDialects());
