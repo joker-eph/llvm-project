@@ -56,6 +56,23 @@ struct Canonicalizer : public impl::CanonicalizerPassBase<Canonicalizer> {
 
     patterns = std::make_shared<FrozenRewritePatternSet>(
         std::move(owningPatterns), disabledPatterns, enabledPatterns);
+
+    // Dump all patterns grouped by category.
+    llvm::errs() << "=== Canonicalizer Patterns for dialects: ";
+    for (auto *dialect : context->getLoadedDialects())
+      llvm::errs() << dialect->getNamespace() << " ";
+    llvm::errs() << " ===\n";
+
+    llvm::errs() << "[Op-Specific Native Patterns] ";
+    const FrozenRewritePatternSet::OpSpecificNativePatternListT &opSpecific =
+        patterns->getOpSpecificNativePatterns();
+    size_t opSpecificCount = 0;
+    for (auto &[opName, patternList] : opSpecific)
+      opSpecificCount += patternList.size();
+    llvm::errs() << "Count: " << opSpecificCount << "\n";
+
+    llvm::errs() << "[Match-Any-Op Native Patterns] "
+                 << llvm::size(patterns->getMatchAnyOpNativePatterns()) << "\n";
     return success();
   }
   void runOnOperation() override {
