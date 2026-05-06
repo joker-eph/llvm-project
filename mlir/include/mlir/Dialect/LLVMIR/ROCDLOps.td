@@ -49,6 +49,7 @@ class ROCDL_ConcreteNonMemIntrOp<string mnemonic, list<Trait> traits,
     list<string> immArgNames = []>
   : ROCDL_IntrOp<mnemonic, [], [], traits, numResults, 0, 0, 0,
       immArgPositions, immArgNames>;
+
 //===----------------------------------------------------------------------===//
 // ROCDL special register op definitions
 //===----------------------------------------------------------------------===//
@@ -133,7 +134,9 @@ class ROCDL_MbcntOp<string mnemonic> :
   let arguments = !con(args, baseArgs);
   let results = (outs I32:$res);
   let assemblyFormat = [{
-    $in0 `,` $in1  attr-dict `:` `(` type($in0) `,` type($in1) `)` `->` type($res)
+    $in0 `,` $in1
+    oilist(`arg_attrs` `=` $arg_attrs | `res_attrs` `=` $res_attrs)
+    attr-dict `:` `(` type($in0) `,` type($in1) `)` `->` type($res)
    }];
   let description = [{
     Masked bit count of threads below the current lane in a wavefront.
@@ -170,7 +173,7 @@ def ROCDL_DsSwizzleOp : ROCDL_ConcreteNonMemIntrOp<"ds_swizzle", [], 1>,
                  I32:$offset)> {
   let results = (outs I32:$res);
   let assemblyFormat = [{
-    $src `,` $offset  attr-dict `:` `(` type($src) `,` type($offset) `)` `->` type($res)
+    $src `,` $offset attr-dict `:` `(` type($src) `,` type($offset) `)` `->` type($res)
    }];
   let description = [{
     Perform a data-sharing swizzle operation within a wavefront.
@@ -193,7 +196,7 @@ def ROCDL_DsBpermuteOp : ROCDL_ConcreteNonMemIntrOp<"ds_bpermute", [], 1>,
                  I32:$src)> {
   let results = (outs I32:$res);
   let assemblyFormat = [{
-    $index `,` $src  attr-dict `:` `(` type($index) `,` type($src) `)` `->` type($res)
+    $index `,` $src attr-dict `:` `(` type($index) `,` type($src) `)` `->` type($res)
    }];
   let description = [{
     Perform a backward permute (pull) operation across lanes using DS/LDS permute hardware.
@@ -274,7 +277,7 @@ def ROCDL_ReadlaneOp : ROCDL_IntrOp<"readlane", [], [0], [AllTypesMatch<["res", 
   }];
 
   let assemblyFormat = [{
-    $src0 `,` $src1  attr-dict `:` `(` type($src0) `,` type($src1) `)` `->` type($res)
+    $src0 `,` $src1 attr-dict `:` `(` type($src0) `,` type($src1) `)` `->` type($res)
   }];
 }
 
@@ -309,7 +312,7 @@ def ROCDL_WavefrontSizeOp : ROCDL_SpecialIdRegisterOp<"wavefrontsize">;
 // on the target chipset
 def ROCDL_SWaitcntOp : ROCDL_ConcreteNonMemIntrOp<"s.waitcnt", [], 0, [0], ["bitfield"]>,
   Arguments<(ins I32Attr:$bitfield)> {
-  let assemblyFormat = "attr-dict $bitfield";
+  let assemblyFormat = " attr-dict $bitfield";
   let description = [{
     Wait for outstanding memory operations to complete, as specified by a
     bitfield whose semantics depend on the target chipset.
@@ -324,7 +327,7 @@ def ROCDL_SWaitcntOp : ROCDL_ConcreteNonMemIntrOp<"s.waitcnt", [], 0, [0], ["bit
 
 def ROCDL_SSleepOp : ROCDL_ConcreteNonMemIntrOp<"s.sleep", [], 0, [0], ["count"]>,
   Arguments<(ins I32Attr:$count)> {
-  let assemblyFormat = "attr-dict $count";
+  let assemblyFormat = " attr-dict $count";
   let description = [{
     Sleep for a number of clock cycles.
 
@@ -338,7 +341,7 @@ def ROCDL_SSleepOp : ROCDL_ConcreteNonMemIntrOp<"s.sleep", [], 0, [0], ["count"]
 
 def ROCDL_SNopOp : ROCDL_ConcreteNonMemIntrOp<"s.nop", [], 0, [0], ["count"]>,
   Arguments<(ins I16Attr:$count)> {
-  let assemblyFormat = "attr-dict $count";
+  let assemblyFormat = " attr-dict $count";
   let description = [{
     Insert a number of NOP cycles.
 
@@ -351,7 +354,7 @@ def ROCDL_SNopOp : ROCDL_ConcreteNonMemIntrOp<"s.nop", [], 0, [0], ["count"]>,
 }
 
 def ROCDL_SBarrierOp : ROCDL_ConcreteNonMemIntrOp<"s.barrier", [], 0> {
-  let assemblyFormat = "attr-dict";
+  let assemblyFormat = " attr-dict";
   let description = [{
     Insert a workgroup barrier without memory fences.
 
@@ -387,11 +390,11 @@ def ROCDL_BarrierOp : ROCDL_Op<"barrier"> {
     rocdl.barrier
     ```
   }];
-  let assemblyFormat = "attr-dict";
+  let assemblyFormat = " attr-dict";
 }
 
 def ROCDL_WaveBarrierOp : ROCDL_ConcreteNonMemIntrOp<"wave.barrier", [], 0> {
-  let assemblyFormat = "attr-dict";
+  let assemblyFormat = " attr-dict";
   let description = [{
     Insert a wave-level (subgroup) barrier. Synchronizes lanes within a
     single wave/wavefront without any memory ordering guarantees.
@@ -697,7 +700,7 @@ def ROCDL_AsyncmarkOp : ROCDL_ConcreteNonMemIntrOp<"asyncmark", [], 0>,
       Available on gfx9 and later.
   }];
   let results = (outs);
-  let assemblyFormat = "attr-dict";
+  let assemblyFormat = " attr-dict";
 }
 
 def ROCDL_WaitAsyncmarkOp: ROCDL_ConcreteNonMemIntrOp<"wait.asyncmark", [], 0, [0], ["count"]>,
@@ -1060,7 +1063,8 @@ class ROCDL_WMMA_Opsel_IntrOp<string mnemonic, Type AB, Type CD> : ROCDL_IntrOp<
              DefaultValuedAttr<I1Attr, "0">:$opsel)> {
   let results = (outs LLVM_ScalarOrVectorOf<CD>:$res);
   let assemblyFormat = [{
-    $a `,` $b `,` $c attr-dict `:` functional-type(operands, $res)
+    $a `,` $b `,` $c oilist(`opsel` `=` $opsel) attr-dict
+    `:` functional-type(operands, $res)
   }];
   let description = [{
     Wave Matrix Multiply-Accumulate (WMMA) with output operand selection.
@@ -1085,7 +1089,9 @@ class ROCDL_WMMA_IU_IntrOp<string mnemonic, Type AB, Type CD> : ROCDL_IntrOp<mne
              DefaultValuedAttr<I1Attr, "0">:$clamp)> {
   let results = (outs LLVM_ScalarOrVectorOf<CD>:$res);
   let assemblyFormat = [{
-    $a `,` $b `,` $c attr-dict `:` functional-type(operands, $res)
+    $a `,` $b `,` $c
+    oilist(`signA` `=` $signA | `signB` `=` $signB | `clamp` `=` $clamp)
+    attr-dict `:` functional-type(operands, $res)
   }];
   let description = [{
     Wave Matrix Multiply-Accumulate (WMMA) for integer types with
@@ -1197,7 +1203,11 @@ class ROCDL_WMMA_ModsABClamp_IntrOp<string mnemonic, Type AB, Type CD> : ROCDL_I
              DefaultValuedAttr<I1Attr, "0">:$clamp)> {
   let results = (outs LLVM_ScalarOrVectorOf<CD>:$res);
   let assemblyFormat = [{
-    $a `,` $b `,` $c attr-dict `:` functional-type(operands, $res)
+    $a `,` $b `,` $c
+    oilist(`signA` `=` $signA | `signB` `=` $signB |
+           `reuseA` `=` $reuseA | `reuseB` `=` $reuseB |
+           `clamp` `=` $clamp)
+    attr-dict `:` functional-type(operands, $res)
   }];
   let description = [{
     Wave Matrix Multiply-Accumulate (WMMA) for integer types with
@@ -1362,7 +1372,8 @@ class ROCDL_Dot_IntrOp<string mnemonic, ROCDL_NamedType A, ROCDL_NamedType B,
                  DefaultValuedAttr<I1Attr, "0">:$clamp)> {
   let results = (outs C:$res);
   let assemblyFormat = [{
-    $a `,` $b `,` $c attr-dict `:` functional-type(operands, $res)
+    $a `,` $b `,` $c oilist(`clamp` `=` $clamp) attr-dict
+    `:` functional-type(operands, $res)
   }];
   let description = [{
     Packed intra-lane dot-product with optional result clamping (`clamp`).
@@ -1412,7 +1423,9 @@ class ROCDL_Sudot_IntrOp<string mnemonic> :
                  DefaultValuedAttr<I1Attr, "0">:$clamp)> {
   let results = (outs I32:$res);
   let assemblyFormat = [{
-    $a `,` $b `,` $c attr-dict `:` functional-type(operands, $res)
+    $a `,` $b `,` $c
+    oilist(`signA` `=` $signA | `signB` `=` $signB | `clamp` `=` $clamp)
+    attr-dict `:` functional-type(operands, $res)
   }];
   let description = [{
     Mixed-signedness packed dot-product with per-operand sign controls.
@@ -1512,7 +1525,8 @@ class ROCDL_SWMMAC_V1_Reuse_IntrOp<string mnemonic, Type A, Type B, Type CD> : R
              )> {
   let results = (outs LLVM_ScalarOrVectorOf<CD>:$res);
   let assemblyFormat = [{
-    $a `,` $b `,` $c `,` $index attr-dict `:` functional-type(operands, $res)
+    $a `,` $b `,` $c `,` $index
+    prop-dict attr-dict `:` functional-type(operands, $res)
   }];
 }
 
@@ -1528,7 +1542,8 @@ class ROCDL_SWMMAC_IU_IntrOp<string mnemonic, Type AB, Type CD> : ROCDL_IntrOp<m
              DefaultValuedAttr<I1Attr, "0">:$clamp)> {
   let results = (outs LLVM_ScalarOrVectorOf<CD>:$res);
   let assemblyFormat = [{
-    $a `,` $b `,` $c `,` $index attr-dict `:` functional-type(operands, $res)
+    $a `,` $b `,` $c `,` $index
+    prop-dict attr-dict `:` functional-type(operands, $res)
   }];
 }
 
@@ -1545,7 +1560,8 @@ class ROCDL_SWMMAC_ModsAB_IntrOp<string mnemonic, Type AB, Type C, Type D> : ROC
              DefaultValuedAttr<I1Attr, "0">:$reuseB)> {
   let results = (outs LLVM_ScalarOrVectorOf<D>:$res);
   let assemblyFormat = [{
-    $a `,` $b `,` $c `,` $index attr-dict `:` functional-type(operands, $res)
+    $a `,` $b `,` $c `,` $index
+    prop-dict attr-dict `:` functional-type(operands, $res)
   }];
 }
 
@@ -1563,7 +1579,8 @@ class ROCDL_SWMMAC_ModsABClamp_IntrOp<string mnemonic, Type AB, Type C, Type D> 
              DefaultValuedAttr<I1Attr, "0">:$clamp)> {
   let results = (outs LLVM_ScalarOrVectorOf<D>:$res);
   let assemblyFormat = [{
-    $a `,` $b `,` $c `,` $index attr-dict `:` functional-type(operands, $res)
+    $a `,` $b `,` $c `,` $index
+    prop-dict attr-dict `:` functional-type(operands, $res)
   }];
 }
 
@@ -1604,7 +1621,7 @@ class ROCDL_LDS_Read_Tr_IntrOp<string mnemonic> :
   ROCDL_IntrOp<mnemonic, [1], [], [], 1, 0, 1> {
   dag args = (ins Arg<ROCDLBufferLDS, "", [MemRead]>:$ptr);
   let arguments = !con(args, baseArgs);
-  let assemblyFormat = "$ptr attr-dict `:` type($ptr) `->` type($res)";
+  let assemblyFormat = "$ptr  oilist(`alias_scopes` `=` $alias_scopes | `noalias_scopes` `=` $noalias_scopes | `tbaa` `=` $tbaa)  attr-dict `:` type($ptr) `->` type($res)";
   let extraClassDefinition = [{
     ::llvm::SmallVector<::mlir::Value> $cppClass::getAccessedOperands() {
       return {getPtr()};
@@ -1666,7 +1683,7 @@ class ROCDL_TrLoadOp<ROCDL_TrLoadOpMeta meta> :
     %3 = rocdl.ds.load.tr16.b128 %ptr : !llvm.ptr<3> -> vector<8xbf16>
     ```
   }];
-  let assemblyFormat = "$ptr attr-dict `:` qualified(type($ptr)) `->` type($res)";
+  let assemblyFormat = "$ptr  oilist(`alias_scopes` `=` $alias_scopes | `noalias_scopes` `=` $noalias_scopes | `tbaa` `=` $tbaa)  attr-dict `:` qualified(type($ptr)) `->` type($res)";
   let extraClassDefinition = [{
     ::llvm::SmallVector<::mlir::Value> $cppClass::getAccessedOperands() {
       return {getPtr()};
@@ -2241,7 +2258,7 @@ def ROCDL_DsAtomicBarrierArriveRtnOp :
     ```
   }];
   let results = (outs I64:$res);
-  let assemblyFormat = "$barrierPtr `,` $val attr-dict `:` qualified(type($barrierPtr)) `,` type($val) `->` type($res)";
+  let assemblyFormat = "$barrierPtr `,` $val  oilist(`alias_scopes` `=` $alias_scopes | `noalias_scopes` `=` $noalias_scopes | `tbaa` `=` $tbaa)  attr-dict `:` qualified(type($barrierPtr)) `,` type($val) `->` type($res)";
   let extraClassDefinition = [{
     SmallVector<Value> $cppClass::getAccessedOperands() {
       return {getBarrierPtr()};
@@ -2265,7 +2282,7 @@ def ROCDL_DsAtomicAsyncBarrierArriveOp :
     ```
   }];
   let results = (outs);
-  let assemblyFormat = "$barrierPtr attr-dict `:` qualified(type($barrierPtr))";
+  let assemblyFormat = "$barrierPtr  oilist(`alias_scopes` `=` $alias_scopes | `noalias_scopes` `=` $noalias_scopes | `tbaa` `=` $tbaa)  attr-dict `:` qualified(type($barrierPtr))";
   let extraClassDefinition = [{
     SmallVector<Value> $cppClass::getAccessedOperands() {
       return {getBarrierPtr()};
@@ -2336,8 +2353,7 @@ def ROCDL_DPPUpdateOp : ROCDL_IntrOp<"update.dpp", [], [0],
   Arguments<(ins LLVM_Type:$old, LLVM_Type:$src, I32Attr:$dppCtrl, I32Attr:$rowMask,
       I32Attr:$bankMask, I1Attr:$boundCtrl)> {
   let results = (outs LLVM_Type:$res);
-  let assemblyFormat = [{
-    attr-dict $old `,` $src `with` $dppCtrl `,` $rowMask `,` $bankMask `,` $boundCtrl `:` type($src)
+  let assemblyFormat = [{ attr-dict $old `,` $src `with` $dppCtrl `,` $rowMask `,` $bankMask `,` $boundCtrl `:` type($src)
   }];
 }
 
@@ -2348,8 +2364,7 @@ def ROCDL_PermlaneX16Op : ROCDL_IntrOp<"permlanex16", [], [0],
   Arguments<(ins LLVM_Type:$old, LLVM_Type:$src0, LLVM_Type:$src1, LLVM_Type:$src2,
              I1Attr:$fi, I1Attr:$boundControl)> {
   let results = (outs LLVM_Type:$res);
-  let assemblyFormat = [{
-    attr-dict $old `,` $src0 `,` $src1 `,` $src2 `,` $fi `,` $boundControl `:` type($src0) `,` type($src1)
+  let assemblyFormat = [{ attr-dict $old `,` $src0 `,` $src1 `,` $src2 `,` $fi `,` $boundControl `:` type($src0) `,` type($src1)
   }];
   let description = [{
     Performs a `permlanex16` operation with the given operands, applying the
@@ -2389,8 +2404,7 @@ def ROCDL_Permlane16SwapOp : ROCDL_IntrOp<"permlane16.swap", [], [],
     [2, 3], ["fi", "boundControl"]>,
   Arguments<(ins I32:$old, I32:$src, I1Attr:$fi, I1Attr:$boundControl)> {
   let results = (outs ROCDL_ConcretePair<I32, I32>:$res);
-  let assemblyFormat = [{
-    attr-dict $old `,` $src `,` $fi `,` $boundControl `:` `(` type($old) `,` type($src) `)` `->` type($res)
+  let assemblyFormat = [{ attr-dict $old `,` $src `,` $fi `,` $boundControl `:` `(` type($old) `,` type($src) `)` `->` type($res)
   }];
   let description = [{
     Performs a `permlane16.swap` operation with the given operands, applying the
@@ -2410,8 +2424,7 @@ def ROCDL_Permlane32SwapOp : ROCDL_IntrOp<"permlane32.swap", [], [],
     [2, 3], ["fi", "boundControl"]>,
   Arguments<(ins I32:$old, I32:$src, I1Attr:$fi, I1Attr:$boundControl)> {
   let results = (outs ROCDL_ConcretePair<I32, I32>:$res);
-  let assemblyFormat = [{
-    attr-dict $old `,` $src `,` $fi `,` $boundControl `:` `(` type($old) `,` type($src) `)` `->` type($res)
+  let assemblyFormat = [{ attr-dict $old `,` $src `,` $fi `,` $boundControl `:` `(` type($old) `,` type($src) `)` `->` type($res)
   }];
   let description = [{
     Performs a `permlane32.swap` operation with the given operands, applying the
@@ -2504,8 +2517,7 @@ def ROCDL_CvtPkRtz:
     %0 = rocdl.cvt.pkrtz %a, %b : vector<2xf16>
     ```
   }];
-  let assemblyFormat = [{
-    attr-dict $srcA `,` $srcB `:` type($res)
+  let assemblyFormat = [{ attr-dict $srcA `,` $srcB `:` type($res)
   }];
 }
 
@@ -2525,8 +2537,7 @@ def ROCDL_CvtF32Bf8Op :
     %0 = rocdl.cvt.f32.bf8 %src[0] : f32
     ```
   }];
-  let assemblyFormat = [{
-    attr-dict $srcA `[` $byteSel `]` `:` type($res)
+  let assemblyFormat = [{ attr-dict $srcA `[` $byteSel `]` `:` type($res)
   }];
 }
 
@@ -2543,8 +2554,7 @@ def ROCDL_CvtF32Fp8Op :
     %0 = rocdl.cvt.f32.fp8 %src[0] : f32
     ```
   }];
-  let assemblyFormat = [{
-    attr-dict $srcA `[` $byteSel `]` `:` type($res)
+  let assemblyFormat = [{ attr-dict $srcA `[` $byteSel `]` `:` type($res)
   }];
 }
 
@@ -2561,8 +2571,7 @@ def ROCDL_CvtPkF32Fp8Op :
     %0 = rocdl.cvt.pk.f32.fp8 %src[false] : vector<2xf32>
     ```
   }];
-  let assemblyFormat = [{
-    attr-dict $src `[` $wordSel `]` `:` type($res)
+  let assemblyFormat = [{ attr-dict $src `[` $wordSel `]` `:` type($res)
   }];
 }
 
@@ -2579,8 +2588,7 @@ def ROCDL_CvtPkF32Bf8Op :
     %0 = rocdl.cvt.pk.f32.bf8 %src[false] : vector<2xf32>
     ```
   }];
-  let assemblyFormat = [{
-    attr-dict $src `[` $wordSel `]` `:` type($res)
+  let assemblyFormat = [{ attr-dict $src `[` $wordSel `]` `:` type($res)
   }];
 }
 
@@ -2598,8 +2606,7 @@ def ROCDL_CvtPkBf8F32Op :
     %0 = rocdl.cvt.pk.bf8.f32 %a, %b -> %old[false] : i32
     ```
   }];
-  let assemblyFormat = [{
-    attr-dict $srcA `,` $srcB `->` $old `[` $wordSel `]` `:` type($res)
+  let assemblyFormat = [{ attr-dict $srcA `,` $srcB `->` $old `[` $wordSel `]` `:` type($res)
   }];
 }
 
@@ -2617,8 +2624,7 @@ def ROCDL_CvtPkFp8F32Op :
     %0 = rocdl.cvt.pk.fp8.f32 %a, %b -> %old[false] : i32
     ```
   }];
-  let assemblyFormat = [{
-    attr-dict $srcA `,` $srcB `->` $old `[` $wordSel `]` `:` type($res)
+  let assemblyFormat = [{ attr-dict $srcA `,` $srcB `->` $old `[` $wordSel `]` `:` type($res)
   }];
 }
 
@@ -2636,8 +2642,7 @@ def ROCDL_CvtSrBf8F32Op :
     %0 = rocdl.cvt.sr.bf8.f32 %val, %stoch -> %old[2] : i32
     ```
   }];
-  let assemblyFormat = [{
-    attr-dict $srcA `,` $srcB `->` $old `[` $byteSel `]` `:` type($res)
+  let assemblyFormat = [{ attr-dict $srcA `,` $srcB `->` $old `[` $byteSel `]` `:` type($res)
   }];
 }
 
@@ -2655,8 +2660,7 @@ def ROCDL_CvtSrFp8F32Op :
     %0 = rocdl.cvt.sr.fp8.f32 %val, %stoch -> %old[3] : i32
     ```
   }];
-  let assemblyFormat = [{
-    attr-dict $srcA `,` $srcB `->` $old `[` $byteSel `]` `:` type($res)
+  let assemblyFormat = [{ attr-dict $srcA `,` $srcB `->` $old `[` $byteSel `]` `:` type($res)
   }];
 }
 
@@ -2698,8 +2702,7 @@ foreach smallT = [
         Available on gfx1250+.
       }];
       let results = (outs largeT.type:$res);
-      let assemblyFormat = [{
-        attr-dict $src `,` $scale `[` $scaleSel `]` `:` type($res)
+      let assemblyFormat = [{ attr-dict $src `,` $scale `[` $scaleSel `]` `:` type($res)
       }];
     }
 
@@ -2716,8 +2719,7 @@ foreach smallT = [
         # smallT.name # [{, multiplying by the exponent part of `scale`
         before doing so. This op is for gfx1250+ arch.
       }];
-      let assemblyFormat = [{
-        attr-dict $src `,` $scale `:` type($res)
+      let assemblyFormat = [{ attr-dict $src `,` $scale `:` type($res)
       }];
     }
 
@@ -2734,8 +2736,7 @@ foreach smallT = [
         # smallT.name # [{, multiplying by the exponent part of `scale`
         before doing so and apply stochastic rounding. This op is for gfx1250+ arch.
       }];
-      let assemblyFormat = [{
-        attr-dict $src `,` $seed `,` $scale `:` type($res)
+      let assemblyFormat = [{ attr-dict $src `,` $seed `,` $scale `:` type($res)
       }];
     }
   } // foreach largeT
@@ -2764,8 +2765,7 @@ foreach smallT = [
         Available on gfx1250+.
       }];
       let results = (outs largeT.type:$res);
-      let assemblyFormat = [{
-        attr-dict $src `,` $scale `[` $scaleSel `]` `:` type($res)
+      let assemblyFormat = [{ attr-dict $src `,` $scale `[` $scaleSel `]` `:` type($res)
       }];
 
     }
@@ -2783,8 +2783,7 @@ foreach smallT = [
         # smallT.name # [{, multiplying by the exponent part of `scale`
         before doing so. This op is for gfx1250+ arch.
       }];
-      let assemblyFormat = [{
-        attr-dict $src `,` $scale `:` type($res)
+      let assemblyFormat = [{ attr-dict $src `,` $scale `:` type($res)
       }];
     }
 
@@ -2800,8 +2799,7 @@ foreach smallT = [
         # smallT.name # [{, multiplying by the exponent part of `scale`
         before doing so and apply stochastic rounding. This op is for gfx1250+ arch.
       }];
-      let assemblyFormat = [{
-        attr-dict $src `,` $seed `,` $scale `:` type($res)
+      let assemblyFormat = [{ attr-dict $src `,` $seed `,` $scale `:` type($res)
       }];
     }
 
@@ -2837,8 +2835,7 @@ foreach smallT = [
           # smallT.name # [{, dividing by the exponent part of `scale`
           before doing so.
         }];
-        let assemblyFormat = [{
-          attr-dict $src `,` $scale `:` type($res)
+        let assemblyFormat = [{ attr-dict $src `,` $scale `:` type($res)
         }];
       }
     } // if
@@ -2857,8 +2854,7 @@ foreach smallT = [
         before doing so and applying random rounding derived from
         `seed`.
       }];
-      let assemblyFormat = [{
-        attr-dict $src `,` $seed `,` $scale `:` type($res)
+      let assemblyFormat = [{ attr-dict $src `,` $seed `,` $scale `:` type($res)
       }];
     }
 
@@ -2874,8 +2870,7 @@ foreach smallT = [
         # largeT.name # [{, multiplying by the exponent part of `scale`
         before doing so.
       }];
-      let assemblyFormat = [{
-        attr-dict $src `,` $scale `:` type($res)
+      let assemblyFormat = [{ attr-dict $src `,` $scale `:` type($res)
       }];
     }
   } // foreach largeT
@@ -2892,8 +2887,7 @@ foreach smallT = [
       # smallT.name # [{, dividing by the exponent part of `scale`
       before doing so.
     }];
-   let assemblyFormat = [{
-      attr-dict $src0 `,` $src1 `,` $scale `:` type($res)
+   let assemblyFormat = [{ attr-dict $src0 `,` $src1 `,` $scale `:` type($res)
     }];
   }
 } // forach smallT
@@ -2919,8 +2913,7 @@ foreach smallTOp = ["Fp8", "Bf8"] in {
 
       The bytes are stored as an `i32` and not a `<4 x i8>`.
     }];
-    let assemblyFormat = [{
-      attr-dict $src `[` $srcSelIndex `]` `,` $scale `->` $oldVdst `[` $dstLoHiSel `]` `:` type($res)
+    let assemblyFormat = [{ attr-dict $src `[` $srcSelIndex `]` `,` $scale `->` $oldVdst `[` $dstLoHiSel `]` `:` type($res)
     }];
   }
 
@@ -2936,8 +2929,7 @@ foreach smallTOp = ["Fp8", "Bf8"] in {
 
       The bytes are stored in an `i32`, not a `<4 x i8>`.
     }];
-    let assemblyFormat = [{
-      attr-dict $src `[` $srcSelIndex `]` `,` $scale `:` type($res)
+    let assemblyFormat = [{ attr-dict $src `[` $srcSelIndex `]` `,` $scale `:` type($res)
     }];
   }
 
@@ -2953,8 +2945,7 @@ foreach smallTOp = ["Fp8", "Bf8"] in {
       a 16-bit value which is inserted into `oldVdst` at the `dstLoHiSel`
       position, with the entire updated vector being returned.
     }];
-    let assemblyFormat = [{
-      attr-dict  $src0 `,` $src1 `,` $scale `->` $oldVdst `[` $dstLoHiSel `]` `:` type($res)
+    let assemblyFormat = [{ attr-dict  $src0 `,` $src1 `,` $scale `->` $oldVdst `[` $dstLoHiSel `]` `:` type($res)
     }];
   }
 
@@ -2974,8 +2965,7 @@ foreach smallTOp = ["Fp8", "Bf8"] in {
         packed into a 16-bit value which is inserted into `oldVdst` at the
         `dstLoHiSel` position, with the entire updated vector being returned.
       }];
-      let assemblyFormat = [{
-        attr-dict $src0 `,` $scale `->` $oldVdst `[` $dstLoHiSel `]` `:` type($res)
+      let assemblyFormat = [{ attr-dict $src0 `,` $scale `->` $oldVdst `[` $dstLoHiSel `]` `:` type($res)
       }];
     }
   } // foreach largeT
@@ -2998,8 +2988,7 @@ foreach smallTOp = ["Fp8", "Bf8"] in {
         of `src` (a packed vector represented as an `i32`)
         on the basis of `srcLoHiSel`.
       }];
-      let assemblyFormat = [{
-        attr-dict $src `[` $srcLoHiSel `]` `,` $scale `:` type($res)
+      let assemblyFormat = [{ attr-dict $src `[` $srcLoHiSel `]` `,` $scale `:` type($res)
       }];
     }
   } // foreach largeT
@@ -3022,8 +3011,7 @@ foreach smallTOp = ["Fp8", "Bf8"] in {
         `dstSelIndex`th bit of `oldVdst` and return the entire packed vector,
         which is stored as an `i32`.
       }];
-      let assemblyFormat = [{
-        attr-dict $src0 `,` $seed `,` $scale `->` $oldVdst `[` $dstSelIndex `]` `:` type($res)
+      let assemblyFormat = [{ attr-dict $src0 `,` $seed `,` $scale `->` $oldVdst `[` $dstSelIndex `]` `:` type($res)
       }];
     }
   } // foreach largeT
@@ -3057,8 +3045,7 @@ foreach largeT = [
         That byte is used to update the `dstSelIndex`th
         byte of `oldVdst`, which is returned in its entirity.
       }];
-      let assemblyFormat = [{
-        attr-dict $src `,` $scale `->` $oldVdst `[` $dstSelIndex `]` `:` type($res)
+      let assemblyFormat = [{ attr-dict $src `,` $scale `->` $oldVdst `[` $dstSelIndex `]` `:` type($res)
       }];
     }
   } // if
@@ -3080,8 +3067,7 @@ foreach largeT = [
       into a byte. That byte is used to update the `dstSelIndex`th
       byte of `oldVdst`, which is returned in its entirity.
     }];
-    let assemblyFormat = [{
-      attr-dict $src `,` $seed `,` $scale `->` $oldVdst `[` $dstSelIndex `]` `:` type($res)
+    let assemblyFormat = [{ attr-dict $src `,` $seed `,` $scale `->` $oldVdst `[` $dstSelIndex `]` `:` type($res)
     }];
   }
 
@@ -3098,8 +3084,7 @@ foreach largeT = [
 
       The byte to convert is chosen by `srcSelIndex`.
     }];
-    let assemblyFormat = [{
-      attr-dict $src `[` $srcSelIndex `]` `,` $scale `:` type($res)
+    let assemblyFormat = [{ attr-dict $src `[` $srcSelIndex `]` `,` $scale `:` type($res)
     }];
   }
 } // foreach largeT
@@ -3125,8 +3110,7 @@ def ROCDL_CvtScaleF32PkFp4F32Op :
     %0 = rocdl.cvt.scalef32.pk.fp4.f32 %a, %b, %scale -> %old[0] : i32
     ```
   }];
- let assemblyFormat = [{
-    attr-dict $src0 `,` $src1 `,` $scale `->` $oldVdst `[` $dstSelIndex `]` `:` type($res)
+ let assemblyFormat = [{ attr-dict $src0 `,` $src1 `,` $scale `->` $oldVdst `[` $dstSelIndex `]` `:` type($res)
   }];
 }
 
