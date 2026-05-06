@@ -409,9 +409,10 @@ def AMDGPU_RawBufferLoadOp :
     - The cache coherency bits are off
   }];
   let assemblyFormat = [{
-    attr-dict $memref `[` $indices `]`
-      (`sgprOffset` $sgprOffset^)? `:`
-      type($memref) (`,` type($indices)^)? `->` type($value)
+    (`boundsCheck` `=` $boundsCheck^)?
+    (`indexOffset` `=` $indexOffset^)?
+    attr-dict $memref `[` $indices `]` (`sgprOffset` $sgprOffset^)? `:`
+    type($memref) (`,` type($indices)^)? `->` type($value)
   }];
   let hasCanonicalizer = 1;
   let hasVerifier = 1;
@@ -448,9 +449,11 @@ def AMDGPU_RawBufferStoreOp :
     instruction is constructed.
   }];
   let assemblyFormat = [{
+    (`boundsCheck` `=` $boundsCheck^)?
+    (`indexOffset` `=` $indexOffset^)?
     attr-dict $value `->` $memref `[` $indices `]`
-      (`sgprOffset` $sgprOffset^)? `:`
-      type($value) `->` type($memref) (`,` type($indices)^)?
+    (`sgprOffset` $sgprOffset^)? `:`
+    type($value) `->` type($memref) (`,` type($indices)^)?
   }];
   let hasCanonicalizer = 1;
   let hasVerifier = 1;
@@ -490,9 +493,11 @@ def AMDGPU_RawBufferAtomicCmpswapOp :
     instruction is constructed.
   }];
   let assemblyFormat = [{
+    (`boundsCheck` `=` $boundsCheck^)?
+    (`indexOffset` `=` $indexOffset^)?
     attr-dict $src `,` $cmp `->` $memref `[` $indices `]`
-      (`sgprOffset` $sgprOffset^)? `:`
-      type($value) `->` type($memref) `,` type($indices)
+    (`sgprOffset` $sgprOffset^)? `:`
+    type($value) `->` type($memref) `,` type($indices)
   }];
   let hasCanonicalizer = 1;
   let hasVerifier = 1;
@@ -532,9 +537,11 @@ def AMDGPU_RawBufferAtomicFaddOp :
     instruction is constructed.
   }];
   let assemblyFormat = [{
+    (`boundsCheck` `=` $boundsCheck^)?
+    (`indexOffset` `=` $indexOffset^)?
     attr-dict $value `->` $memref `[` $indices `]`
-      (`sgprOffset` $sgprOffset^)? `:`
-      type($value) `->` type($memref) `,` type($indices)
+    (`sgprOffset` $sgprOffset^)? `:`
+    type($value) `->` type($memref) `,` type($indices)
   }];
   let hasCanonicalizer = 1;
   let hasVerifier = 1;
@@ -574,9 +581,11 @@ def AMDGPU_RawBufferAtomicFmaxOp :
     instruction is constructed.
   }];
   let assemblyFormat = [{
+    (`boundsCheck` `=` $boundsCheck^)?
+    (`indexOffset` `=` $indexOffset^)?
     attr-dict $value `->` $memref `[` $indices `]`
-      (`sgprOffset` $sgprOffset^)? `:`
-      type($value) `->` type($memref) `,` type($indices)
+    (`sgprOffset` $sgprOffset^)? `:`
+    type($value) `->` type($memref) `,` type($indices)
   }];
   let hasCanonicalizer = 1;
   let hasVerifier = 1;
@@ -615,9 +624,11 @@ def AMDGPU_RawBufferAtomicSmaxOp :
     instruction is constructed.
   }];
   let assemblyFormat = [{
+    (`boundsCheck` `=` $boundsCheck^)?
+    (`indexOffset` `=` $indexOffset^)?
     attr-dict $value `->` $memref `[` $indices `]`
-      (`sgprOffset` $sgprOffset^)? `:`
-      type($value) `->` type($memref) `,` type($indices)
+    (`sgprOffset` $sgprOffset^)? `:`
+    type($value) `->` type($memref) `,` type($indices)
   }];
   let hasCanonicalizer = 1;
   let hasVerifier = 1;
@@ -656,9 +667,11 @@ def AMDGPU_RawBufferAtomicUminOp :
     instruction is constructed.
   }];
   let assemblyFormat = [{
+    (`boundsCheck` `=` $boundsCheck^)?
+    (`indexOffset` `=` $indexOffset^)?
     attr-dict $value `->` $memref `[` $indices `]`
-      (`sgprOffset` $sgprOffset^)? `:`
-      type($value) `->` type($memref) `,` type($indices)
+    (`sgprOffset` $sgprOffset^)? `:`
+    type($value) `->` type($memref) `,` type($indices)
   }];
   let hasCanonicalizer = 1;
   let hasVerifier = 1;
@@ -744,7 +757,7 @@ def AMDGPU_DPPOp : AMDGPU_Op<"dpp",
     // row_mask=0x5 (0b0101) -> only rows 0 and 2 apply the shift;
     // rows 1 and 3 pass through %old unchanged.
     %1 = amdgpu.dpp %old %src row_shr( 0x1 : i32 )
-      { row_mask = 0x5 : i32, bound_ctrl = true } : f32
+      row_mask = 0x5, bound_ctrl = true : f32
 
     // Rotate left across the full wavefront by 1 lane
     %2 = amdgpu.dpp %old %src wave_rol : i32
@@ -770,7 +783,12 @@ def AMDGPU_DPPOp : AMDGPU_Op<"dpp",
   }];
   let results = (outs AnyType:$result);
   let assemblyFormat = [{
-    $old $src $kind (`(` $permArgument^ `)`)? attr-dict `:` type($result)
+    $old $src $kind (`(` $permArgument^ `)`)?
+    (`row_mask` `=` $row_mask^)?
+    (`bank_mask` `=` $bank_mask^)?
+    (`bound_ctrl` `=` $bound_ctrl^)?
+    attr-dict `:`
+    type($result)
   }];
   let hasVerifier = 1;
 }
@@ -811,7 +829,8 @@ def AMDGPU_PermlaneSwapOp : AMDGPU_Op<"permlane_swap", [Pure, AllTypesMatch<["re
     Example:
     ```mlir
     %0 = amdgpu.permlane_swap %src 16 : f16
-    %1 = amdgpu.permlane_swap %src 32 { fetch_inactive = true, bound_ctrl = true } : f16
+    %1 = amdgpu.permlane_swap %src 32
+      fetch_inactive = true bound_ctrl = true : f16
     ```
 
     Operands:
@@ -833,7 +852,10 @@ def AMDGPU_PermlaneSwapOp : AMDGPU_Op<"permlane_swap", [Pure, AllTypesMatch<["re
                        DefaultValuedAttr<BoolAttr, "false">:$bound_ctrl);
   let results = (outs AnyIntegerOrFloatOr1DVector:$result);
   let assemblyFormat = [{
-    $src $row_length attr-dict `:` type($result)
+    $src $row_length
+    (`fetch_inactive` `=` $fetch_inactive^)?
+    (`bound_ctrl` `=` $bound_ctrl^)?
+    attr-dict `:` type($result)
   }];
   let hasVerifier = 1;
 }
@@ -871,7 +893,7 @@ def AMDGPU_PermlaneVarOp : AMDGPU_Op<"permlane_var",
                        DefaultValuedAttr<BoolAttr, "false">:$bound_ctrl);
   let results = (outs AnyIntegerOrFloatOr1DVector:$result);
   let assemblyFormat = [{
-    $src `,` $selector attr-dict `:` type($result)
+    $src `,` $selector prop-dict attr-dict `:` type($result)
   }];
 }
 
@@ -1068,12 +1090,19 @@ def AMDGPU_MFMAOp :
         : vector<4xf16>, vector<4xf16>, vector<4xf32>
 
       %1 = amdgpu.mfma 32x32x1 %matD * %matE + %matF
-        { abid = 1 : i32, cbsz = 1 : i32, blocks = 2 : i32 }
+        blocks = 2 cbsz = 1 abid = 1
         blgp = bcast_second_32 : f32, f32, vector<32xf32>
     ```
   }];
   let assemblyFormat = [{
     custom<MNKDimensionList>($m, $n, $k) $sourceA `*` $sourceB `+` $destC
+    (`blocks` `=` $blocks^)?
+    (`cbsz` `=` $cbsz^)?
+    (`abid` `=` $abid^)?
+    (`reducePrecision` $reducePrecision^)?
+    (`negateA` $negateA^)?
+    (`negateB` $negateB^)?
+    (`negateC` $negateC^)?
     attr-dict
     `blgp` `=` $blgp
     `:` type($sourceA) `,` type($sourceB) `,` type($destC)
@@ -1136,6 +1165,10 @@ def AMDGPU_WMMAOp :
   }];
   let assemblyFormat = [{
     custom<MNKDimensionList>($m, $n, $k) $sourceA `*` $sourceB `+` $destC
+    (`subwordOffset` `=` $subwordOffset^)?
+    (`unsignedA` $unsignedA^)?
+    (`unsignedB` $unsignedB^)?
+    (`clamp` $clamp^)?
     attr-dict
     `:` type($sourceA) `,` type($sourceB) `,` type($destC)
   }];
@@ -1182,9 +1215,9 @@ def AMDGPU_DotOp :
     Example:
     ```mlir
     %r0 = amdgpu.dot %a * %b + %c : vector<4xi8>, vector<4xi8>, i32
-    %r1 = amdgpu.dot %a * %b + %c {unsignedA, unsignedB, clamp}
+    %r1 = amdgpu.dot %a * %b + %c unsignedA unsignedB clamp
         : vector<8xi4>, vector<8xi4>, i32
-    %r2 = amdgpu.dot %a * %b + %c {unsignedB}
+    %r2 = amdgpu.dot %a * %b + %c unsignedB
         : vector<4xi8>, vector<4xi8>, i32
     %r3 = amdgpu.dot %a * %b + %c : vector<2xf16>, vector<2xf16>, f32
     %r4 = amdgpu.dot %a * %b + %c : vector<2xf16>, vector<2xf16>, f16
@@ -1193,7 +1226,11 @@ def AMDGPU_DotOp :
     ```
   }];
   let assemblyFormat = [{
-    $sourceA `*` $sourceB `+` $destC attr-dict
+    $sourceA `*` $sourceB `+` $destC
+      (`unsignedA` $unsignedA^)?
+      (`unsignedB` $unsignedB^)?
+      (`clamp` $clamp^)?
+      attr-dict
       `:` type($sourceA) `,` type($sourceB) `,` type($destC)
   }];
   let hasVerifier = 1;
@@ -1256,7 +1293,7 @@ def AMDGPU_SparseMFMAOp :
         : vector<8xi8>, vector<16xi8>, vector<4xi32>
 
       %2 = amdgpu.sparse_mfma 16x16x64 %matA * %matB + %matC sparse(%idx : vector<2xi16>)
-        { cbsz = 0 : i32, abid = 1 : i32 }
+        abid = 1
         : vector<8xf8E4M3FNUZ>, vector<16xf8E4M3FNUZ>, vector<4xf32>
 
       %3 = amdgpu.sparse_mfma 16x16x128 %matA * %matB + %matC sparse(%idx : i32)
@@ -1266,6 +1303,8 @@ def AMDGPU_SparseMFMAOp :
   let assemblyFormat = [{
     custom<MNKDimensionList>($m, $n, $k) $sourceA `*` $sourceB `+` $destC
     `sparse` `(` $sparseIdx `:` type($sparseIdx) `)`
+    (`cbsz` `=` $cbsz^)?
+    (`abid` `=` $abid^)?
     attr-dict
     `:` type($sourceA) `,` type($sourceB) `,` type($destC)
   }];
@@ -1355,13 +1394,19 @@ def AMDGPU_SparseWMMAOp :
         : vector<8xi8>, vector<16xi8>, vector<4xi32>
 
       %2 = amdgpu.sparse_wmma 16x16x64 %matA * %matB + %matC sparse(%idx : vector<2xi16>)
-        { unsignedA = 0 : i1, unsignedB = 1 : i1, clamp = 0 : i1 }
+        unsignedA unsignedB clamp
         : vector<8xf8E4M3FNUZ>, vector<16xf8E4M3FNUZ>, vector<4xf32>
     ```
   }];
   let assemblyFormat = [{
     custom<MNKDimensionList>($m, $n, $k) $sourceA `*` $sourceB `+` $destC
     `sparse` `(` $sparseIdx `:` type($sparseIdx) `)`
+    (`unsignedA` $unsignedA^)?
+    (`unsignedB` $unsignedB^)?
+    (`reuseA` $reuseA^)?
+    (`reuseB` $reuseB^)?
+    (`clamp` $clamp^)?
+    (`wave64` $wave64^)?
     attr-dict
     `:` type($sourceA) `,` type($sourceB) `,` type($destC)
   }];
@@ -1677,22 +1722,22 @@ def AMDGPU_ScaledWMMAOp
     Example:
     ```mlir
       // 16x16x128: fp8 inputs
-      %0 = amdgpu.scaled_wmma 16x16x128 (%scaleVecA * %matA) * (%scaleVecB * %matB) + %matC
-        {a_first_scale_lane = 0 : i32, b_first_scale_lane = 0 : i32}
+      %0 = amdgpu.scaled_wmma 16x16x128
+        (%scaleVecA[0] * %matA) * (%scaleVecB[0] * %matB) + %matC
         : vector<4xf8E8M0FNU>, vector<64xf8E4M3FN>,
         vector<4xf8E8M0FNU>, vector<64xf8E4M3FN>, vector<8xf32>
 
       // 32x16x128: fp4 inputs with different scale lanes
-      %1 = amdgpu.scaled_wmma 32x16x128 (%scaleVecD * %matD) * (%scaleVecE * %matE) + %matF
-        {a_first_scale_lane = 0 : i32, b_first_scale_lane = 16 : i32}
+      %1 = amdgpu.scaled_wmma 32x16x128
+        (%scaleVecD[0] * %matD) * (%scaleVecE[16] * %matE) + %matF
         : vector<8xf8E4M3FN>, vector<128xf4E2M1FN>,
         vector<8xf8E4M3FN>, vector<64xf4E2M1FN>, vector<16xf32>
     ```
   }];
   let assemblyFormat = [{
     custom<MNKDimensionList>($m, $n, $k) ` `
-    `(` $scaleA `*` $sourceA `)` `*`
-    `(` $scaleB `*` $sourceB `)` `+` $destC
+    `(` $scaleA `[` $a_first_scale_lane `]` `*` $sourceA `)` `*`
+    `(` $scaleB `[` $b_first_scale_lane `]` `*` $sourceB `)` `+` $destC
     attr-dict
     `:` type($scaleA) `,` type($sourceA) `,` type($scaleB) `,` type($sourceB) `,` type($destC)
   }];

@@ -13,6 +13,7 @@ include "mlir/IR/DialectBase.td"
 
 def AMDGPU_Dialect : Dialect {
   let name = "amdgpu";
+  let useStrictPropertiesInAssemblyFormat = 1;
   let cppNamespace = "::mlir::amdgpu";
   let description = [{
     The `AMDGPU` dialect provides wrappers around AMD-specific functionality
