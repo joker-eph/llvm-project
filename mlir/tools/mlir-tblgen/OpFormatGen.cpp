@@ -20,6 +20,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/SourceMgr.h"
@@ -345,7 +346,10 @@ struct OperationFormat {
   };
 
   OperationFormat(const Operator &op, bool hasProperties)
-      : useProperties(hasProperties), opCppClassName(op.getCppClassName()) {
+      : useProperties(hasProperties),
+        useStrictPropertiesInAssemblyFormat(
+            op.getDialect().useStrictPropertiesInAssemblyFormat()),
+        opCppClassName(op.getCppClassName()) {
     operandTypes.resize(op.getNumOperands(), TypeResolution());
     resultTypes.resize(op.getNumResults(), TypeResolution());
 
@@ -354,6 +358,11 @@ struct OperationFormat {
     });
 
     hasSingleBlockTrait = op.getTrait("::mlir::OpTrait::SingleBlock");
+
+    for (const NamedAttribute &attr : op.getAttributes()) {
+      if (!attr.attr.isDerivedAttr())
+        inherentAttrNames.push_back(attr.name);
+    }
   }
 
   /// Generate the operation parser from this format.
@@ -403,11 +412,17 @@ struct OperationFormat {
   /// Indicate whether we need to use properties for the current operator.
   bool useProperties;
 
+  /// Indicate whether the dialect uses strict properties in assembly formats.
+  bool useStrictPropertiesInAssemblyFormat;
+
   /// Indicate whether prop-dict is used in the format
-  bool hasPropDict;
+  bool hasPropDict = false;
 
   /// The Operation class name
   StringRef opCppClassName;
+
+  /// The names of inherent attributes for this operation.
+  SmallVector<StringRef> inherentAttrNames;
 
   /// A map of buildable types to indices.
   llvm::MapVector<StringRef, int, StringMap<int>> buildableTypes;
@@ -1633,13 +1648,20 @@ void OperationFormat::genElementParser(FormatElement *element, MethodBody &body,
                   << (attrDict->isWithKeyword() ? "WithKeyword" : "")
                   << "(result.attributes))\n"
                   << "  return ::mlir::failure();\n";
-    if (useProperties) {
+    if (useProperties && !useStrictPropertiesInAssemblyFormat) {
       body << "if (failed(verifyInherentAttrs(result.name, result.attributes, "
               "[&]() {\n"
            << "    return parser.emitError(loc) << \"'\" << "
               "result.name.getStringRef() << \"' op \";\n"
            << "  })))\n"
            << "  return ::mlir::failure();\n";
+    } else if (useProperties) {
+      for (StringRef name : inherentAttrNames) {
+        body << "if (result.attributes.get(\"" << name << "\"))\n"
+             << "  return parser.emitError(loc, \"inherent attribute '" << name
+             << "' cannot be parsed from attr-dict when strict properties in "
+                "assembly format is enabled\");\n";
+      }
     }
     body.unindent() << "}\n";
     body.unindent();
@@ -2858,6 +2880,30 @@ LogicalResult OpFormatParser::verify(SMLoc loc,
       failed(verifyRegions(loc)) || failed(verifySuccessors(loc)) ||
       failed(verifyOIListElements(loc, elements)))
     return failure();
+
+  if (fmt.useProperties && fmt.useStrictPropertiesInAssemblyFormat &&
+      !hasPropDict) {
+    auto emitMissingError = [&](StringRef kind,
+                                StringRef name) -> LogicalResult {
+      return emitError(loc,
+                       llvm::Twine("strict properties in assembly format "
+                                   "requires prop-dict unless all inherent "
+                                   "attributes and properties are bound in "
+                                   "the custom assembly format; "
+                                   "missing ") +
+                           kind + " '" + name + "'");
+    };
+    for (const NamedAttribute &attr : op.getAttributes()) {
+      if (attr.attr.isDerivedAttr())
+        continue;
+      if (!seenAttrs.count(&attr))
+        return emitMissingError("attribute", attr.name);
+    }
+    for (const NamedProperty &prop : op.getProperties()) {
+      if (!seenProperties.count(&prop))
+        return emitMissingError("property", prop.name);
+    }
+  }
 
   // Collect the set of used attributes in the format.
   fmt.usedAttributes = std::move(seenAttrs);
