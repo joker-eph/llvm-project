@@ -1,5 +1,3 @@
-// XFAIL: mlir-expensive-checks
-
 // DEFINE: %{compile} =  mlir-opt %s \
 // DEFINE:    -transform-interpreter -test-transform-dialect-erase-schedule \
 // DEFINE:    -cse -canonicalize -test-lower-to-llvm

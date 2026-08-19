@@ -1,5 +1,4 @@
-// REQUIRES: arm-emulator 
-// XFAIL: mlir-expensive-checks
+// REQUIRES: arm-emulator
 
 // This test is a clone of pack-dynamic-inner-tile.mlir, but the inner tile is
 // vector.vscale * %c8 rather than %c8. In order to demonstrate the impact of
