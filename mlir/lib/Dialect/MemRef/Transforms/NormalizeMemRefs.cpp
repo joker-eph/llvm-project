@@ -514,7 +514,8 @@ Operation *NormalizeMemRefs::createOpResultsNormalized(func::FuncOp funcOp,
   // the operation results.
   OperationState result(oldOp->getLoc(), oldOp->getName());
   result.addOperands(oldOp->getOperands());
-  result.addAttributes(oldOp->getAttrs());
+  result.addAttributes(oldOp->getDiscardableAttrDictionary().getValue());
+  result.propertiesAttr = oldOp->getPropertiesAsAttribute();
   // Add normalized MemRefType to the OperationState.
   SmallVector<Type, 4> resultTypes;
   OpBuilder b(funcOp);

@@ -2063,7 +2063,9 @@ static const char *regionSingleBlockImplicitTerminatorPrinterCode = R"(
   {
     bool printTerminator = true;
     if (auto *term = {0}.empty() ? nullptr : {0}.begin()->getTerminator()) {{
-      printTerminator = !term->getAttrDictionary().empty() ||
+      ::mlir::NamedAttrList termAttrs(term->getRawDictionaryAttrs());
+      term->getName().populateInherentAttrs(term, termAttrs);
+      printTerminator = !termAttrs.empty() ||
                         term->getNumOperands() != 0 ||
                         term->getNumResults() != 0;
     }
@@ -2220,11 +2222,17 @@ static void genAttrDictPrinter(OperationFormat &fmt, Operator &op,
   if (fmt.hasPropDict)
     body << "  _odsPrinter.printOptionalAttrDict"
          << (withKeyword ? "WithKeyword" : "")
-         << "(llvm::to_vector((*this)->getDiscardableAttrs()), elidedAttrs);\n";
-  else
-    body << "  _odsPrinter.printOptionalAttrDict"
+         << "(llvm::to_vector((*this)->getDiscardableAttrDictionary().getValue("
+            ")), elidedAttrs);\n";
+  else {
+    body << "  ::mlir::NamedAttrList _odsAttrs("
+            "(*this)->getRawDictionaryAttrs());\n"
+            "  (*this)->getName().populateInherentAttrs(*this, _odsAttrs);\n"
+            "  _odsPrinter.printOptionalAttrDict"
          << (withKeyword ? "WithKeyword" : "")
-         << "((*this)->getAttrs(), elidedAttrs);\n";
+         << "(_odsAttrs.getDictionary(getContext()).getValue(), "
+            "elidedAttrs);\n";
+  }
 }
 
 /// Generate the printer for a literal value. `shouldEmitSpace` is true if a
@@ -2266,7 +2274,11 @@ static void genCustomDirectiveParameterPrinter(FormatElement *element,
     body << op.getGetterName(attr->getVar()->name) << "Attr()";
 
   } else if (isa<AttrDictDirective>(element)) {
-    body << "getOperation()->getAttrDictionary()";
+    body << "[&]() { ::mlir::NamedAttrList attrs("
+            "getOperation()->getRawDictionaryAttrs()); "
+            "getOperation()->getName().populateInherentAttrs("
+            "getOperation(), attrs); return attrs.getDictionary("
+            "getOperation()->getContext()); }()";
 
   } else if (isa<PropDictDirective>(element)) {
     body << "getProperties()";

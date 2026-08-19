@@ -446,10 +446,16 @@ void IRNumberingState::number(Operation &op) {
   // not used, we need to number also the merged dictionary containing both the
   // inherent and discardable attribute.
   DictionaryAttr dictAttr;
-  if (config.getDesiredBytecodeVersion() >= bytecode::kNativePropertiesEncoding)
+  if (config.getDesiredBytecodeVersion() >=
+          bytecode::kNativePropertiesEncoding ||
+      !op.getPropertiesStorage())
     dictAttr = op.getRawDictionaryAttrs();
-  else
-    dictAttr = op.getAttrDictionary();
+  else {
+    NamedAttrList attrs;
+    op.getName().populateInherentAttrs(&op, attrs);
+    attrs.append(op.getDiscardableAttrDictionary().getValue());
+    dictAttr = attrs.getDictionary(op.getContext());
+  }
   // Only number the operation's dictionary if it isn't empty.
   if (!dictAttr.empty())
     number(dictAttr);

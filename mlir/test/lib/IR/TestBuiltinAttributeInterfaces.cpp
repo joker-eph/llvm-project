@@ -35,7 +35,10 @@ struct TestElementsAttrInterface
   }
   void runOnOperation() override {
     getOperation().walk([&](Operation *op) {
-      for (NamedAttribute attr : op->getAttrs()) {
+      NamedAttrList attrs(op->getDiscardableAttrDictionary());
+      if (op->getPropertiesStorageSize())
+        op->getName().populateInherentAttrs(op, attrs);
+      for (NamedAttribute attr : attrs) {
         auto elementsAttr = dyn_cast<ElementsAttr>(attr.getValue());
         if (!elementsAttr)
           continue;

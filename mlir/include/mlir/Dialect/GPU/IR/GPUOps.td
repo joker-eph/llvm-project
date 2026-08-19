@@ -419,7 +419,9 @@ def GPU_GPUFuncOp : GPU_Op<"func", [
     attribution.
   }];
 
-  let arguments = (ins TypeAttrOf<FunctionType>:$function_type,
+  let arguments = (ins SymbolNameAttr:$sym_name,
+                       OptionalAttr<StrAttr>:$sym_visibility,
+                       TypeAttrOf<FunctionType>:$function_type,
                        OptionalAttr<DictArrayAttr>:$arg_attrs,
                        OptionalAttr<DictArrayAttr>:$res_attrs,
                        OptionalAttr<DictArrayAttr>:$workgroup_attrib_attrs,
@@ -447,7 +449,7 @@ def GPU_GPUFuncOp : GPU_Op<"func", [
     bool isKernel() {
       if (getKernel())
         return true;
-      return (*this)->getAttrOfType<UnitAttr>(
+      return (*this)->getDiscardableAttrOfType<UnitAttr>(
           GPUDialect::getKernelFuncAttrName()) != nullptr;
     }
 

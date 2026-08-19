@@ -54,7 +54,7 @@ LogicalResult getSegmentSizesFromAttr(Operation *op, StringRef elemName,
                                       ArrayRef<Variadicity> variadicities,
                                       SmallVectorImpl<int> &segmentSizes) {
   // Get the segment sizes attribute, and check that it is of the right type.
-  Attribute segmentSizesAttr = op->getAttr(attrName);
+  Attribute segmentSizesAttr = op->getDiscardableAttr(attrName);
   if (!segmentSizesAttr) {
     return op->emitError() << "'" << attrName
                            << "' attribute is expected but not provided";
@@ -209,7 +209,7 @@ static LogicalResult irdlOpVerifier(
 
   /// Сheck that we have all needed attributes passed
   /// and they satisfy the constraints.
-  DictionaryAttr actualAttrs = op->getAttrDictionary();
+  DictionaryAttr actualAttrs = op->getDiscardableAttrDictionary();
 
   for (auto [name, constraint] : attributeConstrs) {
     /// First, check if the attribute actually passed.

@@ -47,8 +47,9 @@ public:
   void add(mlir::ModuleOp module) {
     assert(module->getNumRegions() == 1);
     for (auto &op : module.getBody(0)->getOperations())
-      if (auto symbol = op.getAttrOfType<mlir::StringAttr>(
-              mlir::SymbolTable::getSymbolAttrName()))
+      if (auto symbol = llvm::dyn_cast_or_null<mlir::StringAttr>(
+              op.getInherentAttr(mlir::SymbolTable::getSymbolAttrName())
+                  .value_or(mlir::Attribute{})))
         nextIndex.insert({symbol.getValue(), 0});
   }
 

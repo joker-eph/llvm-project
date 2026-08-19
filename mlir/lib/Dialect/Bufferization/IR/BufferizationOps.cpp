@@ -328,8 +328,11 @@ void AllocTensorOp::print(OpAsmPrinter &p) {
     p << " copy(" << getCopy() << ")";
   if (getSizeHint())
     p << " size_hint=" << getSizeHint();
-  p.printOptionalAttrDict((*this)->getAttrs(), /*elidedAttrs=*/{
-                              AllocTensorOp::getOperandSegmentSizeAttr()});
+  NamedAttrList attrs((*this)->getDiscardableAttrDictionary());
+  if (Attribute memorySpace = getMemorySpaceAttr())
+    attrs.append(getMemorySpaceAttrName(), memorySpace);
+  p.printOptionalAttrDict(
+      attrs, /*elidedAttrs=*/{AllocTensorOp::getOperandSegmentSizeAttr()});
   p << " : ";
   auto type = getResult().getType();
   if (auto validType = llvm::dyn_cast<::mlir::TensorType>(type))

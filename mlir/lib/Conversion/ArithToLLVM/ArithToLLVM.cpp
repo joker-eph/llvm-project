@@ -374,10 +374,10 @@ struct SelectOpOneToNLowering : public ConvertOpToLLVMPattern<arith::SelectOp> {
 LogicalResult
 ConstantOpLowering::matchAndRewrite(arith::ConstantOp op, OpAdaptor adaptor,
                                     ConversionPatternRewriter &rewriter) const {
-  return LLVM::detail::oneToOneRewrite(op, LLVM::ConstantOp::getOperationName(),
-                                       adaptor.getOperands(), op->getAttrs(),
-                                       /*propAttr=*/Attribute{},
-                                       *getTypeConverter(), rewriter);
+  return LLVM::detail::oneToOneRewrite(
+      op, LLVM::ConstantOp::getOperationName(), adaptor.getOperands(),
+      op->getDiscardableAttrDictionary().getValue(),
+      op->getPropertiesAsAttribute(), *getTypeConverter(), rewriter);
 }
 
 //===----------------------------------------------------------------------===//

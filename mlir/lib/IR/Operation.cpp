@@ -143,7 +143,9 @@ Operation *Operation::create(Location location, OperationName name,
     new (&blockOperands[i]) BlockOperand(op, successors[i]);
 
   // This must be done after properties are initialized.
+  LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_PUSH
   op->setAttrs(attributes);
+  LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_POP
 
   return op;
 }
@@ -1269,7 +1271,10 @@ LogicalResult OpTrait::impl::verifyValueSizeAttr(Operation *op,
                                                  StringRef attrName,
                                                  StringRef valueGroupName,
                                                  size_t expectedCount) {
-  auto sizeAttr = op->getAttrOfType<DenseI32ArrayAttr>(attrName);
+  Attribute rawSizeAttr = op->getDiscardableAttr(attrName);
+  if (op->getPropertiesStorageSize())
+    rawSizeAttr = op->getInherentAttr(attrName).value_or(rawSizeAttr);
+  auto sizeAttr = dyn_cast_or_null<DenseI32ArrayAttr>(rawSizeAttr);
   if (!sizeAttr)
     return op->emitOpError("requires dense i32 array attribute '")
            << attrName << "'";

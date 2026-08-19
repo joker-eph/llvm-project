@@ -523,7 +523,13 @@ void MutableOperandRange::updateLength(unsigned newLength) {
     segments[segment.first] += diff;
     segment.second.setValue(
         DenseI32ArrayAttr::get(attr.getContext(), segments));
-    owner->setAttr(segment.second.getName(), segment.second.getValue());
+    if (owner->getPropertiesStorageSize() &&
+        owner->getInherentAttr(segment.second.getName()))
+      owner->setInherentAttr(segment.second.getName(),
+                             segment.second.getValue());
+    else
+      owner->setDiscardableAttr(segment.second.getName(),
+                                segment.second.getValue());
   }
 }
 

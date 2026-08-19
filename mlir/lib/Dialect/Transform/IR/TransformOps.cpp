@@ -268,13 +268,13 @@ transform::AnnotateOp::apply(transform::TransformRewriter &rewriter,
                << params.size() << " vs " << targets.size() << ")";
       }
       for (auto &&[target, attr] : llvm::zip_equal(targets, params))
-        target->setAttr(getName(), attr);
+        target->setDiscardableAttr(getName(), attr);
       return DiagnosedSilenceableFailure::success();
     }
     attr = params[0];
   }
   for (auto *target : targets)
-    target->setAttr(getName(), attr);
+    target->setDiscardableAttr(getName(), attr);
   return DiagnosedSilenceableFailure::success();
 }
 
@@ -2068,8 +2068,7 @@ void transform::IncludeOp::getEffects(
 
   // Bail if the callee is unknown. This may run as part of the verification
   // process before we verified the validity of the callee or of this op.
-  auto target =
-      getOperation()->getAttrOfType<SymbolRefAttr>(getTargetAttrName());
+  auto target = getTargetAttr();
   if (!target)
     return defaultEffects();
   auto callee = SymbolTable::lookupNearestSymbolFrom<NamedSequenceOp>(
@@ -2089,7 +2088,7 @@ LogicalResult
 transform::IncludeOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   // Access through indirection and do additional checking because this may be
   // running before the main op verifier.
-  auto targetAttr = getOperation()->getAttrOfType<SymbolRefAttr>("target");
+  auto targetAttr = getTargetAttr();
   if (!targetAttr)
     return emitOpError() << "expects a 'target' symbol reference attribute";
 
@@ -2439,7 +2438,7 @@ verifyYieldingSingleBlockOp(FunctionOpInterface op, bool allowExternal) {
 static DiagnosedSilenceableFailure
 verifyNamedSequenceOp(transform::NamedSequenceOp op, bool emitWarnings) {
   if (Operation *parent = op->getParentWithTrait<OpTrait::SymbolTable>()) {
-    if (!parent->getAttr(
+    if (!parent->getDiscardableAttr(
             transform::TransformDialect::kWithNamedSequenceAttrName)) {
       DiagnosedSilenceableFailure diag =
           emitSilenceableFailure(op)

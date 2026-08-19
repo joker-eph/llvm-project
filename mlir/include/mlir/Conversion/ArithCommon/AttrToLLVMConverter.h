@@ -18,6 +18,15 @@
 
 namespace mlir {
 namespace arith {
+
+template <typename SourceOp>
+static NamedAttrList getAttrsWithProperties(SourceOp srcOp) {
+  NamedAttrList attrs(srcOp->getDiscardableAttrDictionary());
+  if (auto properties =
+          dyn_cast_or_null<DictionaryAttr>(srcOp->getPropertiesAsAttribute()))
+    attrs.append(properties.getValue());
+  return attrs;
+}
 /// Maps arithmetic fastmath enum values to LLVM enum values.
 LLVM::FastmathFlags
 convertArithFastMathFlagsToLLVM(arith::FastMathFlags arithFMF);
@@ -53,7 +62,7 @@ class AttrConvertFastMathToLLVM {
 public:
   AttrConvertFastMathToLLVM(SourceOp srcOp) {
     // Copy the source attributes.
-    convertedAttr = NamedAttrList{srcOp->getAttrs()};
+    convertedAttr = getAttrsWithProperties(srcOp);
     // Get the name of the arith fastmath attribute.
     StringRef arithFMFAttrName = SourceOp::getFastMathAttrName();
     // Remove the source fastmath attribute.
@@ -82,7 +91,7 @@ public:
     using IntegerOverflowFlagsAttr = LLVM::IntegerOverflowFlagsAttr;
 
     // Copy the source attributes.
-    convertedAttr = NamedAttrList{srcOp->getAttrs()};
+    convertedAttr = getAttrsWithProperties(srcOp);
     // Get the name of the arith overflow attribute.
     StringRef arithAttrName = SourceOp::getIntegerOverflowAttrName();
     // Remove the source overflow attribute from the set that will be present
@@ -118,7 +127,7 @@ template <typename SourceOp, typename TargetOp>
 class AttrConvertNonNegToLLVM {
 public:
   AttrConvertNonNegToLLVM(SourceOp srcOp) {
-    convertedAttr = NamedAttrList{srcOp->getAttrs()};
+    convertedAttr = getAttrsWithProperties(srcOp);
     if (!convertedAttr.erase("nonNeg"))
       return;
     MLIRContext *ctx = srcOp.getOperation()->getContext();
@@ -144,7 +153,7 @@ class AttrConverterConstrainedFPToLLVM {
 public:
   AttrConverterConstrainedFPToLLVM(SourceOp srcOp) {
     // Copy the source attributes.
-    convertedAttr = NamedAttrList{srcOp->getAttrs()};
+    convertedAttr = getAttrsWithProperties(srcOp);
 
     if constexpr (TargetOp::template hasTrait<
                       LLVM::RoundingModeOpInterface::Trait>()) {

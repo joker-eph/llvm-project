@@ -986,11 +986,11 @@ struct RankReduceContractionOps : OpRewritePattern<FromOpTy> {
     auto collapsedOp = ToOpTy::create(rewriter, loc, collapsedResultTy,
                                       ValueRange{collapsedLhs, collapsedRhs},
                                       ValueRange{collapsedInit});
-    for (auto attr : contractionOp->getAttrs()) {
+    for (auto attr : contractionOp->getDiscardableAttrDictionary().getValue()) {
       if (attr.getName() == LinalgDialect::kMemoizedIndexingMapsAttrName ||
           attr.getName() == "indexing_maps")
         continue;
-      collapsedOp->setAttr(attr.getName(), attr.getValue());
+      collapsedOp->setDiscardableAttr(attr.getName(), attr.getValue());
     }
 
     auto results = contractionOp.getResults();

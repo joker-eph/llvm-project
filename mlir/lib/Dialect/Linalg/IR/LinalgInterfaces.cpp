@@ -898,8 +898,8 @@ mlir::linalg::inferConvolutionDims(LinalgOp linalgOp) {
   return inferConvolutionDimsImpl(
       indexingMaps, linalgOp.getIteratorTypesArray(), inputExprWalker,
       /*allowEmptyConvolvedDims=*/false,
-      linalgOp->getAttrOfType<DenseIntElementsAttr>("strides"),
-      linalgOp->getAttrOfType<DenseIntElementsAttr>("dilations"));
+      linalgOp->getDiscardableAttrOfType<DenseIntElementsAttr>("strides"),
+      linalgOp->getDiscardableAttrOfType<DenseIntElementsAttr>("dilations"));
 }
 
 FailureOr<ConvolutionDimensions>
@@ -1067,8 +1067,8 @@ mlir::linalg::detail::isConvolutionInterfaceImpl(
   if (dimensions) {
     FailureOr<ConvolutionDimensions> res = inferConvolutionDimsImpl(
         indexingMaps, iteratorTypes, inputExprWalker, allowEmptyConvolvedDims,
-        linalgOp->getAttrOfType<DenseIntElementsAttr>("strides"),
-        linalgOp->getAttrOfType<DenseIntElementsAttr>("dilations"));
+        linalgOp->getDiscardableAttrOfType<DenseIntElementsAttr>("strides"),
+        linalgOp->getDiscardableAttrOfType<DenseIntElementsAttr>("dilations"));
     assert(succeeded(res) && "unexpected failure to infer convolution dims");
     *dimensions = *res;
   }

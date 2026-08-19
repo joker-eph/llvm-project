@@ -148,12 +148,12 @@ struct BranchOpLowering : public ConvertOpToLLVMPattern<cf::BranchOp> {
                           TypeRange(ValueRange(flattenedAdaptor)));
     if (failed(convertedBlock))
       return failure();
-    DictionaryAttr attrs = op->getAttrDictionary();
+    DictionaryAttr attrs = op->getDiscardableAttrDictionary();
     Operation *newOp = rewriter.replaceOpWithNewOp<LLVM::BrOp>(
         op, flattenedAdaptor, *convertedBlock);
     // TODO: We should not just forward all attributes like that. But there are
     // existing Flang tests that depend on this behavior.
-    newOp->setAttrs(attrs);
+    newOp->setDiscardableAttrs(attrs);
     return success();
   }
 };

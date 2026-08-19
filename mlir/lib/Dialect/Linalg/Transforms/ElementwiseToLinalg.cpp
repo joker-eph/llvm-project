@@ -142,10 +142,11 @@ struct ConvertAnyElementwiseMappableOpOnRankedTensors : public RewritePattern {
               llvm::map_to_vector<6>(op->getResultTypes(), [](Type type) {
                 return cast<TensorType>(type).getElementType();
               });
-          Operation *scalarOp =
-              builder.create(loc, op->getName().getIdentifier(),
-                             regionArgs.take_front(op->getNumOperands()),
-                             resultEltTys, op->getAttrs());
+          OperationState state(
+              loc, op->getName(), regionArgs.take_front(op->getNumOperands()),
+              resultEltTys, op->getDiscardableAttrDictionary().getValue());
+          state.propertiesAttr = op->getPropertiesAsAttribute();
+          Operation *scalarOp = builder.create(state);
           linalg::YieldOp::create(builder, loc, scalarOp->getResults());
         });
     return success();

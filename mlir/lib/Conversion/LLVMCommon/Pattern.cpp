@@ -367,7 +367,7 @@ LogicalResult LLVM::detail::intrinsicRewrite(
   auto callIntrOp = LLVM::CallIntrinsicOp::create(
       rewriter, loc, resType, rewriter.getStringAttr(intrinsic), operands);
   // Propagate attributes.
-  callIntrOp->setAttrs(op->getAttrDictionary());
+  callIntrOp->setDiscardableAttrs(op->getDiscardableAttrDictionary());
 
   if (numResults <= 1) {
     // Directly replace the original op.

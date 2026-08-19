@@ -169,21 +169,27 @@ void function_interface_impl::printFunctionAttributes(
   SmallVector<StringRef, 8> ignoredAttrs = {SymbolTable::getSymbolAttrName()};
   ignoredAttrs.append(elided.begin(), elided.end());
 
-  p.printOptionalAttrDictWithKeyword(op->getAttrs(), ignoredAttrs);
+  NamedAttrList attrs(op->getDiscardableAttrDictionary().getValue());
+  op->getName().populateInherentAttrs(op, attrs);
+  p.printOptionalAttrDictWithKeyword(attrs, ignoredAttrs);
 }
 
 void function_interface_impl::printFunctionOp(
     OpAsmPrinter &p, FunctionOpInterface op, bool isVariadic,
     StringRef typeAttrName, StringAttr argAttrsName, StringAttr resAttrsName) {
   // Print the operation and the function name.
-  auto funcName =
-      op->getAttrOfType<StringAttr>(SymbolTable::getSymbolAttrName())
-          .getValue();
+  auto symbol = cast<SymbolOpInterface>(op.getOperation());
+  StringRef funcName = symbol.getName();
   p << ' ';
 
   StringRef visibilityAttrName = SymbolTable::getVisibilityAttrName();
-  if (auto visibility = op->getAttrOfType<StringAttr>(visibilityAttrName))
-    p << visibility.getValue() << ' ';
+  std::optional<Attribute> inherentVisibility =
+      op->getInherentAttr(visibilityAttrName);
+  Attribute visibility = inherentVisibility.has_value()
+                             ? *inherentVisibility
+                             : op->getDiscardableAttr(visibilityAttrName);
+  if (auto value = dyn_cast_or_null<StringAttr>(visibility))
+    p << value.getValue() << ' ';
   p.printSymbolName(funcName);
 
   ArrayRef<Type> argTypes = op.getArgumentTypes();

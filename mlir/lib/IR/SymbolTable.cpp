@@ -22,13 +22,21 @@ static bool isPotentiallyUnknownSymbolTable(Operation *op) {
   return op->getNumRegions() == 1 && !op->getDialect();
 }
 
+static Attribute getSymbolAttribute(Operation *op, StringRef name) {
+  if (op->getPropertiesStorageSize())
+    if (std::optional<Attribute> inherent = op->getInherentAttr(name))
+      return *inherent;
+  return op->getDiscardableAttr(name);
+}
+
 /// Returns the string name of the given symbol, or null if this is not a
 /// symbol.
 static StringAttr getNameIfSymbol(Operation *op) {
-  return op->getAttrOfType<StringAttr>(SymbolTable::getSymbolAttrName());
+  return dyn_cast_or_null<StringAttr>(
+      getSymbolAttribute(op, SymbolTable::getSymbolAttrName()));
 }
 static StringAttr getNameIfSymbol(Operation *op, StringAttr symbolAttrNameId) {
-  return op->getAttrOfType<StringAttr>(symbolAttrNameId);
+  return dyn_cast_or_null<StringAttr>(getSymbolAttribute(op, symbolAttrNameId));
 }
 
 /// Computes the nested symbol reference attribute for the symbol 'symbolName'
@@ -299,13 +307,19 @@ StringAttr SymbolTable::getSymbolName(Operation *symbol) {
 
 /// Sets the name of the given symbol operation.
 void SymbolTable::setSymbolName(Operation *symbol, StringAttr name) {
-  symbol->setAttr(getSymbolAttrName(), name);
+  StringAttr attrName =
+      StringAttr::get(symbol->getContext(), getSymbolAttrName());
+  if (symbol->getPropertiesStorageSize() && symbol->getInherentAttr(attrName))
+    symbol->setInherentAttr(attrName, name);
+  else
+    symbol->setDiscardableAttr(attrName, name);
 }
 
 /// Returns the visibility of the given symbol operation.
 SymbolTable::Visibility SymbolTable::getSymbolVisibility(Operation *symbol) {
   // If the attribute doesn't exist, assume public.
-  StringAttr vis = symbol->getAttrOfType<StringAttr>(getVisibilityAttrName());
+  StringAttr vis = dyn_cast_or_null<StringAttr>(
+      getSymbolAttribute(symbol, getVisibilityAttrName()));
   if (!vis)
     return Visibility::Public;
 
@@ -322,7 +336,11 @@ void SymbolTable::setSymbolVisibility(Operation *symbol, Visibility vis) {
   // If the visibility is public, just drop the attribute as this is the
   // default.
   if (vis == Visibility::Public) {
-    symbol->removeAttr(StringAttr::get(ctx, getVisibilityAttrName()));
+    StringAttr attrName = StringAttr::get(ctx, getVisibilityAttrName());
+    if (symbol->getPropertiesStorageSize() && symbol->getInherentAttr(attrName))
+      symbol->setInherentAttr(attrName, {});
+    else
+      symbol->removeDiscardableAttr(attrName);
     return;
   }
 
@@ -331,7 +349,11 @@ void SymbolTable::setSymbolVisibility(Operation *symbol, Visibility vis) {
          "unknown symbol visibility kind");
 
   StringRef visName = vis == Visibility::Private ? "private" : "nested";
-  symbol->setAttr(getVisibilityAttrName(), StringAttr::get(ctx, visName));
+  StringAttr attrName = StringAttr::get(ctx, getVisibilityAttrName());
+  if (symbol->getPropertiesStorageSize() && symbol->getInherentAttr(attrName))
+    symbol->setInherentAttr(attrName, StringAttr::get(ctx, visName));
+  else
+    symbol->setDiscardableAttr(attrName, StringAttr::get(ctx, visName));
 }
 
 /// Returns the nearest symbol table from a given operation `from`. Returns
@@ -512,13 +534,19 @@ static LogicalResult verifyOpTypeSymbolUses(Operation *op,
           return failure();
 
   // Verify types nested within the operation's attributes.
-  WalkResult attrResult =
-      op->getAttrDictionary().walk<WalkOrder::PreOrder>([&](Type type) {
-        if (verify(type).wasInterrupted())
-          return WalkResult::interrupt();
-        return WalkResult::advance();
-      });
-  return failure(attrResult.wasInterrupted());
+  auto verifyTypes = [&](Attribute attr) {
+    return attr.walk<WalkOrder::PreOrder>([&](Type type) {
+      if (verify(type).wasInterrupted())
+        return WalkResult::interrupt();
+      return WalkResult::advance();
+    });
+  };
+  if (verifyTypes(op->getRawDictionaryAttrs()).wasInterrupted())
+    return failure();
+  if (Attribute properties = op->getPropertiesAsAttribute())
+    if (verifyTypes(properties).wasInterrupted())
+      return failure();
+  return success();
 }
 
 LogicalResult detail::verifySymbolTable(Operation *op) {
@@ -534,8 +562,7 @@ LogicalResult detail::verifySymbolTable(Operation *op) {
   for (auto &block : op->getRegion(0)) {
     for (auto &op : block) {
       // Check for a symbol name attribute.
-      auto nameAttr =
-          op.getAttrOfType<StringAttr>(mlir::SymbolTable::getSymbolAttrName());
+      StringAttr nameAttr = getNameIfSymbol(&op);
       if (!nameAttr)
         continue;
 
@@ -562,7 +589,7 @@ LogicalResult detail::verifySymbolTable(Operation *op) {
     if (SymbolUserOpInterface user = dyn_cast<SymbolUserOpInterface>(op))
       if (failed(user.verifySymbolUses(symbolTable)))
         return WalkResult::interrupt();
-    for (auto &attr : op->getDiscardableAttrs()) {
+    for (auto &attr : op->getDiscardableAttrDictionary().getValue()) {
       if (auto user = dyn_cast<SymbolUserAttrInterface>(attr.getValue())) {
         if (!verifiedAttrs.insert(attr.getValue()))
           continue;
@@ -582,12 +609,13 @@ LogicalResult detail::verifySymbolTable(Operation *op) {
 
 LogicalResult detail::verifySymbol(Operation *op) {
   // Verify the name attribute.
-  if (!op->getAttrOfType<StringAttr>(mlir::SymbolTable::getSymbolAttrName()))
+  if (!getNameIfSymbol(op))
     return op->emitOpError() << "requires string attribute '"
                              << mlir::SymbolTable::getSymbolAttrName() << "'";
 
   // Verify the visibility attribute.
-  if (Attribute vis = op->getAttr(mlir::SymbolTable::getVisibilityAttrName())) {
+  if (Attribute vis =
+          getSymbolAttribute(op, mlir::SymbolTable::getVisibilityAttrName())) {
     StringAttr visStrAttr = llvm::dyn_cast<StringAttr>(vis);
     if (!visStrAttr)
       return op->emitOpError() << "requires visibility attribute '"
@@ -614,14 +642,20 @@ LogicalResult detail::verifySymbol(Operation *op) {
 static WalkResult
 walkSymbolRefs(Operation *op,
                function_ref<WalkResult(SymbolTable::SymbolUse)> callback) {
-  return op->getAttrDictionary().walk<WalkOrder::PreOrder>(
-      [&](SymbolRefAttr symbolRef) {
-        if (callback({op, symbolRef}).wasInterrupted())
-          return WalkResult::interrupt();
+  auto walk = [&](Attribute attr) {
+    return attr.walk<WalkOrder::PreOrder>([&](SymbolRefAttr symbolRef) {
+      if (callback({op, symbolRef}).wasInterrupted())
+        return WalkResult::interrupt();
 
-        // Don't walk nested references.
-        return WalkResult::skip();
-      });
+      // Don't walk nested references.
+      return WalkResult::skip();
+    });
+  };
+  if (walk(op->getRawDictionaryAttrs()).wasInterrupted())
+    return WalkResult::interrupt();
+  if (Attribute properties = op->getPropertiesAsAttribute())
+    return walk(properties);
+  return WalkResult::advance();
 }
 
 /// Walk all of the uses, for any symbol, that are nested within the given

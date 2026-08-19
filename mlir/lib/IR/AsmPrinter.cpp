@@ -762,7 +762,11 @@ private:
       printType(type);
 
     // Consider the attributes of the operation for aliases.
-    for (const NamedAttribute &attr : op->getAttrs())
+    for (const NamedAttribute &attr : op->getDiscardableAttrs())
+      printAttribute(attr.getValue());
+    NamedAttrList inherentAttrs;
+    op->getName().populateInherentAttrs(op, inherentAttrs);
+    for (const NamedAttribute &attr : inherentAttrs)
       printAttribute(attr.getValue());
   }
 
@@ -3856,9 +3860,10 @@ void OperationPrinter::printGenericOp(Operation *op, bool printOpName) {
     os << ')';
   }
 
-  printOptionalAttrDict(op->getPropertiesStorage()
-                            ? llvm::to_vector(op->getDiscardableAttrs())
-                            : op->getAttrs());
+  printOptionalAttrDict(
+      op->getPropertiesStorage()
+          ? llvm::to_vector(op->getDiscardableAttrDictionary().getValue())
+          : op->getRawDictionaryAttrs().getValue());
 
   // Print the type signature of the operation.
   os << " : ";

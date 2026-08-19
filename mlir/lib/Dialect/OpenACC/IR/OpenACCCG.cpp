@@ -82,10 +82,11 @@ static void updateComputeRegionInputOperandSegments(ComputeRegionOp op,
                                                     PatternRewriter &rewriter,
                                                     size_t numInput) {
   const size_t numLaunch = op.getLaunchArgs().size();
-  op->setAttr(ComputeRegionOp::getOperandSegmentSizeAttr(),
-              rewriter.getDenseI32ArrayAttr({static_cast<int32_t>(numLaunch),
-                                             static_cast<int32_t>(numInput),
-                                             op.getStream() ? 1 : 0}));
+  op->setInherentAttr(
+      rewriter.getStringAttr(ComputeRegionOp::getOperandSegmentSizeAttr()),
+      rewriter.getDenseI32ArrayAttr({static_cast<int32_t>(numLaunch),
+                                     static_cast<int32_t>(numInput),
+                                     op.getStream() ? 1 : 0}));
 }
 
 struct ComputeRegionRemoveDuplicateArgs
@@ -734,8 +735,13 @@ void ComputeRegionOp::print(OpAsmPrinter &p) {
   p.printOptionalArrowTypeList(getResultTypes());
   p << " ";
   p.printRegion(getRegion(), /*printEntryBlockArgs=*/false);
-  p.printOptionalAttrDict((*this)->getAttrs(),
-                          /*elidedAttrs=*/getOperandSegmentSizeAttr());
+  NamedAttrList attrs((*this)->getDiscardableAttrDictionary());
+  attrs.set(getOriginAttrName(), getOriginAttr());
+  if (FlatSymbolRefAttr attr = getKernelFuncNameAttr())
+    attrs.set(getKernelFuncNameAttrName(), attr);
+  if (FlatSymbolRefAttr attr = getKernelModuleNameAttr())
+    attrs.set(getKernelModuleNameAttrName(), attr);
+  p.printOptionalAttrDict(attrs, /*elidedAttrs=*/getOperandSegmentSizeAttr());
 }
 
 ParseResult ComputeRegionOp::parse(OpAsmParser &parser,

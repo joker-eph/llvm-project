@@ -162,7 +162,8 @@ bubbleDownCastsPassthroughOpImpl(ConcreteOpTy op, OpBuilder &builder,
   // Create the new op and results.
   auto newOp = ConcreteOpTy::create(
       builder, op.getLoc(), TypeRange(resTy), operands, op.getProperties(),
-      llvm::to_vector_of<NamedAttribute>(op->getDiscardableAttrs()));
+      llvm::to_vector_of<NamedAttribute>(
+          op->getDiscardableAttrDictionary().getValue()));
 
   // Insert a memory-space cast to the original memory space of the op.
   MemorySpaceCastOpInterface result = castOp.cloneMemorySpaceCastOp(
@@ -377,7 +378,7 @@ void AllocaScopeOp::print(OpAsmPrinter &p) {
   p.printRegion(getBodyRegion(),
                 /*printEntryBlockArgs=*/false,
                 /*printBlockTerminators=*/printBlockTerminators);
-  p.printOptionalAttrDict((*this)->getAttrs());
+  p.printOptionalAttrDict((*this)->getDiscardableAttrDictionary().getValue());
 }
 
 ParseResult AllocaScopeOp::parse(OpAsmParser &parser, OperationState &result) {
@@ -1262,7 +1263,7 @@ void DmaStartOp::print(OpAsmPrinter &p) {
   if (isStrided())
     p << ", " << getStride() << ", " << getNumElementsPerStride();
 
-  p.printOptionalAttrDict((*this)->getAttrs());
+  p.printOptionalAttrDict((*this)->getDiscardableAttrDictionary().getValue());
   p << " : " << getSrcMemRef().getType() << ", " << getDstMemRef().getType()
     << ", " << getTagMemRef().getType();
 }
@@ -1652,7 +1653,7 @@ void GenericAtomicRMWOp::print(OpAsmPrinter &p) {
   p << ' ' << getMemref() << "[" << getIndices()
     << "] : " << getMemref().getType() << ' ';
   p.printRegion(getRegion());
-  p.printOptionalAttrDict((*this)->getAttrs());
+  p.printOptionalAttrDict((*this)->getDiscardableAttrDictionary().getValue());
 }
 
 TypedValue<MemRefType> GenericAtomicRMWOp::getAccessedMemref() {
@@ -1941,7 +1942,7 @@ void PrefetchOp::print(OpAsmPrinter &p) {
   p << ", locality<" << getLocalityHint();
   p << ">, " << (getIsDataCache() ? "data" : "instr");
   p.printOptionalAttrDict(
-      (*this)->getAttrs(),
+      (*this)->getDiscardableAttrDictionary().getValue(),
       /*elidedAttrs=*/{"localityHint", "isWrite", "isDataCache"});
   p << " : " << getMemRefType();
 }
@@ -3835,7 +3836,8 @@ void TransposeOp::build(OpBuilder &b, OperationState &result, Value in,
 // transpose $in $permutation attr-dict : type($in) `to` type(results)
 void TransposeOp::print(OpAsmPrinter &p) {
   p << " " << getIn() << " " << getPermutation();
-  p.printOptionalAttrDict((*this)->getAttrs(), {getPermutationAttrStrName()});
+  p.printOptionalAttrDict((*this)->getDiscardableAttrDictionary().getValue(),
+                          {getPermutationAttrStrName()});
   p << " : " << getIn().getType() << " to " << getType();
 }
 

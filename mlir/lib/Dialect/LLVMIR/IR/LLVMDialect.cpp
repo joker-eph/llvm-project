@@ -50,6 +50,15 @@ using mlir::LLVM::tailcallkind::getMaxEnumValForTailCallKind;
 
 static constexpr const char kElemTypeAttrName[] = "elem_type";
 
+static NamedAttrList getAttrsForPrinting(Operation *op) {
+  NamedAttrList attrs(op->getRawDictionaryAttrs());
+  NamedAttrList inherentAttrs;
+  op->getName().populateInherentAttrs(op, inherentAttrs);
+  for (NamedAttribute attr : inherentAttrs)
+    attrs.set(attr.getName(), attr.getValue());
+  return NamedAttrList(attrs.getDictionary(op->getContext()));
+}
+
 static auto processFMFAttr(ArrayRef<NamedAttribute> attrs) {
   SmallVector<NamedAttribute, 8> filteredAttrs(
       llvm::make_filter_range(attrs, [&](NamedAttribute attr) {
@@ -278,14 +287,15 @@ static std::optional<ParseResult> parseOpBundles(
 void ICmpOp::print(OpAsmPrinter &p) {
   p << " \"" << stringifyICmpPredicate(getPredicate()) << "\" " << getOperand(0)
     << ", " << getOperand(1);
-  p.printOptionalAttrDict((*this)->getAttrs(), {"predicate"});
+  p.printOptionalAttrDict(getAttrsForPrinting(*this).getAttrs(), {"predicate"});
   p << " : " << getLhs().getType();
 }
 
 void FCmpOp::print(OpAsmPrinter &p) {
   p << " \"" << stringifyFCmpPredicate(getPredicate()) << "\" " << getOperand(0)
     << ", " << getOperand(1);
-  p.printOptionalAttrDict(processFMFAttr((*this)->getAttrs()), {"predicate"});
+  p.printOptionalAttrDict(processFMFAttr(getAttrsForPrinting(*this).getAttrs()),
+                          {"predicate"});
   p << " : " << getLhs().getType();
 }
 
@@ -397,13 +407,10 @@ void AllocaOp::print(OpAsmPrinter &p) {
     p << " inalloca";
 
   p << ' ' << getArraySize() << " x " << getElemType();
+  NamedAttrList attrs((*this)->getDiscardableAttrDictionary().getValue());
   if (getAlignment() && *getAlignment() != 0)
-    p.printOptionalAttrDict((*this)->getAttrs(),
-                            {kElemTypeAttrName, getInallocaAttrName()});
-  else
-    p.printOptionalAttrDict(
-        (*this)->getAttrs(),
-        {getAlignmentAttrName(), kElemTypeAttrName, getInallocaAttrName()});
+    attrs.append(getAlignmentAttrName(), getAlignmentAttr());
+  p.printOptionalAttrDict(attrs);
   p << " : " << funcTy;
 }
 
@@ -1379,7 +1386,7 @@ void CallOp::print(OpAsmPrinter &p) {
                    getOpBundleOperands().getTypes(), getOpBundleTags());
   }
 
-  p.printOptionalAttrDict(processFMFAttr((*this)->getAttrs()),
+  p.printOptionalAttrDict(processFMFAttr(getAttrsForPrinting(*this).getAttrs()),
                           {getCalleeAttrName(), getTailCallKindAttrName(),
                            getVarCalleeTypeAttrName(), getCConvAttrName(),
                            getOperandSegmentSizesAttrName(),
@@ -1707,7 +1714,7 @@ void InvokeOp::print(OpAsmPrinter &p) {
                    getOpBundleOperands().getTypes(), getOpBundleTags());
   }
 
-  p.printOptionalAttrDict((*this)->getAttrs(),
+  p.printOptionalAttrDict(getAttrsForPrinting(*this).getAttrs(),
                           {getCalleeAttrName(), getOperandSegmentSizeAttr(),
                            getCConvAttrName(), getVarCalleeTypeAttrName(),
                            getOpBundleSizesAttrName(),
@@ -1887,7 +1894,7 @@ void LandingpadOp::print(OpAsmPrinter &p) {
       << value.getType() << ") ";
   }
 
-  p.printOptionalAttrDict((*this)->getAttrs(), {"cleanup"});
+  p.printOptionalAttrDict(getAttrsForPrinting(*this).getAttrs(), {"cleanup"});
 
   p << ": " << getType();
 }
@@ -2480,7 +2487,7 @@ void GlobalOp::print(OpAsmPrinter &p) {
   // Note that the alignment attribute is printed using the
   // default syntax here, even though it is an inherent attribute
   // (as defined in https://mlir.llvm.org/docs/LangRef/#attributes)
-  p.printOptionalAttrDict((*this)->getAttrs(),
+  p.printOptionalAttrDict(getAttrsForPrinting(*this).getAttrs(),
                           {SymbolTable::getSymbolAttrName(),
                            getGlobalTypeAttrName(), getConstantAttrName(),
                            getValueAttrName(), getLinkageAttrName(),
@@ -2841,7 +2848,7 @@ void AliasOp::print(OpAsmPrinter &p) {
   printCommonGlobalAndAlias<AliasOp>(p, *this);
 
   p.printSymbolName(getSymName());
-  p.printOptionalAttrDict((*this)->getAttrs(),
+  p.printOptionalAttrDict(getAttrsForPrinting(*this).getAttrs(),
                           {SymbolTable::getSymbolAttrName(),
                            getAliasTypeAttrName(), getLinkageAttrName(),
                            getUnnamedAddrAttrName(), getTlsModeAttrName(),
@@ -4204,7 +4211,7 @@ void CallIntrinsicOp::print(OpAsmPrinter &p) {
                    getOpBundleOperands().getTypes(), getOpBundleTagsAttr());
   }
 
-  p.printOptionalAttrDict(processFMFAttr((*this)->getAttrs()),
+  p.printOptionalAttrDict(processFMFAttr(getAttrsForPrinting(*this).getAttrs()),
                           {getOperandSegmentSizesAttrName(),
                            getOpBundleSizesAttrName(), getIntrinAttrName(),
                            getOpBundleTagsAttrName(), getArgAttrsAttrName(),

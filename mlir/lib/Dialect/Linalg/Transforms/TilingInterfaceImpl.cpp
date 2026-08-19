@@ -33,6 +33,15 @@
 using namespace mlir;
 using namespace mlir::linalg;
 
+static Operation *createWithProperties(OpBuilder &builder, Operation *op,
+                                       TypeRange resultTypes,
+                                       ValueRange operands) {
+  OperationState state(op->getLoc(), op->getName(), operands, resultTypes,
+                       op->getDiscardableAttrDictionary().getValue());
+  state.propertiesAttr = op->getPropertiesAsAttribute();
+  return builder.create(state);
+}
+
 //===----------------------------------------------------------------------===//
 // Utility methods for implementation of Tiling Interface for Linalg ops
 //===----------------------------------------------------------------------===//
@@ -1149,8 +1158,8 @@ struct PackOpTiling
     for (auto tile : packOp.getInnerTiles())
       tiledOperands.push_back(tile);
 
-    Operation *tiledPackOp = PackOp::create(
-        b, loc, TypeRange{outSlice.getType()}, tiledOperands, op->getAttrs());
+    Operation *tiledPackOp = createWithProperties(
+        b, op, TypeRange{outSlice.getType()}, tiledOperands);
 
     return TilingResult{
         {tiledPackOp},
@@ -1486,8 +1495,8 @@ struct PackOpTiling
     for (auto tile : packOp.getInnerTiles())
       tiledOperands.push_back(tile);
 
-    Operation *tiledPackOp = PackOp::create(
-        b, loc, TypeRange{outSlice.getType()}, tiledOperands, op->getAttrs());
+    Operation *tiledPackOp = createWithProperties(
+        b, op, TypeRange{outSlice.getType()}, tiledOperands);
 
     return TilingResult{
         {tiledPackOp},
@@ -1727,8 +1736,8 @@ struct UnPackOpTiling
     for (auto tile : unpackOp.getInnerTiles())
       tiledOperands.push_back(tile);
 
-    Operation *tiledUnpackOp = UnPackOp::create(
-        b, loc, TypeRange{sliceDest.getType()}, tiledOperands, op->getAttrs());
+    Operation *tiledUnpackOp = createWithProperties(
+        b, op, TypeRange{sliceDest.getType()}, tiledOperands);
 
     if (isPerfectTilingCase)
       return TilingResult{{tiledUnpackOp},
@@ -1986,9 +1995,8 @@ struct UnPackOpTiling
       tiledOperands.push_back(tile);
 
     // Create tiled unpack op.
-    Operation *tiledUnPackOp =
-        UnPackOp::create(b, loc, TypeRange{extractDestSlice.getType()},
-                         tiledOperands, op->getAttrs());
+    Operation *tiledUnPackOp = createWithProperties(
+        b, op, TypeRange{extractDestSlice.getType()}, tiledOperands);
 
     return TilingResult{{tiledUnPackOp},
                         SmallVector<Value>(tiledUnPackOp->getResults()),

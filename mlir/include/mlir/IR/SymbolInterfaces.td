@@ -42,8 +42,7 @@ def Symbol : OpInterface<"SymbolOpInterface"> {
     InterfaceMethod<"Sets the name of this symbol.",
       "void", "setName", (ins "::mlir::StringAttr":$name), [{}],
       /*defaultImplementation=*/[{
-        this->getOperation()->setAttr(
-            mlir::SymbolTable::getSymbolAttrName(), name);
+        mlir::SymbolTable::setSymbolName(this->getOperation(), name);
       }]
     >,
     InterfaceMethod<"Gets the visibility of this symbol.",
@@ -197,7 +196,9 @@ def Symbol : OpInterface<"SymbolOpInterface"> {
 
   // Add additional classof checks to properly handle "optional" symbols.
   let extraClassOf = [{
-    return $_op->hasAttr(::mlir::SymbolTable::getSymbolAttrName());
+    return static_cast<bool>(
+        $_op->getInherentAttr(::mlir::SymbolTable::getSymbolAttrName())
+            .value_or(::mlir::Attribute{}));
   }];
 }
 

@@ -146,7 +146,7 @@ static mlir::ParseResult parseBinaryOp(mlir::OpAsmParser &parser,
 /// forms depending on if all of the types match.
 static void printBinaryOp(mlir::OpAsmPrinter &printer, mlir::Operation *op) {
   printer << " " << op->getOperands();
-  printer.printOptionalAttrDict(op->getAttrs());
+  printer.printOptionalAttrDict(op->getDiscardableAttrDictionary().getValue());
   printer << " : ";
 
   // If all of the types are the same, print the type directly.
@@ -197,7 +197,9 @@ mlir::ParseResult ConstantOp::parse(mlir::OpAsmParser &parser,
 /// strings, attributes, operands, types, etc.
 void ConstantOp::print(mlir::OpAsmPrinter &printer) {
   printer << " ";
-  printer.printOptionalAttrDict((*this)->getAttrs(), /*elidedAttrs=*/{"value"});
+  printer.printOptionalAttrDict(
+      (*this)->getDiscardableAttrDictionary().getValue(),
+      /*elidedAttrs=*/{"value"});
   printer << getValue();
 }
 
@@ -328,13 +330,13 @@ void GenericCallOp::build(mlir::OpBuilder &builder, mlir::OperationState &state,
 /// Return the callee of the generic call operation, this is required by the
 /// call interface.
 CallInterfaceCallable GenericCallOp::getCallableForCallee() {
-  return (*this)->getAttrOfType<SymbolRefAttr>("callee");
+  return getCalleeAttr();
 }
 
 /// Set the callee for the generic call operation, this is required by the call
 /// interface.
 void GenericCallOp::setCalleeFromCallable(CallInterfaceCallable callee) {
-  (*this)->setAttr("callee", cast<SymbolRefAttr>(callee));
+  setCalleeAttr(cast<FlatSymbolRefAttr>(cast<SymbolRefAttr>(callee)));
 }
 
 /// Get the argument operands to the called function, this is required by the

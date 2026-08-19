@@ -75,7 +75,8 @@ static LogicalResult bufferizeDestinationStyleOpInterface(
   // return anything.
   assert(op->getNumRegions() == 1 && "expected that op has 1 region");
   OperationState opState(op->getLoc(), op->getName(), newOperands, TypeRange{},
-                         op->getAttrs());
+                         op->getDiscardableAttrDictionary().getValue());
+  opState.propertiesAttr = op->getPropertiesAsAttribute();
   opState.addRegion();
   Operation *newOp = Operation::create(opState);
   newOp->getRegion(0).getBlocks().splice(newOp->getRegion(0).begin(),
@@ -225,8 +226,11 @@ struct PackOpInterface
       operands.push_back(val);
     llvm::append_range(operands, packOp.getInnerTiles());
 
-    linalg::PackOp::create(rewriter, packOp.getLoc(), TypeRange{}, operands,
-                           op->getAttrs());
+    OperationState opState(packOp.getLoc(), packOp->getName(), operands,
+                           TypeRange{},
+                           op->getDiscardableAttrDictionary().getValue());
+    opState.propertiesAttr = op->getPropertiesAsAttribute();
+    rewriter.create(opState);
     replaceOpWithBufferizedValues(rewriter, op, *destBuffer);
     return success();
   }
@@ -263,8 +267,11 @@ struct UnPackOpInterface
     operands.push_back(*destBuffer);
     llvm::append_range(operands, unPackOp.getInnerTiles());
 
-    linalg::UnPackOp::create(rewriter, unPackOp.getLoc(), TypeRange{}, operands,
-                             op->getAttrs());
+    OperationState opState(unPackOp.getLoc(), unPackOp->getName(), operands,
+                           TypeRange{},
+                           op->getDiscardableAttrDictionary().getValue());
+    opState.propertiesAttr = op->getPropertiesAsAttribute();
+    rewriter.create(opState);
     replaceOpWithBufferizedValues(rewriter, op, *destBuffer);
     return success();
   }

@@ -1788,7 +1788,9 @@ void ByteCodeExecutor::executeGetAttribute() {
   unsigned memIndex = read();
   Operation *op = read<Operation *>();
   StringAttr attrName = read<StringAttr>();
-  Attribute attr = op->getAttr(attrName);
+  Attribute attr = op->getDiscardableAttr(attrName);
+  if (op->getPropertiesStorageSize())
+    attr = op->getInherentAttr(attrName).value_or(attr);
 
   LDBG() << "  * Operation: " << *op << "\n  * Attribute: " << attrName
          << "\n  * Result: " << attr;
@@ -1857,7 +1859,11 @@ executeGetOperandsResults(RangeT values, Operation *op, unsigned index,
   } else if (op->hasTrait<AttrSizedSegmentsT>()) {
     LDBG() << "  * Extracting values from `" << attrSizedSegments << "`";
 
-    auto segmentAttr = op->getAttrOfType<DenseI32ArrayAttr>(attrSizedSegments);
+    Attribute rawSegmentAttr = op->getDiscardableAttr(attrSizedSegments);
+    if (op->getPropertiesStorageSize())
+      rawSegmentAttr =
+          op->getInherentAttr(attrSizedSegments).value_or(rawSegmentAttr);
+    auto segmentAttr = dyn_cast_or_null<DenseI32ArrayAttr>(rawSegmentAttr);
     if (!segmentAttr || segmentAttr.asArrayRef().size() <= index)
       return nullptr;
 

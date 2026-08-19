@@ -818,13 +818,13 @@ void mlirOperationSetInherentAttributeByName(MlirOperation op,
 
 intptr_t mlirOperationGetNumDiscardableAttributes(MlirOperation op) {
   return static_cast<intptr_t>(
-      llvm::range_size(unwrap(op)->getDiscardableAttrs()));
+      llvm::range_size(unwrap(op)->getDiscardableAttrDictionary().getValue()));
 }
 
 MlirNamedAttribute mlirOperationGetDiscardableAttribute(MlirOperation op,
                                                         intptr_t pos) {
-  NamedAttribute attr =
-      *std::next(unwrap(op)->getDiscardableAttrs().begin(), pos);
+  NamedAttribute attr = *std::next(
+      unwrap(op)->getDiscardableAttrDictionary().getValue().begin(), pos);
   return MlirNamedAttribute{wrap(attr.getName()), wrap(attr.getValue())};
 }
 
@@ -849,6 +849,7 @@ void mlirOperationSetSuccessor(MlirOperation op, intptr_t pos,
   unwrap(op)->setSuccessor(unwrap(block), static_cast<unsigned>(pos));
 }
 
+LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_PUSH
 intptr_t mlirOperationGetNumAttributes(MlirOperation op) {
   return static_cast<intptr_t>(unwrap(op)->getAttrs().size());
 }
@@ -871,6 +872,7 @@ void mlirOperationSetAttributeByName(MlirOperation op, MlirStringRef name,
 bool mlirOperationRemoveAttributeByName(MlirOperation op, MlirStringRef name) {
   return !!unwrap(op)->removeAttr(unwrap(name));
 }
+LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_POP
 
 void mlirOperationPrint(MlirOperation op, MlirStringCallback callback,
                         void *userData) {

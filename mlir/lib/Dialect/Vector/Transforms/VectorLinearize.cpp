@@ -67,7 +67,8 @@ struct LinearizeConstantLike final
     assert(resType && "expected 1-D vector type");
 
     StringAttr attrName = rewriter.getStringAttr("value");
-    Attribute value = op->getAttr(attrName);
+    Attribute value = op->getInherentAttr(attrName).value_or(
+        op->getDiscardableAttr(attrName));
     if (!value)
       return rewriter.notifyMatchFailure(loc, "no 'value' attr");
 
@@ -82,7 +83,10 @@ struct LinearizeConstantLike final
       return failure();
 
     Operation *newOp = *convertResult;
-    newOp->setAttr(attrName, *newValue);
+    if (newOp->getInherentAttr(attrName))
+      newOp->setInherentAttr(attrName, *newValue);
+    else
+      newOp->setDiscardableAttr(attrName, *newValue);
     rewriter.replaceOp(op, newOp);
     return success();
   }

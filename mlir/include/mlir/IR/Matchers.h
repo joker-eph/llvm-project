@@ -65,7 +65,13 @@ struct NameOpMatcher {
 /// The matcher that matches operations that have the specified attribute name.
 struct AttrOpMatcher {
   AttrOpMatcher(StringRef attrName) : attrName(attrName) {}
-  bool match(Operation *op) { return op->hasAttr(attrName); }
+  bool match(Operation *op) {
+    std::optional<Attribute> inherent;
+    if (op->getPropertiesStorageSize())
+      inherent = op->getInherentAttr(attrName);
+    return inherent.has_value() ? static_cast<bool>(*inherent)
+                                : op->hasDiscardableAttr(attrName);
+  }
 
   StringRef attrName;
 };
@@ -146,7 +152,10 @@ struct AttrOpBinder {
   AttrOpBinder(StringRef attrName) : attrName(attrName), bindValue(nullptr) {}
 
   bool match(Operation *op) {
-    if (auto attr = op->getAttrOfType<AttrT>(attrName)) {
+    Attribute rawAttr = op->getDiscardableAttr(attrName);
+    if (op->getPropertiesStorageSize())
+      rawAttr = op->getInherentAttr(attrName).value_or(rawAttr);
+    if (auto attr = dyn_cast_or_null<AttrT>(rawAttr)) {
       if (bindValue)
         *bindValue = attr;
       return true;

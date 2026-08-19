@@ -195,9 +195,16 @@ void CallGraph::print(raw_ostream &os) const {
     auto *parentOp = callableRegion->getParentOp();
     os << "'" << callableRegion->getParentOp()->getName() << "' - Region #"
        << callableRegion->getRegionNumber();
-    auto attrs = parentOp->getAttrDictionary();
-    if (!attrs.empty())
-      os << " : " << attrs;
+    NamedAttrList attrs(parentOp->getDiscardableAttrDictionary());
+    parentOp->getName().populateInherentAttrs(parentOp, attrs);
+    if (!attrs.empty()) {
+      os << " : { ";
+      llvm::interleaveComma(attrs, os, [&](NamedAttribute attr) {
+        os << attr.getName().getValue() << " = ";
+        attr.getValue().print(os);
+      });
+      os << " }";
+    }
   };
 
   for (auto &nodeIt : nodes) {

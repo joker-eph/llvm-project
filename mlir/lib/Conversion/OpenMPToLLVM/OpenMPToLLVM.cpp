@@ -28,6 +28,13 @@ using namespace mlir;
 
 namespace {
 
+static NamedAttrList getAttrsForConversion(Operation *op) {
+  NamedAttrList attrs;
+  op->getName().populateInherentAttrs(op, attrs);
+  attrs.append(op->getDiscardableAttrDictionary().getValue());
+  return attrs;
+}
+
 /// A pattern that converts the result and operand types, attributes, and region
 /// arguments of an OpenMP operation to the LLVM dialect.
 ///
@@ -63,7 +70,7 @@ struct OpenMPOpConversion : public ConvertOpToLLVMPattern<T> {
     // Translate type attributes.
     // They are kept unmodified except if they are type attributes.
     SmallVector<NamedAttribute> convertedAttrs;
-    for (NamedAttribute attr : op->getAttrs()) {
+    for (NamedAttribute attr : getAttrsForConversion(op)) {
       if (auto typeAttr = dyn_cast<TypeAttr>(attr.getValue())) {
         Type convertedType = converter->convertType(typeAttr.getValue());
         if (!convertedType)
@@ -131,7 +138,7 @@ void mlir::configureOpenMPToLLVMConversionLegality(
                         [&](Region &region) {
                           return typeConverter.isLegal(&region);
                         }) &&
-           llvm::all_of(op->getAttrs(), [&](NamedAttribute attr) {
+           llvm::all_of(getAttrsForConversion(op), [&](NamedAttribute attr) {
              auto typeAttr = dyn_cast<TypeAttr>(attr.getValue());
              return !typeAttr || typeConverter.isLegal(typeAttr.getValue());
            });

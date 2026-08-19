@@ -714,11 +714,11 @@ def ConversionCallOp : TEST_Op<"conversion_call_op",
   }];
   let extraClassDefinition = [{
     ::mlir::CallInterfaceCallable $cppClass::getCallableForCallee() {
-      return (*this)->getAttrOfType<::mlir::SymbolRefAttr>("callee");
+      return getCalleeAttr();
     }
 
     void $cppClass::setCalleeFromCallable(::mlir::CallInterfaceCallable callee) {
-      (*this)->setAttr("callee", cast<SymbolRefAttr>(callee));
+      setCalleeAttr(cast<SymbolRefAttr>(callee));
     }
   }];
 }
@@ -3116,13 +3116,15 @@ def TestLinalgConvOp :
     }
 
     llvm::SmallVector<mlir::utils::IteratorType> getIteratorTypesArray() {
-      auto attrs = getOperation()->getAttrOfType<mlir::ArrayAttr>("iterator_types");
+      auto attrs = getOperation()->getDiscardableAttrOfType<mlir::ArrayAttr>(
+          "iterator_types");
       auto range = attrs.getAsValueRange<IteratorTypeAttr, mlir::utils::IteratorType>();
       return {range.begin(), range.end()};
     }
 
     mlir::ArrayAttr getIndexingMaps() {
-      return getOperation()->getAttrOfType<mlir::ArrayAttr>("indexing_maps");
+      return getOperation()->getDiscardableAttrOfType<mlir::ArrayAttr>(
+          "indexing_maps");
     }
 
     std::string getLibraryCallName() {
@@ -3179,13 +3181,15 @@ def TestLinalgFillOp :
     }
 
     llvm::SmallVector<mlir::utils::IteratorType> getIteratorTypesArray() {
-      auto attrs = getOperation()->getAttrOfType<mlir::ArrayAttr>("iterator_types");
+      auto attrs = getOperation()->getDiscardableAttrOfType<mlir::ArrayAttr>(
+          "iterator_types");
       auto range = attrs.getAsValueRange<IteratorTypeAttr, mlir::utils::IteratorType>();
       return {range.begin(), range.end()};
     }
 
     mlir::ArrayAttr getIndexingMaps() {
-      return getOperation()->getAttrOfType<mlir::ArrayAttr>("indexing_maps");
+      return getOperation()->getDiscardableAttrOfType<mlir::ArrayAttr>(
+          "indexing_maps");
     }
 
     std::string getLibraryCallName() {
@@ -4423,15 +4427,16 @@ def CallWithSegmentsOp : TEST_Op<"call_with_segments",
 
   let extraClassDefinition = [{
     ::mlir::CallInterfaceCallable $cppClass::getCallableForCallee() {
-      if (auto sym = (*this)->getAttrOfType<::mlir::SymbolRefAttr>("callee"))
+      if (auto sym = (*this)->getDiscardableAttrOfType<::mlir::SymbolRefAttr>(
+              "callee"))
         return ::mlir::CallInterfaceCallable(sym);
       return ::mlir::CallInterfaceCallable();
     }
     void $cppClass::setCalleeFromCallable(::mlir::CallInterfaceCallable callee) {
       if (auto sym = callee.dyn_cast<::mlir::SymbolRefAttr>())
-        (*this)->setAttr("callee", sym);
+        (*this)->setDiscardableAttr("callee", sym);
       else
-        (*this)->removeAttr("callee");
+        (*this)->removeDiscardableAttr("callee");
     }
   }];
 }
