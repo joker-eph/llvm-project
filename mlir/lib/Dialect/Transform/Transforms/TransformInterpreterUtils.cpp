@@ -237,8 +237,8 @@ LogicalResult transform::detail::assembleTransformLibraryFromPaths(
   OwningOpRef<ModuleOp> mergedParsedLibraries =
       ModuleOp::create(loc, "__transform");
   {
-    mergedParsedLibraries.get()->setAttr("transform.with_named_sequence",
-                                         UnitAttr::get(context));
+    mergedParsedLibraries.get()->setDiscardableAttr(
+        "transform.with_named_sequence", UnitAttr::get(context));
     // TODO: extend `mergeSymbolsInto` to support multiple `other` modules.
     for (OwningOpRef<ModuleOp> &parsedLibrary : parsedLibraries) {
       if (failed(transform::detail::mergeSymbolsInto(

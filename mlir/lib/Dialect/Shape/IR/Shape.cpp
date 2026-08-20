@@ -269,7 +269,7 @@ void AssumingOp::print(OpAsmPrinter &p) {
   p.printRegion(getDoRegion(),
                 /*printEntryBlockArgs=*/false,
                 /*printBlockTerminators=*/yieldsResults);
-  p.printOptionalAttrDict((*this)->getAttrs());
+  p.printOptionalAttrDict((*this)->getDiscardableAttrDictionary().getValue());
 }
 
 namespace {
@@ -593,8 +593,9 @@ struct RemoveDuplicateOperandsPattern : public OpRewritePattern<OpTy> {
 
     // Reduce op to equivalent with unique operands.
     if (unique.size() < op.getNumOperands()) {
-      rewriter.replaceOpWithNewOp<OpTy>(op, op->getResultTypes(),
-                                        unique.takeVector(), op->getAttrs());
+      rewriter.replaceOpWithNewOp<OpTy>(
+          op, op->getResultTypes(), unique.takeVector(),
+          op->getDiscardableAttrDictionary().getValue());
       return success();
     }
 
@@ -716,8 +717,9 @@ struct RemoveEmptyShapeOperandsPattern : public OpRewritePattern<OpTy> {
 
     // Reduce op to equivalent without empty shape operands.
     if (newOperands.size() < op.getNumOperands()) {
-      rewriter.replaceOpWithNewOp<OpTy>(op, op->getResultTypes(), newOperands,
-                                        op->getAttrs());
+      rewriter.replaceOpWithNewOp<OpTy>(
+          op, op->getResultTypes(), newOperands,
+          op->getDiscardableAttrDictionary().getValue());
       return success();
     }
 
@@ -891,7 +893,8 @@ OpFoldResult ConcatOp::fold(FoldAdaptor adaptor) {
 
 void ConstShapeOp::print(OpAsmPrinter &p) {
   p << " ";
-  p.printOptionalAttrDict((*this)->getAttrs(), /*elidedAttrs=*/{"shape"});
+  p.printOptionalAttrDict((*this)->getDiscardableAttrDictionary().getValue(),
+                          /*elidedAttrs=*/{"shape"});
   p << "[";
   interleaveComma(getShape().getValues<int64_t>(), p);
   p << "] : ";
@@ -1262,7 +1265,8 @@ void FunctionLibraryOp::print(OpAsmPrinter &p) {
   p << ' ';
   p.printSymbolName(getName());
   p.printOptionalAttrDictWithKeyword(
-      (*this)->getAttrs(), {mlir::SymbolTable::getSymbolAttrName(), "mapping"});
+      (*this)->getDiscardableAttrDictionary().getValue(),
+      {mlir::SymbolTable::getSymbolAttrName(), "mapping"});
   p << ' ';
   p.printRegion(getRegion(), /*printEntryBlockArgs=*/false,
                 /*printBlockTerminators=*/false);
@@ -2055,7 +2059,7 @@ void ReduceOp::print(OpAsmPrinter &p) {
   p.printOptionalArrowTypeList(getResultTypes());
   p << ' ';
   p.printRegion(getRegion());
-  p.printOptionalAttrDict((*this)->getAttrs());
+  p.printOptionalAttrDict((*this)->getDiscardableAttrDictionary().getValue());
 }
 
 #define GET_OP_CLASSES

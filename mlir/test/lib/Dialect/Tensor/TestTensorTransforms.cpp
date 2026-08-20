@@ -305,7 +305,7 @@ static LogicalResult testTrackingListenerReplacements(Operation *rootOp) {
   // Find replaced op.
   Operation *replaced = nullptr;
   WalkResult status = rootOp->walk([&](Operation *op) {
-    if (op->hasAttr("replaced")) {
+    if (op->hasDiscardableAttr("replaced")) {
       if (replaced) {
         op->emitError("only one 'replaced' op is allowed per test case");
         replaced->emitRemark("other 'replaced' op");
@@ -326,8 +326,8 @@ static LogicalResult testTrackingListenerReplacements(Operation *rootOp) {
   SmallVector<Value> replacements(replaced->getNumResults(), Value());
   status = rootOp->walk([&](Operation *op) {
     for (int64_t i = 0; i < replaced->getNumResults(); ++i) {
-      if (auto attr = op->getAttrOfType<IntegerAttr>("replacement_" +
-                                                     std::to_string(i))) {
+      if (auto attr = op->getDiscardableAttrOfType<IntegerAttr>(
+              "replacement_" + std::to_string(i))) {
         if (replacements[i]) {
           op->emitError("only one 'replacement_" + std::to_string(i) +
                         "' is allowed per test case");

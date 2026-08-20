@@ -649,8 +649,8 @@ struct WasmGlobalWithGetGlobalInitConversion
     auto globalInitializer =
         func::FuncOp::create(rewriter, loc, initializerName,
                              FunctionType::get(getContext(), {}, {}));
-    globalInitializer->setAttr(rewriter.getStringAttr("initializer"),
-                               rewriter.getUnitAttr());
+    globalInitializer->setDiscardableAttr(rewriter.getStringAttr("initializer"),
+                                          rewriter.getUnitAttr());
     auto *initializerBody = globalInitializer.addEntryBlock();
     auto sip = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(initializerBody);
@@ -717,8 +717,8 @@ struct WasmMemoryOpConversion : OpConversionPattern<MemOp> {
     auto memInitializer =
         func::FuncOp::create(rewriter, loc, initializerName,
                              FunctionType::get(getContext(), {}, {}));
-    memInitializer->setAttr(rewriter.getStringAttr("initializer"),
-                            rewriter.getUnitAttr());
+    memInitializer->setDiscardableAttr(rewriter.getStringAttr("initializer"),
+                                       rewriter.getUnitAttr());
     auto *initializerBody = memInitializer.addEntryBlock();
     auto sip = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(initializerBody);

@@ -345,8 +345,8 @@ LogicalResult insertCasts(Operation *op, PatternRewriter &rewriter) {
   SmallVector<Value> operands;
   for (auto operand : op->getOperands())
     operands.push_back(arith::ExtFOp::create(rewriter, loc, newType, operand));
-  auto result =
-      T::create(rewriter, loc, TypeRange{newType}, operands, op->getAttrs());
+  auto result = T::create(rewriter, loc, TypeRange{newType}, operands,
+                          op->getDiscardableAttrDictionary().getValue());
   rewriter.replaceOpWithNewOp<arith::TruncFOp>(op, origType, result);
   return success();
 }

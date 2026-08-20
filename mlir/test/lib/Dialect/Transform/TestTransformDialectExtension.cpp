@@ -415,7 +415,7 @@ mlir::test::TestMixedSuccessAndSilenceableOp::applyToOne(
     transform::TransformRewriter &rewriter, Operation *target,
     transform::ApplyToEachResultList &results,
     transform::TransformState &state) {
-  if (target->hasAttr("target_me"))
+  if (target->hasDiscardableAttr("target_me"))
     return DiagnosedSilenceableFailure::success();
   return emitDefaultSilenceableFailure(target);
 }
@@ -663,11 +663,11 @@ mlir::test::TestTrackedRewriteOp::apply(transform::TransformRewriter &rewriter,
     // Erase all payload ops. The outer loop should have only one iteration.
     for (Operation *op : state.getPayloadOps(getIn())) {
       rewriter.setInsertionPoint(op);
-      if (op->hasAttr("erase_me")) {
+      if (op->hasDiscardableAttr("erase_me")) {
         rewriter.eraseOp(op);
         continue;
       }
-      if (!op->hasAttr("replace_me")) {
+      if (!op->hasDiscardableAttr("replace_me")) {
         continue;
       }
 
@@ -695,7 +695,8 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op,
                                 PatternRewriter &rewriter) const override {
-    auto newName = op->getAttrOfType<StringAttr>("replace_with_new_op");
+    auto newName =
+        op->getDiscardableAttrOfType<StringAttr>("replace_with_new_op");
     if (!newName)
       return failure();
     Operation *newOp = rewriter.create(
@@ -844,7 +845,7 @@ public:
   LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override {
-    if (!op->hasAttr("replace_with_new_op"))
+    if (!op->hasDiscardableAttr("replace_with_new_op"))
       return failure();
     SmallVector<Type> newResultTypes;
     if (failed(getTypeConverter()->convertTypes(op->getResultTypes(),
@@ -939,7 +940,7 @@ mlir::transform::TestCountingNormalFormAttr::checkOperation(
   StringAttr counterName =
       builder.getStringAttr("test.counting_normal_form_count");
   unsigned count = 0;
-  if (auto prev = op->getAttrOfType<IntegerAttr>(counterName))
+  if (auto prev = op->getDiscardableAttrOfType<IntegerAttr>(counterName))
     count = prev.getValue().getZExtValue();
   op->setDiscardableAttr(counterName, builder.getI64IntegerAttr(count + 1));
   return DiagnosedSilenceableFailure::success();

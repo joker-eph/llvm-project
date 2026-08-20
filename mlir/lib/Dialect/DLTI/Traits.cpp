@@ -24,11 +24,11 @@ LogicalResult mlir::impl::verifyHasDefaultDLTIDataLayoutTrait(Operation *op) {
 }
 
 DataLayoutSpecInterface mlir::impl::getDataLayoutSpec(Operation *op) {
-  return op->getAttrOfType<DataLayoutSpecInterface>(
+  return op->getDiscardableAttrOfType<DataLayoutSpecInterface>(
       DLTIDialect::kDataLayoutAttrName);
 }
 
 TargetSystemSpecInterface mlir::impl::getTargetSystemSpec(Operation *op) {
-  return op->getAttrOfType<TargetSystemSpecAttr>(
+  return op->getDiscardableAttrOfType<TargetSystemSpecAttr>(
       DLTIDialect::kTargetSystemDescAttrName);
 }

@@ -172,8 +172,8 @@ void transform::TransformDialect::initializeLibraryModule() {
   auto loc =
       FileLineColLoc::get(context, "<transform-dialect-library-module>", 0, 0);
   libraryModule = ModuleOp::create(loc, "__transform_library");
-  libraryModule.get()->setAttr(TransformDialect::kWithNamedSequenceAttrName,
-                               UnitAttr::get(context));
+  libraryModule.get()->setDiscardableAttr(
+      TransformDialect::kWithNamedSequenceAttrName, UnitAttr::get(context));
 }
 
 void transform::TransformDialect::reportDuplicateAttributeRegistration(

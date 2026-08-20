@@ -21,6 +21,7 @@
 #include "mlir/Support/LLVM.h"
 #include "mlir/Target/Wasm/WasmBinaryEncoding.h"
 #include "mlir/Target/Wasm/WasmImporter.h"
+#include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/DebugLog.h"
 #include "llvm/Support/Endian.h"
@@ -2008,7 +2009,10 @@ WasmBinaryParser::parseSectionItem<WasmSectionType::EXPORT>(ParserHead &ph,
     return failure();
 
   Operation *op = SymbolTable::lookupSymbolIn(mOp, *currentSymbol);
-  op->setAttr("exported", UnitAttr::get(op->getContext()));
+  TypeSwitch<Operation *>(op)
+      .Case<wasmssa::FuncOp, wasmssa::GlobalOp, wasmssa::MemOp,
+            wasmssa::TableOp>([](auto symbol) { symbol.setExported(true); })
+      .Default([](Operation *) { llvm_unreachable("unexpected export kind"); });
   StringAttr symName = SymbolTable::getSymbolName(op);
   return SymbolTable{mOp}.rename(symName, *exportName);
 }

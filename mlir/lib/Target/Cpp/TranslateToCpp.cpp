@@ -1836,9 +1836,12 @@ CppEmitter::emitOperandsAndAttributes(Operation &op,
                                       ArrayRef<StringRef> exclude) {
   if (failed(emitOperands(op)))
     return failure();
+  NamedAttrList attrs(op.getRawDictionaryAttrs());
+  op.getName().walkInherentAttrs(
+      &op, [&](StringRef name, Attribute &attr) { attrs.append(name, attr); });
   // Insert comma in between operands and non-filtered attributes if needed.
   if (op.getNumOperands() > 0) {
-    for (NamedAttribute attr : op.getAttrs()) {
+    for (NamedAttribute attr : attrs) {
       if (!llvm::is_contained(exclude, attr.getName().strref())) {
         os << ", ";
         break;
@@ -1854,7 +1857,7 @@ CppEmitter::emitOperandsAndAttributes(Operation &op,
       return failure();
     return success();
   };
-  return interleaveCommaWithError(op.getAttrs(), os, emitNamedAttribute);
+  return interleaveCommaWithError(attrs, os, emitNamedAttribute);
 }
 
 LogicalResult CppEmitter::emitVariableAssignment(OpResult result) {
