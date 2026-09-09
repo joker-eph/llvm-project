@@ -9,7 +9,6 @@ add_mlir_dialect_library(MLIRShardTransforms
 
   DEPENDS
   MLIRShardPassIncGen
-  MLIRShardingInterface
 
   # Partition.cpp and ShardingPropagation.cpp include ShardingInterface.h.
   HEADER_LIBS

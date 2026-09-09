@@ -9,7 +9,6 @@ add_mlir_library(MLIRRewrite
 
   DEPENDS
   mlir-generic-headers
-  MLIRConversionPassIncGen
 
   # ByteCode.cpp and FrozenRewritePatternSet.cpp include generated PDL and
   # PDLInterp operation declarations.

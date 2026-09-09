@@ -68,7 +68,6 @@ add_mlir_library(MLIRTestDialect
   MLIRTestOpsIncGen
   MLIRTestOpsSyntaxIncGen
   MLIRTestOpsShardGen
-  MLIRConvertToEmitCPatternInterfaceIncGen
 
   # TestDialectInterfaces.cpp includes the generated ToEmitCInterface.
   HEADER_LIBS

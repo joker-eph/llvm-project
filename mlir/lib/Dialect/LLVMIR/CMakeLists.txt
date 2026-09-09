@@ -35,9 +35,7 @@ add_mlir_dialect_library(MLIRLLVMDialect
   MLIRLLVMAllOpsIncGen
   MLIRLLVMOpsIncGen
   MLIRLLVMOpsShardGen
-  MLIRLLVMTranslationDialectInterfaceIncGen
   MLIRLLVMTypesIncGen
-  MLIROpenMPOpsIncGen
   intrinsics_gen
   MLIRLLVMConversionsIncGen
   MLIRLLVMIntrinsicConversionsIncGen
@@ -73,7 +71,6 @@ add_mlir_dialect_library(MLIRNVVMDialect
   ${MLIR_MAIN_INCLUDE_DIR}/mlir/Dialect/LLVMIR
 
   DEPENDS
-  MLIRGPUCompilationAttrInterfacesIncGen
   MLIRNVVMOpsIncGen
   MLIRNVVMConversionsIncGen
   MLIRBasicPtxBuilderInterfaceIncGen
@@ -111,7 +108,6 @@ add_mlir_dialect_library(MLIRROCDLDialect
   ${MLIR_MAIN_INCLUDE_DIR}/mlir/Dialect/LLVMIR
 
   DEPENDS
-  MLIRGPUCompilationAttrInterfacesIncGen
   MLIRROCDLOpsIncGen
   MLIRROCDLOpsShardGen
   MLIRROCDLConversionsIncGen
@@ -138,7 +134,6 @@ add_mlir_dialect_library(MLIRVCIXDialect
   ${MLIR_MAIN_INCLUDE_DIR}/mlir/Dialect/LLVMIR
 
   DEPENDS
-  MLIRGPUCompilationAttrInterfacesIncGen
   MLIRVCIXOpsIncGen
   MLIRVCIXConversionsIncGen
   intrinsics_gen
@@ -164,7 +159,6 @@ add_mlir_dialect_library(MLIRXeVMDialect
   ${MLIR_MAIN_INCLUDE_DIR}/mlir/Dialect/LLVMIR
 
   DEPENDS
-  MLIRGPUCompilationAttrInterfacesIncGen
   MLIRXeVMOpsIncGen
   MLIRXeVMConversionsIncGen
   intrinsics_gen
