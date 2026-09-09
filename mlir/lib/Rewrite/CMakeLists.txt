@@ -11,6 +11,12 @@ add_mlir_library(MLIRRewrite
   mlir-generic-headers
   MLIRConversionPassIncGen
 
+  # ByteCode.cpp and FrozenRewritePatternSet.cpp include generated PDL and
+  # PDLInterp operation declarations.
+  HEADER_LIBS
+  MLIRPDLDialect
+  MLIRPDLInterpDialect
+
   LINK_LIBS PUBLIC
   MLIRIR
   MLIRSideEffectInterfaces
@@ -40,4 +46,3 @@ if(MLIR_ENABLE_PDL_IN_PATTERNMATCH)
     MLIRPDLToPDLInterp
     MLIRRewritePDL)
 endif()
-

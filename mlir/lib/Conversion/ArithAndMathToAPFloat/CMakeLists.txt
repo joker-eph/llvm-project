@@ -42,6 +42,10 @@ add_mlir_conversion_library(MLIRMathToAPFloat
   LINK_COMPONENTS
   Core
 
+  # MathToAPFloat.cpp includes the generated Math transforms pass header.
+  HEADER_LIBS
+  MLIRMathTransforms
+
   LINK_LIBS PUBLIC
   MLIRTransformUtils
   MLIRArithAndMathToAPFloatUtils

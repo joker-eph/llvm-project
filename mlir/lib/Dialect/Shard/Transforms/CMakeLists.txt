@@ -11,6 +11,10 @@ add_mlir_dialect_library(MLIRShardTransforms
   MLIRShardPassIncGen
   MLIRShardingInterface
 
+  # Partition.cpp and ShardingPropagation.cpp include ShardingInterface.h.
+  HEADER_LIBS
+  MLIRShardingInterface
+
   LINK_LIBS PUBLIC
   MLIRAffineDialect
   MLIRAffineUtils

@@ -58,6 +58,10 @@ add_mlir_dialect_library(MLIRSPIRVDialect
   # SPIRVDialect.cpp includes llvm/IR/Attributes.h.
   intrinsics_gen
 
+  # SPIRVDialect.cpp includes the generated GPU CompilationInterfaces.
+  HEADER_LIBS
+  MLIRGPUDialect
+
   LINK_LIBS PUBLIC
   MLIRControlFlowInterfaces
   MLIRFunctionInterfaces

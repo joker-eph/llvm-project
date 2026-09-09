@@ -10,6 +10,10 @@ add_mlir_conversion_library(MLIRArithToAMDGPU
   LINK_COMPONENTS
   Core
 
+  # ArithToAMDGPU.cpp includes VectorRewritePatterns.h.
+  HEADER_LIBS
+  MLIRVectorTransforms
+
   LINK_LIBS PUBLIC
   MLIRAMDGPUDialect
   MLIRAMDGPUUtils

@@ -273,6 +273,101 @@ function(_check_llvm_components_usage name)
   endforeach()
 endfunction()
 
+# Normalize providers while directory-local targets are still visible.
+function(_mlir_normalize_header_libraries)
+  get_property(consumers DIRECTORY PROPERTY MLIR_HEADER_LIBS_CONSUMERS)
+  list(REMOVE_DUPLICATES consumers)
+  foreach(consumer ${consumers})
+    get_target_property(items "${consumer}" LLVM_HEADER_LIBS)
+    set(providers)
+    foreach(provider ${items})
+      # Imported targets and their aliases may be visible only in this
+      # directory. Their headers already exist, so handle them before the
+      # top-level resolver runs. Waiting until the directory is complete also
+      # supports forward declarations of these local targets.
+      if(TARGET "${provider}")
+        _llvm_resolve_target_alias(provider "${provider}")
+        get_target_property(imported "${provider}" IMPORTED)
+        get_target_property(type "${provider}" TYPE)
+        if(imported AND type MATCHES
+           "^(STATIC|SHARED|MODULE|OBJECT|INTERFACE|UNKNOWN)_LIBRARY$")
+          continue()
+        endif()
+      endif()
+      list(APPEND providers "${provider}")
+    endforeach()
+    set_property(TARGET "${consumer}" PROPERTY LLVM_HEADER_LIBS "${providers}")
+  endforeach()
+endfunction()
+
+# Record generated-header providers that are intentionally not linked. Resolve
+# them after the full project has been declared so aliases and forward target
+# references work and misspellings receive a useful diagnostic.
+function(_mlir_add_header_libraries consumer)
+  if(NOT ARGN)
+    return()
+  endif()
+  set_property(TARGET "${consumer}" APPEND PROPERTY LLVM_HEADER_LIBS ${ARGN})
+  set_property(DIRECTORY APPEND PROPERTY MLIR_HEADER_LIBS_CONSUMERS "${consumer}")
+  get_property(normalization_scheduled DIRECTORY PROPERTY
+    MLIR_HEADER_LIBS_NORMALIZATION_SCHEDULED)
+  if(NOT normalization_scheduled)
+    cmake_language(DEFER CALL _mlir_normalize_header_libraries)
+    set_property(DIRECTORY PROPERTY MLIR_HEADER_LIBS_NORMALIZATION_SCHEDULED TRUE)
+  endif()
+  set_property(GLOBAL APPEND PROPERTY MLIR_HEADER_LIBS_CONSUMERS "${consumer}")
+  get_property(scheduled GLOBAL PROPERTY MLIR_HEADER_LIBS_SCHEDULED)
+  if(NOT scheduled)
+    cmake_language(DEFER DIRECTORY "${CMAKE_SOURCE_DIR}"
+      CALL _mlir_resolve_header_libraries)
+    set_property(GLOBAL PROPERTY MLIR_HEADER_LIBS_SCHEDULED TRUE)
+  endif()
+endfunction()
+
+# Add only the generated-header leaf targets of each HEADER_LIBS provider. The
+# common closure follows both interface links and nested HEADER_LIBS, and its
+# visited set makes cyclic header-only relationships safe.
+function(_mlir_resolve_header_libraries)
+  get_property(consumers GLOBAL PROPERTY MLIR_HEADER_LIBS_CONSUMERS)
+  list(REMOVE_DUPLICATES consumers)
+  foreach(consumer ${consumers})
+    get_target_property(providers "${consumer}" LLVM_HEADER_LIBS)
+    set(generated_headers)
+    foreach(provider ${providers})
+      if(provider MATCHES "\\$<")
+        message(SEND_ERROR
+          "${consumer}: HEADER_LIBS '${provider}' is not a literal target name")
+        continue()
+      endif()
+      if(NOT TARGET "${provider}")
+        message(SEND_ERROR
+          "${consumer}: HEADER_LIBS '${provider}' is not a target")
+        continue()
+      endif()
+
+      _llvm_resolve_target_alias(resolved_provider "${provider}")
+      get_target_property(type "${resolved_provider}" TYPE)
+      if(NOT type MATCHES
+         "^(STATIC|SHARED|MODULE|OBJECT|INTERFACE|UNKNOWN)_LIBRARY$")
+        message(SEND_ERROR
+          "${consumer}: HEADER_LIBS '${provider}' must name a library, not ${type}")
+        continue()
+      endif()
+
+      _llvm_generated_header_closure(provider_headers "${resolved_provider}")
+      list(APPEND generated_headers ${provider_headers})
+    endforeach()
+
+    list(REMOVE_DUPLICATES generated_headers)
+    if(generated_headers)
+      add_dependencies("${consumer}" ${generated_headers})
+      if(TARGET "obj.${consumer}")
+        add_dependencies("obj.${consumer}" ${generated_headers})
+      endif()
+    endif()
+  endforeach()
+endfunction()
+
 function(add_mlir_example_library name)
   cmake_parse_arguments(ARG
     "SHARED;DISABLE_INSTALL"
@@ -325,11 +420,16 @@ endfunction()
 #   are compatible with building an object library.
 # STANDALONE
 #   Don't link against LLVMSupport.
+# HEADER_LIBS
+#   A flat list of MLIR library targets whose generated headers are included
+#   without linking. This is a rare escape hatch for header-only or circular
+#   layering; linked libraries belong in LINK_LIBS and a library's own
+#   generators belong in DEPENDS.
 function(add_mlir_library name)
   cmake_parse_arguments(ARG
     "SHARED;INSTALL_WITH_TOOLCHAIN;EXCLUDE_FROM_LIBMLIR;DISABLE_INSTALL;ENABLE_AGGREGATION;OBJECT;STANDALONE"
     ""
-    "ADDITIONAL_HEADERS;DEPENDS;LINK_COMPONENTS;LINK_LIBS"
+    "ADDITIONAL_HEADERS;DEPENDS;HEADER_LIBS;LINK_COMPONENTS;LINK_LIBS"
     ${ARGN})
   _set_mlir_additional_headers_as_srcs(${ARG_ADDITIONAL_HEADERS})
 
@@ -401,6 +501,7 @@ function(add_mlir_library name)
     # Add empty "phony" target
     add_custom_target(${name})
   endif()
+  _mlir_add_header_libraries(${name} ${ARG_HEADER_LIBS})
   set_target_properties(${name} PROPERTIES FOLDER "MLIR/Libraries")
 
   # Setup aggregate.
@@ -748,6 +849,12 @@ endfunction(mlir_check_all_link_libraries)
 function(mlir_target_link_libraries target type)
   if (TARGET obj.${target})
     target_link_libraries(obj.${target} ${type} ${ARGN})
+    cmake_parse_arguments(LINK_LIBS_ARG "" "" "PUBLIC;PRIVATE;INTERFACE"
+      ${type} ${ARGN})
+    _llvm_record_link_dependencies(obj.${target}
+      ${LINK_LIBS_ARG_PUBLIC}
+      ${LINK_LIBS_ARG_PRIVATE}
+      ${LINK_LIBS_ARG_UNPARSED_ARGUMENTS})
   endif()
 
   if (MLIR_LINK_MLIR_DYLIB)

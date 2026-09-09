@@ -650,7 +650,14 @@ function(_llvm_generated_header_closure_impl output complete provider stack)
   if(links MATCHES "-NOTFOUND$")
     set(links)
   endif()
-  foreach(item ${links})
+  # MLIR uses this property for generated headers included without a link.
+  # Keeping it in the common closure makes ordinary links and nested
+  # HEADER_LIBS propagate the same generated-header leaves.
+  get_target_property(header_libraries "${provider}" LLVM_HEADER_LIBS)
+  if(header_libraries MATCHES "-NOTFOUND$")
+    set(header_libraries)
+  endif()
+  foreach(item ${links} ${header_libraries})
     _llvm_link_item_targets(link_targets "${item}")
     foreach(link_target ${link_targets})
       _llvm_generated_header_closure_impl(

@@ -7,6 +7,10 @@ add_mlir_dialect_library(MLIRControlFlowDialect
   DEPENDS
   MLIRControlFlowOpsIncGen
 
+  # ControlFlowOps.cpp includes generated Bufferization interfaces.
+  HEADER_LIBS
+  MLIRBufferizationDialect
+
   LINK_LIBS PUBLIC
   MLIRArithDialect
   MLIRControlFlowInterfaces

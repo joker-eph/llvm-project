@@ -135,6 +135,10 @@ add_mlir_library(MLIRTilingInterface
   MLIRTilingInterfaceIncGen
   MLIRDialectUtils
 
+  # TilingInterface.h includes Dialect/Utils/StructuredOpsUtils.h.
+  HEADER_LIBS
+  MLIRDialectUtils
+
   LINK_LIBS PUBLIC
   MLIRIR
 )
@@ -151,6 +155,10 @@ add_mlir_library(MLIRValueBoundsOpInterface
   DEPENDS
   MLIRDestinationStyleOpInterface
   MLIRValueBoundsOpInterfaceIncGen
+  MLIRViewLikeInterface
+
+  # ValueBoundsOpInterface.cpp includes the generated ViewLike interface.
+  HEADER_LIBS
   MLIRViewLikeInterface
 
   LINK_LIBS PUBLIC

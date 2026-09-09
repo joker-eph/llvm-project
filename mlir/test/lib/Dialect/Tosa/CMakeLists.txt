@@ -8,6 +8,10 @@ add_mlir_dialect_library(MLIRTosaTestPasses
 
   DEPENDS
   MLIRTosaPassIncGen
+
+  # TosaTestPasses.cpp includes the generated Tosa transform pass header.
+  HEADER_LIBS
+  MLIRTosaTransforms
   )
 mlir_target_link_libraries(MLIRTosaTestPasses PUBLIC
   MLIRFuncDialect

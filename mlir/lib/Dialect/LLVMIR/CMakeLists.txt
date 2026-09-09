@@ -46,6 +46,10 @@ add_mlir_dialect_library(MLIRLLVMDialect
   BinaryFormat
   Core
 
+  # LLVMAttrs.cpp includes mlir/Dialect/Ptr/IR/PtrEnums.h.
+  HEADER_LIBS
+  MLIRPtrDialect
+
   LINK_LIBS PUBLIC
   MLIRCallInterfaces
   MLIRControlFlowInterfaces
@@ -117,6 +121,10 @@ add_mlir_dialect_library(MLIRROCDLDialect
   AsmParser
   Core
 
+  # ROCDLDialect.cpp includes the generated GPU CompilationInterfaces.
+  HEADER_LIBS
+  MLIRGPUDialect
+
   LINK_LIBS PUBLIC
   MLIRIR
   MLIRLLVMDialect
@@ -138,6 +146,10 @@ add_mlir_dialect_library(MLIRVCIXDialect
   LINK_COMPONENTS
   AsmParser
   Core
+
+  # VCIXDialect.cpp includes the generated GPU CompilationInterfaces.
+  HEADER_LIBS
+  MLIRGPUDialect
 
   LINK_LIBS PUBLIC
   MLIRIR
@@ -161,6 +173,10 @@ add_mlir_dialect_library(MLIRXeVMDialect
   AsmParser
   Core
   TargetParser
+
+  # XeVMDialect.cpp includes the generated GPU CompilationInterfaces.
+  HEADER_LIBS
+  MLIRGPUDialect
 
   LINK_LIBS PUBLIC
   MLIRDialectUtils

@@ -8,6 +8,12 @@ add_mlir_dialect_library(MLIRArmNeonDialect
   MLIRArmNeonIncGen
   MLIRArmNeonConversionsIncGen
 
+  # ArmNeonDialect.cpp includes VectorOps.h, whose declarations expose both
+  # Vector and Arith generated headers.
+  HEADER_LIBS
+  MLIRArithDialect
+  MLIRVectorDialect
+
   LINK_LIBS PUBLIC
   MLIRIR
   MLIRSideEffectInterfaces
