@@ -2107,6 +2107,10 @@ protected:
   /// The corresponding declaration, cached after the first conversion.
   mutable std::atomic<Decl *> CachedDecl = nullptr;
 
+  /// Stable relationships cached after their first traversal.
+  mutable std::atomic<DeclContext *> CachedPrimaryContext = nullptr;
+  mutable std::atomic<ASTContext *> CachedASTContext = nullptr;
+
   /// Build up a chain of declarations.
   ///
   /// \returns the first/last pair of declarations.
@@ -2167,7 +2171,9 @@ public:
   }
 
   ASTContext &getParentASTContext() const {
-    return cast<Decl>(this)->getASTContext();
+    if (ASTContext *Cached = CachedASTContext.load(std::memory_order_relaxed))
+      return *Cached;
+    return getParentASTContextSlow();
   }
 
   bool isClosure() const { return getDeclKind() == Decl::Block; }
@@ -2302,7 +2308,12 @@ public:
   /// a different set of declarations. This routine returns the
   /// "primary" DeclContext structure, which will contain the
   /// information needed to perform name lookup into this context.
-  DeclContext *getPrimaryContext();
+  DeclContext *getPrimaryContext() {
+    if (DeclContext *Cached =
+            CachedPrimaryContext.load(std::memory_order_relaxed))
+      return Cached;
+    return getPrimaryContextSlow();
+  }
   const DeclContext *getPrimaryContext() const {
     return const_cast<DeclContext*>(this)->getPrimaryContext();
   }
@@ -2826,6 +2837,9 @@ private:
   bool LoadLexicalDeclsFromExternalStorage() const;
 
   StoredDeclsMap *CreateStoredDeclsMap(ASTContext &C) const;
+
+  ASTContext &getParentASTContextSlow() const;
+  DeclContext *getPrimaryContextSlow();
 
   void loadLazyLocalLexicalLookups();
   void buildLookupImpl(DeclContext *DCtx, bool Internal);
