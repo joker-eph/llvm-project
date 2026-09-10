@@ -168,7 +168,7 @@ private:
     // External name conversion may rename a function before TBAA construction.
     // Use its original name consistently so tags created at different pipeline
     // stages belong to the same tree.
-    if (auto name = func->template getAttrOfType<mlir::StringAttr>(
+    if (auto name = func->template getDiscardableAttrOfType<mlir::StringAttr>(
             getInternalFuncNameAttrName()))
       return name;
     return func.getSymNameAttr();

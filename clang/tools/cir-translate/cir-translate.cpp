@@ -80,8 +80,8 @@ std::string prepareCIRModuleTriple(mlir::ModuleOp mod) {
     mod.emitWarning() << "no target triple provided, assuming " << triple;
   }
 
-  mod->setAttr(cir::CIRDialect::getTripleAttrName(),
-               mlir::StringAttr::get(mod.getContext(), triple));
+  mod->setDiscardableAttr(cir::CIRDialect::getTripleAttrName(),
+                          mlir::StringAttr::get(mod.getContext(), triple));
   return triple;
 }
 
@@ -121,9 +121,10 @@ llvm::LogicalResult prepareCIRModuleDataLayout(mlir::ModuleOp mod,
 
 /// Prepare requirements like cir.triple and data layout.
 llvm::LogicalResult prepareCIRModuleForTranslation(mlir::ModuleOp mod) {
-  auto modTriple = mod->getAttrOfType<mlir::StringAttr>(
+  auto modTriple = mod->getDiscardableAttrOfType<mlir::StringAttr>(
       cir::CIRDialect::getTripleAttrName());
-  auto modDataLayout = mod->getAttr(mlir::DLTIDialect::kDataLayoutAttrName);
+  auto modDataLayout =
+      mod->getDiscardableAttr(mlir::DLTIDialect::kDataLayoutAttrName);
   bool hasTargetOption = targetTripleOption.getNumOccurrences() > 0;
 
   // Skip the situation where nothing should be done.

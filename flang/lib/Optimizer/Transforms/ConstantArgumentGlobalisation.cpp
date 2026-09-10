@@ -51,7 +51,8 @@ public:
       // We can convert arguments that are alloca, and that has
       // the value by reference attribute. All else is just added
       // to the argument list.
-      if (!alloca || !alloca->hasAttr(fir::getAdaptToByRefAttrName())) {
+      if (!alloca ||
+          !alloca->hasDiscardableAttr(fir::getAdaptToByRefAttrName())) {
         newOperands.push_back(a);
         continue;
       }
@@ -131,7 +132,8 @@ public:
                                                   : mlir::SymbolRefAttr{},
                                               newResultTypes, newOperands);
       // Copy all the attributes from the old to new op.
-      newOp->setAttrs(callOp->getAttrs());
+      newOp->copyProperties(callOp->getPropertiesStorage());
+      newOp->setDiscardableAttrs(callOp->getDiscardableAttrDictionary());
       rewriter.replaceOp(callOp, newOp);
 
       for (auto a : allocas) {

@@ -474,11 +474,44 @@ public:
         getInherentAttr(name).value_or(Attribute{}));
   }
 
+  /// Return true if this operation has an inherent attribute with the provided
+  /// name.
+  bool hasInherentAttr(StringRef name) {
+    return bool(getInherentAttr(name).value_or(Attribute{}));
+  }
+  template <typename AttrClass>
+  bool hasInherentAttrOfType(StringRef name) {
+    return bool(getInherentAttrOfType<AttrClass>(name));
+  }
+
+  /// Walk the inherent attributes on this operation. The visitor may replace
+  /// or remove an inherent attribute by updating the provided value.
+  void walkInherentAttrs(OperationName::InherentAttrVisitor visitor) {
+    getName().walkInherentAttrs(this, visitor);
+  }
+
   /// Set an inherent attribute by name.
   ///
   /// This method is available as a transient facility in the migration process
   /// to use Properties instead.
   void setInherentAttr(StringAttr name, Attribute value);
+  void setInherentAttr(StringRef name, Attribute value) {
+    setInherentAttr(StringAttr::get(getContext(), name), value);
+  }
+
+  /// Remove the inherent attribute with the specified name if it exists.
+  /// Return the attribute that was erased, or nullptr if there was no attribute
+  /// with such name.
+  Attribute removeInherentAttr(StringAttr name) {
+    std::optional<Attribute> attr = getInherentAttr(name);
+    if (!attr || !*attr)
+      return {};
+    setInherentAttr(name, {});
+    return *attr;
+  }
+  Attribute removeInherentAttr(StringRef name) {
+    return removeInherentAttr(StringAttr::get(getContext(), name));
+  }
 
   /// Access a discardable attribute by name, returns a null Attribute if the
   /// discardable attribute does not exist.
@@ -560,16 +593,28 @@ public:
   /// Return all attributes that are not stored as properties.
   DictionaryAttr getRawDictionaryAttrs() { return attrs; }
 
+  LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_PUSH
+
   /// Return all of the attributes on this operation.
-  ArrayRef<NamedAttribute> getAttrs() { return getAttrDictionary().getValue(); }
+  [[deprecated("use getDiscardableAttrs() and operation-specific accessors "
+               "instead")]]
+  ArrayRef<NamedAttribute> getAttrs() {
+    return getAttrDictionary().getValue();
+  }
 
   /// Return all of the attributes on this operation as a DictionaryAttr.
+  [[deprecated("use getDiscardableAttrDictionary() and operation-specific "
+               "accessors instead")]]
   DictionaryAttr getAttrDictionary();
 
   /// Set the attributes from a dictionary on this operation.
   /// These methods are expensive: if the dictionary only contains discardable
   /// attributes, `setDiscardableAttrs` is more efficient.
+  [[deprecated("use setDiscardableAttrs() and operation-specific mutators "
+               "instead")]]
   void setAttrs(DictionaryAttr newAttrs);
+  [[deprecated("use setDiscardableAttrs() and operation-specific mutators "
+               "instead")]]
   void setAttrs(ArrayRef<NamedAttribute> newAttrs);
   /// Set the discardable attribute dictionary on this operation.
   void setDiscardableAttrs(DictionaryAttr newAttrs) {
@@ -583,6 +628,8 @@ public:
   /// Return the specified attribute if present, null otherwise.
   /// These methods are expensive: if the dictionary only contains discardable
   /// attributes, `getDiscardableAttr` is more efficient.
+  [[deprecated("use getDiscardableAttr() or an operation-specific accessor "
+               "instead")]]
   Attribute getAttr(StringAttr name) {
     if (getPropertiesStorageSize()) {
       if (std::optional<Attribute> inherentAttr = getInherentAttr(name))
@@ -590,6 +637,8 @@ public:
     }
     return attrs.get(name);
   }
+  [[deprecated("use getDiscardableAttr() or an operation-specific accessor "
+               "instead")]]
   Attribute getAttr(StringRef name) {
     if (getPropertiesStorageSize()) {
       if (std::optional<Attribute> inherentAttr = getInherentAttr(name))
@@ -599,16 +648,22 @@ public:
   }
 
   template <typename AttrClass>
+  [[deprecated("use getDiscardableAttrOfType() or an operation-specific "
+               "accessor instead")]]
   AttrClass getAttrOfType(StringAttr name) {
     return llvm::dyn_cast_or_null<AttrClass>(getAttr(name));
   }
   template <typename AttrClass>
+  [[deprecated("use getDiscardableAttrOfType() or an operation-specific "
+               "accessor instead")]]
   AttrClass getAttrOfType(StringRef name) {
     return llvm::dyn_cast_or_null<AttrClass>(getAttr(name));
   }
 
   /// Return true if the operation has an attribute with the provided name,
   /// false otherwise.
+  [[deprecated("use hasDiscardableAttr() or an operation-specific accessor "
+               "instead")]]
   bool hasAttr(StringAttr name) {
     if (getPropertiesStorageSize()) {
       if (std::optional<Attribute> inherentAttr = getInherentAttr(name))
@@ -616,6 +671,8 @@ public:
     }
     return attrs.contains(name);
   }
+  [[deprecated("use hasDiscardableAttr() or an operation-specific accessor "
+               "instead")]]
   bool hasAttr(StringRef name) {
     if (getPropertiesStorageSize()) {
       if (std::optional<Attribute> inherentAttr = getInherentAttr(name))
@@ -624,6 +681,8 @@ public:
     return attrs.contains(name);
   }
   template <typename AttrClass, typename NameT>
+  [[deprecated("use hasDiscardableAttrOfType() or an operation-specific "
+               "accessor instead")]]
   bool hasAttrOfType(NameT &&name) {
     return static_cast<bool>(
         getAttrOfType<AttrClass>(std::forward<NameT>(name)));
@@ -631,6 +690,8 @@ public:
 
   /// If the an attribute exists with the specified name, change it to the new
   /// value. Otherwise, add a new attribute with the specified name/value.
+  [[deprecated("use setDiscardableAttr() or an operation-specific mutator "
+               "instead")]]
   void setAttr(StringAttr name, Attribute value) {
     if (getPropertiesStorageSize()) {
       if (getInherentAttr(name)) {
@@ -642,6 +703,8 @@ public:
     if (attributes.set(name, value) != value)
       attrs = attributes.getDictionary(getContext());
   }
+  [[deprecated("use setDiscardableAttr() or an operation-specific mutator "
+               "instead")]]
   void setAttr(StringRef name, Attribute value) {
     setAttr(StringAttr::get(getContext(), name), value);
   }
@@ -649,6 +712,8 @@ public:
   /// Remove the attribute with the specified name if it exists. Return the
   /// attribute that was erased, or nullptr if there was no attribute with such
   /// name.
+  [[deprecated("use removeDiscardableAttr() or an operation-specific mutator "
+               "instead")]]
   Attribute removeAttr(StringAttr name) {
     if (getPropertiesStorageSize()) {
       if (std::optional<Attribute> inherentAttr = getInherentAttr(name)) {
@@ -662,9 +727,13 @@ public:
       attrs = attributes.getDictionary(getContext());
     return removedAttr;
   }
+  [[deprecated("use removeDiscardableAttr() or an operation-specific mutator "
+               "instead")]]
   Attribute removeAttr(StringRef name) {
     return removeAttr(StringAttr::get(getContext(), name));
   }
+
+  LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_POP
 
   /// A utility iterator that filters out non-dialect attributes.
   class dialect_attr_iterator
@@ -687,35 +756,51 @@ public:
 
   /// Return a range corresponding to the dialect attributes for this operation.
   dialect_attr_range getDialectAttrs() {
-    auto attrs = getAttrs();
-    return {dialect_attr_iterator(attrs.begin(), attrs.end()),
-            dialect_attr_iterator(attrs.end(), attrs.end())};
+    ArrayRef<NamedAttribute> rawAttrs = attrs.getValue();
+    return {dialect_attr_iterator(rawAttrs.begin(), rawAttrs.end()),
+            dialect_attr_iterator(rawAttrs.end(), rawAttrs.end())};
   }
   dialect_attr_iterator dialect_attr_begin() {
-    auto attrs = getAttrs();
-    return dialect_attr_iterator(attrs.begin(), attrs.end());
+    ArrayRef<NamedAttribute> rawAttrs = attrs.getValue();
+    return dialect_attr_iterator(rawAttrs.begin(), rawAttrs.end());
   }
   dialect_attr_iterator dialect_attr_end() {
-    auto attrs = getAttrs();
-    return dialect_attr_iterator(attrs.end(), attrs.end());
+    ArrayRef<NamedAttribute> rawAttrs = attrs.getValue();
+    return dialect_attr_iterator(rawAttrs.end(), rawAttrs.end());
   }
 
   /// Set the dialect attributes for this operation, and preserve all inherent.
   template <typename DialectAttrT>
   void setDialectAttrs(DialectAttrT &&dialectAttrs) {
-    NamedAttrList attrs;
-    attrs.append(std::begin(dialectAttrs), std::end(dialectAttrs));
-    for (auto attr : getAttrs())
+    NamedAttrList newAttrs;
+    newAttrs.append(std::begin(dialectAttrs), std::end(dialectAttrs));
+    for (auto attr : attrs)
       if (!attr.getName().strref().contains('.'))
-        attrs.push_back(attr);
-    setAttrs(attrs.getDictionary(getContext()));
+        newAttrs.push_back(attr);
+    setDiscardableAttrs(newAttrs.getDictionary(getContext()));
   }
 
   /// Sets default attributes on unset attributes.
   void populateDefaultAttrs() {
-    NamedAttrList attrs(getAttrDictionary());
-    name.populateDefaultAttrs(attrs);
-    setAttrs(attrs.getDictionary(getContext()));
+    NamedAttrList allAttrs;
+    if (getPropertiesStorageSize())
+      name.populateInherentAttrs(this, allAttrs);
+    allAttrs.append(getDiscardableAttrDictionary().getValue());
+    name.populateDefaultAttrs(allAttrs);
+
+    if (!getPropertiesStorageSize()) {
+      setDiscardableAttrs(allAttrs.getDictionary(getContext()));
+      return;
+    }
+
+    NamedAttrList discardableAttrs;
+    for (NamedAttribute attr : allAttrs) {
+      if (getInherentAttr(attr.getName()).has_value())
+        setInherentAttr(attr.getName(), attr.getValue());
+      else
+        discardableAttrs.append(attr);
+    }
+    setDiscardableAttrs(discardableAttrs.getDictionary(getContext()));
   }
 
   //===--------------------------------------------------------------------===//

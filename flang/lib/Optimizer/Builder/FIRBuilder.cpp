@@ -57,9 +57,10 @@ fir::FirOpBuilder::createRuntimeFunction(mlir::Location loc,
                                          llvm::StringRef name,
                                          mlir::FunctionType ty, bool isIO) {
   mlir::func::FuncOp func = createFunction(loc, name, ty);
-  func->setAttr(fir::FIROpsDialect::getFirRuntimeAttrName(), getUnitAttr());
+  func->setDiscardableAttr(fir::FIROpsDialect::getFirRuntimeAttrName(),
+                           getUnitAttr());
   if (isIO)
-    func->setAttr("fir.io", getUnitAttr());
+    func->setDiscardableAttr("fir.io", getUnitAttr());
   return func;
 }
 
@@ -925,17 +926,18 @@ void fir::FirOpBuilder::setCommonAttributes(mlir::Operation *op) const {
     //       For now set the attribute by the name.
     llvm::StringRef arithFMFAttrName = fmi.getFastMathAttrName();
     if (fastMathFlags != mlir::arith::FastMathFlags::none)
-      op->setAttr(arithFMFAttrName, mlir::arith::FastMathFlagsAttr::get(
-                                        op->getContext(), fastMathFlags));
+      op->setInherentAttr(
+          arithFMFAttrName,
+          mlir::arith::FastMathFlagsAttr::get(op->getContext(), fastMathFlags));
   }
   auto iofi =
       mlir::dyn_cast<mlir::arith::ArithIntegerOverflowFlagsInterface>(*op);
   if (iofi) {
     llvm::StringRef arithIOFAttrName = iofi.getIntegerOverflowAttrName();
     if (integerOverflowFlags != mlir::arith::IntegerOverflowFlags::none)
-      op->setAttr(arithIOFAttrName,
-                  mlir::arith::IntegerOverflowFlagsAttr::get(
-                      op->getContext(), integerOverflowFlags));
+      op->setInherentAttr(arithIOFAttrName,
+                          mlir::arith::IntegerOverflowFlagsAttr::get(
+                              op->getContext(), integerOverflowFlags));
   }
 }
 
@@ -1761,7 +1763,7 @@ void fir::factory::setInternalLinkage(mlir::func::FuncOp func) {
   auto internalLinkage = mlir::LLVM::linkage::Linkage::Internal;
   auto linkage =
       mlir::LLVM::LinkageAttr::get(func->getContext(), internalLinkage);
-  func->setAttr("llvm.linkage", linkage);
+  func->setDiscardableAttr("llvm.linkage", linkage);
 }
 
 uint64_t

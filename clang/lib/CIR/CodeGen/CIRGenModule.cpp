@@ -133,25 +133,26 @@ CIRGenModule::CIRGenModule(mlir::MLIRContext &mlirContext,
 
   std::optional<cir::SourceLanguage> sourceLanguage = getCIRSourceLanguage();
   if (sourceLanguage)
-    theModule->setAttr(
+    theModule->setDiscardableAttr(
         cir::CIRDialect::getSourceLanguageAttrName(),
         cir::SourceLanguageAttr::get(&mlirContext, *sourceLanguage));
-  theModule->setAttr(cir::CIRDialect::getTripleAttrName(),
-                     builder.getStringAttr(getTriple().str()));
+  theModule->setDiscardableAttr(cir::CIRDialect::getTripleAttrName(),
+                                builder.getStringAttr(getTriple().str()));
   // TODO(CIR): These attributes should eventually be replaced by
   // TypeSizeInfoAttr once it is upstreamed.
-  theModule->setAttr(cir::CIRDialect::getSizeTypeWidthAttrName(),
-                     builder.getI32IntegerAttr(sizeTypeSize));
-  theModule->setAttr(cir::CIRDialect::getIntTypeWidthAttrName(),
-                     builder.getI32IntegerAttr(target.getIntWidth()));
+  theModule->setDiscardableAttr(cir::CIRDialect::getSizeTypeWidthAttrName(),
+                                builder.getI32IntegerAttr(sizeTypeSize));
+  theModule->setDiscardableAttr(
+      cir::CIRDialect::getIntTypeWidthAttrName(),
+      builder.getI32IntegerAttr(target.getIntWidth()));
 
   if (cgo.OptimizationLevel > 0 || cgo.OptimizeSize > 0)
-    theModule->setAttr(cir::CIRDialect::getOptInfoAttrName(),
-                       cir::OptInfoAttr::get(&mlirContext,
-                                             cgo.OptimizationLevel,
-                                             cgo.OptimizeSize));
+    theModule->setDiscardableAttr(cir::CIRDialect::getOptInfoAttrName(),
+                                  cir::OptInfoAttr::get(&mlirContext,
+                                                        cgo.OptimizationLevel,
+                                                        cgo.OptimizeSize));
 
-  theModule->setAttr(
+  theModule->setDiscardableAttr(
       cir::CIRDialect::getDefaultTlsModelAttrName(),
       cir::TLSModelAttr::get(&mlirContext, getDefaultCIRTLSModel()));
 
@@ -189,10 +190,11 @@ CIRGenModule::CIRGenModule(mlir::MLIRContext &mlirContext,
   if (langOpts.CUDA) {
     llvm::StringRef cudaBinaryName = codeGenOpts.OffloadBinaryToEmbedFile;
     if (!cudaBinaryName.empty()) {
-      theModule->setAttr(cir::CIRDialect::getCUDABinaryHandleAttrName(),
-                         cir::CUDABinaryHandleAttr::get(
-                             &mlirContext, mlir::StringAttr::get(
-                                               &mlirContext, cudaBinaryName)));
+      theModule->setDiscardableAttr(
+          cir::CIRDialect::getCUDABinaryHandleAttrName(),
+          cir::CUDABinaryHandleAttr::get(
+              &mlirContext,
+              mlir::StringAttr::get(&mlirContext, cudaBinaryName)));
     }
   }
 }
@@ -956,9 +958,9 @@ void CIRGenModule::setNonAliasAttributes(GlobalDecl gd, mlir::Operation *op) {
                {cir::CIRDialect::getTargetCPUAttrName(),
                 cir::CIRDialect::getTuneCPUAttrName(),
                 cir::CIRDialect::getTargetFeaturesAttrName()})
-            func->removeAttr(name);
+            func->removeDiscardableAttr(name);
           for (const auto &[key, val] : attrs)
-            func->setAttr(key, builder.getStringAttr(val));
+            func->setDiscardableAttr(key, builder.getStringAttr(val));
         }
       }
     }
@@ -1612,8 +1614,9 @@ void CIRGenModule::emitGlobalVarDefinition(const clang::VarDecl *vd,
           (vd->hasAttr<CUDADeviceAttr>() || vd->hasAttr<CUDAConstantAttr>() ||
            vd->getType()->isCUDADeviceBuiltinSurfaceType() ||
            vd->getType()->isCUDADeviceBuiltinTextureType())) {
-        gv->setAttr(cir::CUDAExternallyInitializedAttr::getMnemonic(),
-                    cir::CUDAExternallyInitializedAttr::get(&getMLIRContext()));
+        gv->setDiscardableAttr(
+            cir::CUDAExternallyInitializedAttr::getMnemonic(),
+            cir::CUDAExternallyInitializedAttr::get(&getMLIRContext()));
       }
     } else {
       // Adjust linkage of shadow variables in host compilation
@@ -2088,7 +2091,10 @@ void CIRGenModule::replaceUsesOfNonProtoTypeWithRealFunction(
   assert(!cir::MissingFeatures::opFuncExceptions());
   assert(!cir::MissingFeatures::opFuncParameterAttributes());
   assert(!cir::MissingFeatures::opFuncOperandBundles());
-  if (oldFn->getAttrs().size() <= 1)
+  unsigned numAttrs = oldFn->getDiscardableAttrDictionary().size();
+  oldFn->walkInherentAttrs(
+      [&](llvm::StringRef, mlir::Attribute &attr) { numAttrs += bool(attr); });
+  if (numAttrs <= 1)
     errorNYI(old->getLoc(),
              "replaceUsesOfNonProtoTypeWithRealFunction: Attribute forwarding");
 
@@ -3222,8 +3228,12 @@ void CIRGenModule::setCIRFunctionAttributes(GlobalDecl globalDecl,
                          retAttrs, callingConv, sideEffect,
                          /*attrOnCallSite=*/false, isThunk);
 
-  for (mlir::NamedAttribute attr : pal)
-    func->setAttr(attr.getName(), attr.getValue());
+  for (mlir::NamedAttribute attr : pal) {
+    if (func->getInherentAttr(attr.getName()))
+      func->setInherentAttr(attr.getName(), attr.getValue());
+    else
+      func->setDiscardableAttr(attr.getName(), attr.getValue());
+  }
 
   llvm::for_each(llvm::enumerate(argAttrs), [func](auto idx_arg_pair) {
     mlir::function_interface_impl::setArgAttrs(func, idx_arg_pair.index(),
@@ -3271,8 +3281,8 @@ void CIRGenModule::setFunctionAttributes(GlobalDecl globalDecl,
   if (funcDecl->isReplaceableGlobalAllocationFunction()) {
     // A replaceable global allocation function does not act like a builtin by
     // default, only if it is invoked by a new-expression or delete-expression.
-    func->setAttr(cir::CIRDialect::getNoBuiltinAttrName(),
-                  mlir::UnitAttr::get(&getMLIRContext()));
+    func->setDiscardableAttr(cir::CIRDialect::getNoBuiltinAttrName(),
+                             mlir::UnitAttr::get(&getMLIRContext()));
   }
 }
 
@@ -3282,8 +3292,8 @@ void CIRGenModule::setCIRFunctionAttributesForDefinition(
   assert(!cir::MissingFeatures::stackProtector());
 
   if (!CodeGenUtils::hasUnwindExceptions(langOpts))
-    f->setAttr(cir::CIRDialect::getNoThrowAttrName(),
-               mlir::UnitAttr::get(&getMLIRContext()));
+    f->setDiscardableAttr(cir::CIRDialect::getNoThrowAttrName(),
+                          mlir::UnitAttr::get(&getMLIRContext()));
 
   std::optional<cir::InlineKind> existingInlineKind = f.getInlineKind();
   bool isNoInline =
@@ -3466,8 +3476,8 @@ void CIRGenModule::emitOpenCLKernelArgMetadata(cir::FuncOp func,
       builder.getArrayAttr(accessQuals), builder.getArrayAttr(argTypeNames),
       builder.getArrayAttr(argBaseTypeNames),
       builder.getArrayAttr(argTypeQuals), names);
-  func->setAttr(cir::CIRDialect::getOpenCLKernelArgMetadataAttrName(),
-                metadata);
+  func->setDiscardableAttr(
+      cir::CIRDialect::getOpenCLKernelArgMetadataAttrName(), metadata);
 }
 
 cir::FuncOp CIRGenModule::getOrCreateCIRFunction(
@@ -3581,8 +3591,16 @@ cir::FuncOp CIRGenModule::getOrCreateCIRFunction(
   if (d)
     setFunctionAttributes(gd, funcOp, /*isIncompleteFunction=*/false, isThunk);
   if (!extraAttrs.empty()) {
-    extraAttrs.append(funcOp->getAttrs());
-    funcOp->setAttrs(extraAttrs);
+    for (mlir::NamedAttribute attr : extraAttrs) {
+      std::optional<mlir::Attribute> inherent =
+          funcOp->getInherentAttr(attr.getName());
+      if (inherent) {
+        if (!*inherent)
+          funcOp->setInherentAttr(attr.getName(), attr.getValue());
+      } else if (!funcOp->hasDiscardableAttr(attr.getName())) {
+        funcOp->setDiscardableAttr(attr.getName(), attr.getValue());
+      }
+    }
   }
 
   // 'dontDefer' actually means don't move this to the deferredDeclsToEmit list.
@@ -3850,13 +3868,13 @@ void CIRGenModule::release() {
   emitVTablesOpportunistically();
   applyReplacements();
 
-  theModule->setAttr(cir::CIRDialect::getModuleLevelAsmAttrName(),
-                     builder.getArrayAttr(globalScopeAsm));
+  theModule->setDiscardableAttr(cir::CIRDialect::getModuleLevelAsmAttrName(),
+                                builder.getArrayAttr(globalScopeAsm));
 
   emitGlobalAnnotations();
 
   if (!recordLayoutEntries.empty())
-    theModule->setAttr(
+    theModule->setDiscardableAttr(
         cir::CIRDialect::getRecordLayoutsAttrName(),
         mlir::DictionaryAttr::get(&getMLIRContext(), recordLayoutEntries));
 
@@ -3905,8 +3923,9 @@ void CIRGenModule::release() {
       llvm::raw_svector_ostream out(fnName);
       cast<clang::ItaniumMangleContext>(getCXXABI().getMangleContext())
           .mangleModuleInitializer(primary, out);
-      theModule->setAttr(cir::CIRDialect::getCXXModuleInitFnNameAttrName(),
-                         builder.getStringAttr(fnName));
+      theModule->setDiscardableAttr(
+          cir::CIRDialect::getCXXModuleInitFnNameAttrName(),
+          builder.getStringAttr(fnName));
     }
   }
 

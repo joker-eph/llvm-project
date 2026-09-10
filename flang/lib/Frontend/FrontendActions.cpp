@@ -286,7 +286,7 @@ bool CodeGenAction::beginSourceFileAction() {
 
   if (ci.getInvocation().getLangOpts().FastRealMod) {
     mlir::ModuleOp mod = lb.getModule();
-    mod.getOperation()->setAttr(
+    mod.getOperation()->setDiscardableAttr(
         mlir::StringAttr::get(mod.getContext(),
                               llvm::Twine{"fir.fast_real_mod"}),
         mlir::BoolAttr::get(mod.getContext(), true));

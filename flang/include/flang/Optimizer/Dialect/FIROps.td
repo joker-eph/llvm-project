@@ -648,7 +648,7 @@ class fir_SwitchTerminatorOp<string mnemonic, list<Trait> traits = []> :
     }
 
     mlir::ArrayAttr getCases() {
-      return (*this)->getAttrOfType<mlir::ArrayAttr>(getCasesAttr());
+      return (*this)->getDiscardableAttrOfType<mlir::ArrayAttr>(getCasesAttr());
     }
 
     unsigned targetOffsetSize();
@@ -2173,8 +2173,8 @@ def fir_DoLoopOp : region_Op<"do_loop", [AttrSizedOperandSegments,
     }
     /// Get Number of variadic operands
     unsigned getNumOperands(unsigned idx) {
-      auto segments = (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(
-        getOperandSegmentSizeAttr());
+      auto segments = (*this)->getInherentAttrOfType<mlir::DenseI32ArrayAttr>(
+          getOperandSegmentSizeAttr());
       return static_cast<unsigned>(segments[idx]);
     }
     // Get Number of reduction operands
@@ -2426,13 +2426,13 @@ def fir_CallOp : fir_Op<"call",
 
     /// Get the argument operands to the called function.
     operand_range getArgOperands() {
-      if ((*this)->getAttrOfType<mlir::SymbolRefAttr>(getCalleeAttrName()))
+      if (getCalleeAttr())
         return {arg_operand_begin(), arg_operand_end()};
       return {arg_operand_begin() + 1, arg_operand_end()};
     }
 
     mlir::MutableOperandRange getArgOperandsMutable() {
-      if ((*this)->getAttrOfType<mlir::SymbolRefAttr>(getCalleeAttrName()))
+      if (getCalleeAttr())
         return getArgsMutable();
       return mlir::MutableOperandRange(*this, 1, getArgs().size() - 1);
     }
@@ -2442,8 +2442,7 @@ def fir_CallOp : fir_Op<"call",
 
     /// Return the callee of this operation.
     mlir::CallInterfaceCallable getCallableForCallee() {
-      if (auto calling =
-          (*this)->getAttrOfType<mlir::SymbolRefAttr>(getCalleeAttrName()))
+      if (auto calling = getCalleeAttr())
         return calling;
       return getOperand(0);
     }
@@ -2543,12 +2542,12 @@ def fir_StringLitOp : fir_Op<"string_lit", [Pure]> {
     static constexpr const char *xlist() { return "xlist"; }
 
     // Get the LEN attribute of this character constant
-    mlir::Attribute getSize() { return (*this)->getAttr(size()); }
+    mlir::Attribute getSize() { return (*this)->getDiscardableAttr(size()); }
     // Get the string value of this character constant
     mlir::Attribute getValue() {
-      if (auto attr = (*this)->getAttr(value()))
+      if (auto attr = (*this)->getDiscardableAttr(value()))
         return attr;
-      return (*this)->getAttr(xlist());
+      return (*this)->getDiscardableAttr(xlist());
     }
 
     /// Is this a wide character literal (1 character > 8 bits)
@@ -2694,8 +2693,9 @@ def fir_CmpcOp : fir_Op<"cmpc",
     }
 
     mlir::arith::CmpFPredicate getPredicate() {
-      return (mlir::arith::CmpFPredicate)(*this)->getAttrOfType<mlir::IntegerAttr>(
-          getPredicateAttrName()).getInt();
+      return (mlir::arith::CmpFPredicate)(*this)
+          ->getDiscardableAttrOfType<mlir::IntegerAttr>(getPredicateAttrName())
+          .getInt();
     }
 
     static mlir::arith::CmpFPredicate getPredicateByName(llvm::StringRef name);

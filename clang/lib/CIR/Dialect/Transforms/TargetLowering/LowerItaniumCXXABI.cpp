@@ -709,8 +709,8 @@ static void buildBadCastCall(mlir::OpBuilder &builder, mlir::Location loc,
   auto callOp = cir::CallOp::create(builder, loc, badCastFuncRef,
                                     /*resType=*/cir::VoidType(),
                                     /*operands=*/mlir::ValueRange{});
-  callOp->setAttr(cir::CIRDialect::getNoReturnAttrName(),
-                  builder.getUnitAttr());
+  callOp->setDiscardableAttr(cir::CIRDialect::getNoReturnAttrName(),
+                             builder.getUnitAttr());
 
   cir::UnreachableOp::create(builder, loc);
   builder.clearInsertionPoint();

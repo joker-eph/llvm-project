@@ -142,7 +142,8 @@ bool cir::CopyOp::storesTo(const MemorySlot &slot) {
 
 Value cir::CopyOp::getStored(const MemorySlot &slot, OpBuilder &builder,
                              Value reachingDef, const DataLayout &dataLayout) {
-  return cir::LoadOp::create(builder, getLoc(), slot.elemType, getSrc());
+  return cir::LoadOp::create(builder, getLoc(), TypeRange{slot.elemType},
+                             ValueRange{getSrc()}, cir::LoadOp::Properties{});
 }
 
 DeletionKind cir::CopyOp::removeBlockingUses(

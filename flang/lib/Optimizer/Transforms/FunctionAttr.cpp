@@ -102,44 +102,44 @@ void FunctionAttrPass::runOnOperation() {
       mlir::OperationName(mlir::LLVM::LLVMFuncOp::getOperationName(), context);
 
   if (framePointerKind != mlir::LLVM::framePointerKind::FramePointerKind::None)
-    func->setAttr(
+    func->setDiscardableAttr(
         getLlvmFuncPropertyAttrName(
             context,
             mlir::LLVM::LLVMFuncOp::getFramePointerAttrName(llvmFuncOpName)),
         mlir::LLVM::FramePointerKindAttr::get(context, framePointerKind));
 
   if (!instrumentFunctionEntry.empty())
-    func->setAttr(
+    func->setDiscardableAttr(
         getLlvmFuncPropertyAttrName(
             context, mlir::LLVM::LLVMFuncOp::getInstrumentFunctionEntryAttrName(
                          llvmFuncOpName)),
         mlir::StringAttr::get(context, instrumentFunctionEntry));
   if (!instrumentFunctionExit.empty())
-    func->setAttr(
+    func->setDiscardableAttr(
         getLlvmFuncPropertyAttrName(
             context, mlir::LLVM::LLVMFuncOp::getInstrumentFunctionExitAttrName(
                          llvmFuncOpName)),
         mlir::StringAttr::get(context, instrumentFunctionExit));
   if (noSignedZerosFPMath)
-    func->setAttr(
+    func->setDiscardableAttr(
         getLlvmFuncPropertyAttrName(
             context, mlir::LLVM::LLVMFuncOp::getNoSignedZerosFpMathAttrName(
                          llvmFuncOpName)),
         mlir::BoolAttr::get(context, true));
   if (!reciprocals.empty())
-    func->setAttr(
+    func->setDiscardableAttr(
         getLlvmFuncPropertyAttrName(
             context, mlir::LLVM::LLVMFuncOp::getReciprocalEstimatesAttrName(
                          llvmFuncOpName)),
         mlir::StringAttr::get(context, reciprocals));
   if (!preferVectorWidth.empty())
-    func->setAttr(
+    func->setDiscardableAttr(
         getLlvmFuncPropertyAttrName(
             context, mlir::LLVM::LLVMFuncOp::getPreferVectorWidthAttrName(
                          llvmFuncOpName)),
         mlir::StringAttr::get(context, preferVectorWidth));
   if (UseSampleProfile)
-    func->setAttr(
+    func->setDiscardableAttr(
         getLlvmFuncPropertyAttrName(
             context, mlir::LLVM::LLVMFuncOp::getUseSampleProfileAttrName(
                          llvmFuncOpName)),

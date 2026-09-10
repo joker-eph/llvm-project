@@ -70,8 +70,9 @@ static bool inDeviceContext(mlir::Operation *op) {
     return true;
   if (auto funcOp = op->getParentOfType<mlir::func::FuncOp>()) {
     if (auto cudaProcAttr =
-            funcOp.getOperation()->getAttrOfType<cuf::ProcAttributeAttr>(
-                cuf::getProcAttrName())) {
+            funcOp.getOperation()
+                ->getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
+                    cuf::getProcAttrName())) {
       return cudaProcAttr.getValue() != cuf::ProcAttribute::Host &&
              cudaProcAttr.getValue() != cuf::ProcAttribute::HostDevice;
     }
@@ -191,7 +192,8 @@ struct CUFAllocOpConversion : public mlir::OpRewritePattern<cuf::AllocOp> {
                                 op.getUniqName() ? *op.getUniqName() : "",
                                 op.getBindcName() ? *op.getBindcName() : "",
                                 op.getTypeparams(), op.getShape());
-      allocaOp->setAttr(cuf::getDataAttrName(), op.getDataAttrAttr());
+      allocaOp->setDiscardableAttr(cuf::getDataAttrName(),
+                                   op.getDataAttrAttr());
       rewriter.replaceOp(op, allocaOp);
       return mlir::success();
     }
@@ -266,7 +268,7 @@ struct CUFAllocOpConversion : public mlir::OpRewritePattern<cuf::AllocOp> {
       llvm::SmallVector<mlir::Value> args{fir::runtime::createArguments(
           builder, loc, fTy, bytes, memTy, sourceFile, sourceLine)};
       auto callOp = fir::CallOp::create(builder, loc, func, args);
-      callOp->setAttr(cuf::getDataAttrName(), op.getDataAttrAttr());
+      callOp->setDiscardableAttr(cuf::getDataAttrName(), op.getDataAttrAttr());
       auto convOp = builder.createConvert(loc, op.getResult().getType(),
                                           callOp.getResult(0));
       rewriter.replaceOp(op, convOp);
@@ -289,7 +291,7 @@ struct CUFAllocOpConversion : public mlir::OpRewritePattern<cuf::AllocOp> {
     llvm::SmallVector<mlir::Value> args{fir::runtime::createArguments(
         builder, loc, fTy, sizeInBytes, sourceFile, sourceLine)};
     auto callOp = fir::CallOp::create(builder, loc, func, args);
-    callOp->setAttr(cuf::getDataAttrName(), op.getDataAttrAttr());
+    callOp->setDiscardableAttr(cuf::getDataAttrName(), op.getDataAttrAttr());
     auto convOp = builder.createConvert(loc, op.getResult().getType(),
                                         callOp.getResult(0));
     rewriter.replaceOp(op, convOp);
@@ -351,7 +353,7 @@ struct CUFFreeOpConversion : public mlir::OpRewritePattern<cuf::FreeOp> {
     llvm::SmallVector<mlir::Value> args{fir::runtime::createArguments(
         builder, loc, fTy, op.getDevptr(), sourceFile, sourceLine)};
     auto callOp = fir::CallOp::create(builder, loc, func, args);
-    callOp->setAttr(cuf::getDataAttrName(), op.getDataAttrAttr());
+    callOp->setDiscardableAttr(cuf::getDataAttrName(), op.getDataAttrAttr());
     rewriter.eraseOp(op);
     return mlir::success();
   }

@@ -566,8 +566,9 @@ static RValue emitUnaryMaybeConstrainedFPBuiltin(CIRGenFunction &cgf,
 template <class Operation>
 static RValue emitUnaryFPBuiltin(CIRGenFunction &cgf, const CallExpr &e) {
   mlir::Value arg = cgf.emitScalarExpr(e.getArg(0));
-  auto call =
-      Operation::create(cgf.getBuilder(), arg.getLoc(), arg.getType(), arg);
+  auto call = Operation::create(
+      cgf.getBuilder(), arg.getLoc(), mlir::TypeRange{arg.getType()},
+      mlir::ValueRange{arg}, typename Operation::Properties{});
   return RValue::get(call->getResult(0));
 }
 

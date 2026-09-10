@@ -29,8 +29,9 @@ static void handleCUDALaunchBoundsAttr(const CUDALaunchBoundsAttr *attr,
                                        cir::FuncOp func, CIRGenModule &cgm,
                                        CIRGenBuilderTy &builder) {
   auto setNVVMAttr = [&](llvm::StringRef name, const llvm::APSInt &value) {
-    func->setAttr(("cir." + name).str(),
-                  builder.getStringAttr(llvm::utostr(value.getExtValue())));
+    func->setDiscardableAttr(
+        ("cir." + name).str(),
+        builder.getStringAttr(llvm::utostr(value.getExtValue())));
   };
 
   llvm::APSInt maxThreads(32);

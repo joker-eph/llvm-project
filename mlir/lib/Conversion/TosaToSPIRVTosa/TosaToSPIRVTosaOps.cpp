@@ -450,7 +450,7 @@ LogicalResult replaceRescale(tosa::RescaleOp op, tosa::RescaleOpAdaptor adaptor,
 template <typename SourceOp>
 LogicalResult replaceConstant(SourceOp op, typename SourceOp::Adaptor adaptor,
                               Type type, ConversionPatternRewriter &rewriter) {
-  if (auto graphConstantId = op->template getAttrOfType<IntegerAttr>(
+  if (auto graphConstantId = op->template getDiscardableAttrOfType<IntegerAttr>(
           graphARMGraphConstantIdAttrName)) {
     rewriter.replaceOpWithNewOp<spirv::GraphConstantARMOp>(op, type,
                                                            graphConstantId);

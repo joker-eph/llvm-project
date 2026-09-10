@@ -577,7 +577,12 @@ public:
                            llvm::ArrayRef<mlir::NamedAttrList> argAttrs = {},
                            llvm::ArrayRef<mlir::NamedAttribute> resAttrs = {}) {
     auto op = cir::CallOp::create(*this, loc, callee, returnType, operands);
-    op->setAttrs(attrs);
+    for (mlir::NamedAttribute attr : attrs) {
+      if (op->getInherentAttr(attr.getName()).has_value())
+        op->setInherentAttr(attr.getName(), attr.getValue());
+      else
+        op->setDiscardableAttr(attr.getName(), attr.getValue());
+    }
 
     if (!argAttrs.empty()) {
       llvm::SmallVector<mlir::Attribute> argDictAttrs;

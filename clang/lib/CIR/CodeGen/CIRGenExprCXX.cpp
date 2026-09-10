@@ -766,9 +766,10 @@ static RValue emitNewDeleteCall(CIRGenFunction &cgf,
   ///
   /// We model such elidable calls with the 'builtin' attribute.
   if (calleeDecl->isReplaceableGlobalAllocationFunction() && calleePtr &&
-      calleePtr->hasAttr(cir::CIRDialect::getNoBuiltinAttrName())) {
-    callOrTryCall->setAttr(cir::CIRDialect::getBuiltinAttrName(),
-                           mlir::UnitAttr::get(callOrTryCall->getContext()));
+      calleePtr->hasDiscardableAttr(cir::CIRDialect::getNoBuiltinAttrName())) {
+    callOrTryCall->setDiscardableAttr(
+        cir::CIRDialect::getBuiltinAttrName(),
+        mlir::UnitAttr::get(callOrTryCall->getContext()));
   }
 
   return rv;

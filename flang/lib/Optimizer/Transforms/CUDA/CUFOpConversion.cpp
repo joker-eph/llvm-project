@@ -49,8 +49,9 @@ static bool inDeviceContext(mlir::Operation *op) {
     return true;
   if (auto funcOp = op->getParentOfType<mlir::func::FuncOp>()) {
     if (auto cudaProcAttr =
-            funcOp.getOperation()->getAttrOfType<cuf::ProcAttributeAttr>(
-                cuf::getProcAttrName())) {
+            funcOp.getOperation()
+                ->getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
+                    cuf::getProcAttrName())) {
       return cudaProcAttr.getValue() != cuf::ProcAttribute::Host &&
              cudaProcAttr.getValue() != cuf::ProcAttribute::HostDevice;
     }
@@ -502,8 +503,9 @@ public:
     cuf::ProcAttributeAttr procAttr;
     if (auto funcOp = symTab.lookup<mlir::func::FuncOp>(
             op.getCallee().getLeafReference())) {
-      if (auto clusterDimsAttr = funcOp->getAttrOfType<cuf::ClusterDimsAttr>(
-              cuf::getClusterDimsAttrName())) {
+      if (auto clusterDimsAttr =
+              funcOp->getDiscardableAttrOfType<cuf::ClusterDimsAttr>(
+                  cuf::getClusterDimsAttrName())) {
         clusterDimX = mlir::arith::ConstantIndexOp::create(
             rewriter, loc, clusterDimsAttr.getX().getInt());
         clusterDimY = mlir::arith::ConstantIndexOp::create(
@@ -511,8 +513,8 @@ public:
         clusterDimZ = mlir::arith::ConstantIndexOp::create(
             rewriter, loc, clusterDimsAttr.getZ().getInt());
       }
-      procAttr =
-          funcOp->getAttrOfType<cuf::ProcAttributeAttr>(cuf::getProcAttrName());
+      procAttr = funcOp->getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
+          cuf::getProcAttrName());
     }
     llvm::SmallVector<mlir::Value> args;
     for (mlir::Value arg : op.getArgs()) {
@@ -556,12 +558,13 @@ public:
       gpuLaunchOp.getClusterSizeZMutable().assign(clusterDimZ);
     }
     if (procAttr)
-      gpuLaunchOp->setAttr(cuf::getProcAttrName(), procAttr);
+      gpuLaunchOp->setDiscardableAttr(cuf::getProcAttrName(), procAttr);
     else
       // Set default global attribute of the original was not found.
-      gpuLaunchOp->setAttr(cuf::getProcAttrName(),
-                           cuf::ProcAttributeAttr::get(
-                               op.getContext(), cuf::ProcAttribute::Global));
+      gpuLaunchOp->setDiscardableAttr(
+          cuf::getProcAttrName(),
+          cuf::ProcAttributeAttr::get(op.getContext(),
+                                      cuf::ProcAttribute::Global));
     rewriter.eraseOp(op);
     return mlir::success();
   }

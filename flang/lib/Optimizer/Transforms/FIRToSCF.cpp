@@ -19,6 +19,19 @@ namespace fir {
 } // namespace fir
 
 namespace {
+static void copyAttributes(mlir::Operation *from, mlir::Operation *to) {
+  auto copyAttribute = [&](llvm::StringRef name, mlir::Attribute value) {
+    if (to->getInherentAttr(name).has_value())
+      to->setInherentAttr(name, value);
+    else
+      to->setDiscardableAttr(name, value);
+  };
+  from->walkInherentAttrs(copyAttribute);
+  for (mlir::NamedAttribute attr :
+       from->getDiscardableAttrDictionary().getValue())
+    copyAttribute(attr.getName().getValue(), attr.getValue());
+}
+
 class FIRToSCFPass : public fir::impl::FIRToSCFPassBase<FIRToSCFPass> {
   using FIRToSCFPassBase::FIRToSCFPassBase;
 
@@ -196,12 +209,14 @@ struct DoLoopConversion : public mlir::OpRewritePattern<fir::DoLoopOp> {
 
     // Copy loop annotations from the fir.do_loop to scf loop op.
     if (auto ann = doLoopOp.getLoopAnnotation())
-      scfLoopOp->setAttr("loop_annotation", *ann);
+      scfLoopOp->setDiscardableAttr("loop_annotation", *ann);
 
     // Copy any OpenACC parallel dimensions from the fir.do_loop to the scf loop
     // op.
-    if (auto parDims = doLoopOp->getAttr(mlir::acc::GPUParallelDimsAttr::name))
-      scfLoopOp->setAttr(mlir::acc::GPUParallelDimsAttr::name, parDims);
+    if (auto parDims =
+            doLoopOp->getDiscardableAttr(mlir::acc::GPUParallelDimsAttr::name))
+      scfLoopOp->setDiscardableAttr(mlir::acc::GPUParallelDimsAttr::name,
+                                    parDims);
 
     rewriter.replaceOp(doLoopOp, scfLoopOp->getResults());
     return mlir::success();
@@ -298,7 +313,7 @@ struct IterWhileConversion : public mlir::OpRewritePattern<fir::IterWhileOp> {
     rewriter.setInsertionPointToEnd(afterBody);
     rewriter.replaceOpWithNewOp<mlir::scf::YieldOp>(resultOp, results);
 
-    scfWhileOp->setAttrs(iterWhileOp->getAttrs());
+    copyAttributes(iterWhileOp, scfWhileOp);
     rewriter.replaceOp(iterWhileOp,
                        hasFinalValue ? scfWhileOp->getResults()
                                      : scfWhileOp->getResults().drop_front());
@@ -344,7 +359,7 @@ struct IfConversion : public mlir::OpRewritePattern<fir::IfOp> {
                                   scfIfOp.getElseRegion().front());
     }
 
-    scfIfOp->setAttrs(ifOp->getAttrs());
+    copyAttributes(ifOp, scfIfOp);
     rewriter.replaceOp(ifOp, scfIfOp);
     return mlir::success();
   }

@@ -1017,7 +1017,7 @@ mlir::func::FuncOp SimplifyIntrinsicsPass::getOrCreateFunction(
   auto inlineLinkage = mlir::LLVM::linkage::Linkage::LinkonceODR;
   auto linkage =
       mlir::LLVM::LinkageAttr::get(builder.getContext(), inlineLinkage);
-  newFunc->setAttr("llvm.linkage", linkage);
+  newFunc->setDiscardableAttr("llvm.linkage", linkage);
 
   // Save the position of the original call.
   mlir::OpBuilder::InsertPoint insertPt = builder.saveInsertionPoint();

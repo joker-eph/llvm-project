@@ -220,7 +220,7 @@ static void setRuntimeCallAttributes(fir::CallOp callOp,
   auto funcOp = mlir::dyn_cast_or_null<mlir::func::FuncOp>(
       iface.resolveCallableInTable(&symbolTable));
 
-  if (!funcOp || !funcOp->hasAttrOfType<mlir::UnitAttr>(
+  if (!funcOp || !funcOp->hasDiscardableAttrOfType<mlir::UnitAttr>(
                      fir::FIROpsDialect::getFirRuntimeAttrName()))
     return;
 
@@ -234,12 +234,12 @@ static void setRuntimeCallAttributes(fir::CallOp callOp,
                << "Identified runtime function call: " << desc.key << '\n');
     if (mlir::LLVM::MemoryEffectsAttr memoryAttr =
             desc.memoryAttrGenerator(callOp))
-      callOp->setAttr(fir::FIROpsDialect::getFirCallMemoryAttrName(),
-                      memoryAttr);
+      callOp->setDiscardableAttr(fir::FIROpsDialect::getFirCallMemoryAttrName(),
+                                 memoryAttr);
     if (auto attr = desc.nosyncAttrGenerator(callOp))
-      callOp->setAttr(attr->getName(), attr->getValue());
+      callOp->setDiscardableAttr(attr->getName(), attr->getValue());
     if (auto attr = desc.nocallbackAttrGenerator(callOp))
-      callOp->setAttr(attr->getName(), attr->getValue());
+      callOp->setDiscardableAttr(attr->getName(), attr->getValue());
     LLVM_DEBUG(llvm::dbgs() << "Operation with attrs: " << callOp << '\n');
   }
 }

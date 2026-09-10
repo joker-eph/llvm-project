@@ -160,6 +160,14 @@ def NS_AOp : NS_Op<"a_op", [IsolatedFromAbove, IsolatedFromAbove]> {
 // DEFS-LABEL: NS::AOp definitions
 // DEFS: void AOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes, unsigned numRegions) {
 // DEFS:   buildPropertiesAndDiscardableAttributes(odsState, attributes);
+// DEFS: AOp AOp::create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes, unsigned numRegions) {
+// DEFS-NEXT: LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_PUSH
+// DEFS:   build(builder, __state__
+// DEFS: LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_POP
+// DEFS: AOp AOp::create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes, unsigned numRegions) {
+// DEFS-NEXT: LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_PUSH
+// DEFS:   return create(builder, builder.getLoc()
+// DEFS: LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_POP
 // DEFS: void AOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes, unsigned numRegions) {
 // DEFS:   odsState.useProperties(const_cast<Properties&>(properties));
 // DEFS-LABEL: void AOp::buildPropertiesAndDiscardableAttributes

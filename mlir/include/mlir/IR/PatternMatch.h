@@ -528,8 +528,10 @@ public:
   template <typename OpTy, typename... Args>
   OpTy replaceOpWithNewOp(Operation *op, Args &&...args) {
     auto builder = static_cast<OpBuilder *>(this);
+    LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_PUSH
     auto newOp =
         OpTy::create(*builder, op->getLoc(), std::forward<Args>(args)...);
+    LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_POP
     replaceOp(op, newOp.getOperation());
     return newOp;
   }

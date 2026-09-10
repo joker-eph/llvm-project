@@ -189,17 +189,24 @@ let cppNamespace = "::cir" in {
       InterfaceMethod<"",
       "void", "setSection", (ins "mlir::StringAttr":$val), [{}],
       /*defaultImplementation=*/[{
+        if ($_op->getInherentAttr("section")) {
+          $_op->setInherentAttr("section", val);
+          return;
+        }
         if (val)
-          $_op->setAttr("section", val);
+          $_op->setDiscardableAttr("section", val);
         else
-          $_op->removeAttr("section");
+          $_op->removeDiscardableAttr("section");
       }]
       >,
       InterfaceMethod<"",
       "mlir::StringAttr", "getSectionAttr", (ins), [{}],
       /*defaultImplementation=*/[{
+        if (std::optional<mlir::Attribute> attr =
+                $_op->getInherentAttr("section"))
+          return mlir::dyn_cast_if_present<mlir::StringAttr>(*attr);
         return mlir::dyn_cast_if_present<mlir::StringAttr>(
-            $_op->getAttr("section"));
+            $_op->getDiscardableAttr("section"));
       }]
       >,
       // Added for readability.
@@ -216,9 +223,9 @@ let cppNamespace = "::cir" in {
         if (val) {
           auto aliaseeRef =
               ::mlir::FlatSymbolRefAttr::get($_op->getContext(), *val);
-          $_op->setAttr("aliasee", aliaseeRef);
+          $_op.setAliaseeAttr(aliaseeRef);
         } else {
-          $_op->removeAttr("aliasee");
+          $_op.setAliaseeAttr(::mlir::FlatSymbolRefAttr{});
         }
       }]
       >,

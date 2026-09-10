@@ -1416,7 +1416,7 @@ static void combineAndStoreElement(
                                         /*keep_lhs_length_if_realloc=*/false,
                                         /*temporary_lhs=*/temporaryLHS);
   if (accessGroups)
-    assign->setAttr(fir::getAccessGroupsAttrName(), accessGroups);
+    assign->setDiscardableAttr(fir::getAccessGroupsAttrName(), accessGroups);
 }
 
 void hlfir::genNoAliasArrayAssignment(

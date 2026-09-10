@@ -72,10 +72,11 @@ public:
     mlir::OperationState loweredOpState(op->getLoc(), op->getName());
     loweredOpState.addOperands(operands);
 
-    // Copy attributes, converting any TypeAttr through the type converter so
-    // that address-space-bearing types (e.g. AllocaOp's allocaType) stay in
-    // sync with the converted result types.
-    for (mlir::NamedAttribute attr : op->getAttrs()) {
+    // Copy properties and discardable attributes, converting any TypeAttr
+    // through the type converter so that address-space-bearing types (e.g.
+    // AllocaOp's allocaType) stay in sync with the converted result types.
+    loweredOpState.propertiesAttr = op->getPropertiesAsAttribute();
+    for (mlir::NamedAttribute attr : op->getDiscardableAttrs()) {
       if (auto typeAttr = mlir::dyn_cast<mlir::TypeAttr>(attr.getValue())) {
         mlir::Type converted = typeConverter->convertType(typeAttr.getValue());
         loweredOpState.addAttribute(attr.getName(),
@@ -102,6 +103,11 @@ public:
     }
 
     mlir::Operation *loweredOp = rewriter.create(loweredOpState);
+    loweredOp->walkInherentAttrs([&](llvm::StringRef, mlir::Attribute &attr) {
+      if (auto typeAttr = mlir::dyn_cast<mlir::TypeAttr>(attr))
+        attr = mlir::TypeAttr::get(
+            typeConverter->convertType(typeAttr.getValue()));
+    });
     rewriter.replaceOp(op, loweredOp);
     return mlir::success();
   }
@@ -204,13 +210,14 @@ public:
 static void convertSyncScopeIfPresent(mlir::Operation *op,
                                       cir::LowerModule &lowerModule) {
   auto syncScopeAttr =
-      mlir::cast_if_present<cir::SyncScopeKindAttr>(op->getAttr("sync_scope"));
+      op->getInherentAttrOfType<cir::SyncScopeKindAttr>("sync_scope");
   if (syncScopeAttr) {
     cir::SyncScopeKind convertedSyncScope =
         lowerModule.getTargetLoweringInfo().convertSyncScope(
             syncScopeAttr.getValue());
-    op->setAttr("sync_scope", cir::SyncScopeKindAttr::get(op->getContext(),
-                                                          convertedSyncScope));
+    op->setInherentAttr(
+        "sync_scope",
+        cir::SyncScopeKindAttr::get(op->getContext(), convertedSyncScope));
   }
 }
 

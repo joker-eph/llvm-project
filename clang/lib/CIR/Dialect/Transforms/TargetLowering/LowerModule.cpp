@@ -82,13 +82,14 @@ std::unique_ptr<LowerModule> createLowerModule(mlir::ModuleOp module) {
   // If the triple is not present, e.g. CIR modules parsed from text, we
   // cannot init LowerModule properly.
   assert(!cir::MissingFeatures::makeTripleAlwaysPresent());
-  if (!module->hasAttr(cir::CIRDialect::getTripleAttrName()))
+  if (!module->hasDiscardableAttr(cir::CIRDialect::getTripleAttrName()))
     return nullptr;
 
   // Fetch target information.
-  llvm::Triple triple(mlir::cast<mlir::StringAttr>(
-                          module->getAttr(cir::CIRDialect::getTripleAttrName()))
-                          .getValue());
+  llvm::Triple triple(
+      mlir::cast<mlir::StringAttr>(
+          module->getDiscardableAttr(cir::CIRDialect::getTripleAttrName()))
+          .getValue());
   clang::TargetOptions targetOptions;
   targetOptions.Triple = triple.str();
   auto targetInfo = clang::targets::AllocateTarget(triple, targetOptions);
@@ -104,8 +105,8 @@ std::unique_ptr<LowerModule> createLowerModule(mlir::ModuleOp module) {
   assert(!cir::MissingFeatures::lowerModuleCodeGenOpts());
   clang::CodeGenOptions codeGenOpts;
 
-  if (auto optInfo = mlir::cast_if_present<cir::OptInfoAttr>(
-          module->getAttr(cir::CIRDialect::getOptInfoAttrName()))) {
+  if (auto optInfo = module->getDiscardableAttrOfType<cir::OptInfoAttr>(
+          cir::CIRDialect::getOptInfoAttrName())) {
     codeGenOpts.OptimizationLevel = optInfo.getLevel();
     codeGenOpts.OptimizeSize = optInfo.getSize();
   }

@@ -127,7 +127,7 @@ public:
     fir::LazySymbolTable symbolTable(mod);
 
     mod.walk([&](Operation *op) {
-      auto declareAction = op->getAttrOfType<acc::DeclareActionAttr>(
+      auto declareAction = op->getDiscardableAttrOfType<acc::DeclareActionAttr>(
           acc::getDeclareActionAttrName());
       if (!declareAction)
         return;
@@ -153,9 +153,11 @@ public:
             continue;
 
           if (auto funcOp = dyn_cast<func::FuncOp>(funcDef))
-            if (!funcOp->hasAttr(mlir::acc::getDeclareActionAttrName()))
-              funcOp->setAttr(mlir::acc::getDeclareActionAttrName(),
-                              mlir::UnitAttr::get(funcOp.getContext()));
+            if (!funcOp->hasDiscardableAttr(
+                    mlir::acc::getDeclareActionAttrName()))
+              funcOp->setDiscardableAttr(
+                  mlir::acc::getDeclareActionAttrName(),
+                  mlir::UnitAttr::get(funcOp.getContext()));
 
           if (action == declareAction.getPreAlloc() ||
               action == declareAction.getPreDealloc())

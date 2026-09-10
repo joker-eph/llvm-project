@@ -1022,7 +1022,7 @@ bool AliasAnalysis::isCallToFortranUserProcedure(Operation *op) {
 
     if (auto funcOp =
             symTab->lookup<FunctionOpInterface>(callee->getLeafReference()))
-      if (auto name = funcOp->getAttrOfType<StringAttr>(
+      if (auto name = funcOp->getDiscardableAttrOfType<StringAttr>(
               fir::getInternalFuncNameAttrName()))
         if (fir::NameUniquer::deconstruct(name.getValue()).first ==
             fir::NameUniquer::NameKind::PROCEDURE)

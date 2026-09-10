@@ -47,8 +47,8 @@ struct AnnotateConstantOperands
           }
         }
         if (hasOneOrMoreConstOpnd)
-          op->setAttr("canonicalize_constant_operands",
-                      mlir::ArrayAttr::get(context, attrs));
+          op->setDiscardableAttr("canonicalize_constant_operands",
+                                 mlir::ArrayAttr::get(context, attrs));
       }
     });
   }

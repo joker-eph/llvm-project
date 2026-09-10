@@ -162,7 +162,8 @@ struct BranchOpLowering : public ConvertOpToLLVMPattern<cf::BranchOp> {
       return failure();
     DictionaryAttr attrs = op->getDiscardableAttrDictionary();
     auto loopAnnotation =
-        op->getAttrOfType<LLVM::LoopAnnotationAttr>("loop_annotation");
+        op->getDiscardableAttrOfType<LLVM::LoopAnnotationAttr>(
+            "loop_annotation");
     Operation *newOp = rewriter.replaceOpWithNewOp<LLVM::BrOp>(
         op, flattenedAdaptor, loopAnnotation, *convertedBlock);
     // TODO: We should not just forward all attributes like that. But there are
@@ -200,7 +201,8 @@ struct CondBranchOpLowering : public ConvertOpToLLVMPattern<cf::CondBranchOp> {
       return failure();
     DictionaryAttr attrs = op->getDiscardableAttrDictionary();
     auto loopAnnotation =
-        op->getAttrOfType<LLVM::LoopAnnotationAttr>("loop_annotation");
+        op->getDiscardableAttrOfType<LLVM::LoopAnnotationAttr>(
+            "loop_annotation");
     auto newOp = rewriter.replaceOpWithNewOp<LLVM::CondBrOp>(
         op, llvm::getSingleElement(adaptor.getCondition()),
         flattenedAdaptorTrue, flattenedAdaptorFalse, op.getBranchWeightsAttr(),

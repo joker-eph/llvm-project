@@ -2074,7 +2074,7 @@ vectorizeAsLinalgContraction(RewriterBase &rewriter, VectorizationState &state,
   // Preserve the contraction's cast semantics when converting operands to the
   // integer accumulator type. vector.contract provides an implicit signed
   // integer promotion; the cases below materialize explicit casts as needed.
-  auto castAttr = linalgOp->getAttrOfType<TypeFnAttr>("cast");
+  auto castAttr = linalgOp->getInherentAttrOfType<TypeFnAttr>("cast");
   bool hasUnsignedCast =
       castAttr && castAttr.getValue() == TypeFn::cast_unsigned;
   auto accType = dyn_cast<VectorType>(vecOperands[2].getType());

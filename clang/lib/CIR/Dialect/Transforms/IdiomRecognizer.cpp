@@ -33,11 +33,11 @@ namespace {
 // True when the call's no builtin state forbids treating it as `name`. A
 // builtin mark wins over a nobuiltin mark or a nobuiltins list.
 bool isNoBuiltin(CallOp call, llvm::StringRef name) {
-  if (call->hasAttr(cir::CIRDialect::getBuiltinAttrName()))
+  if (call->hasDiscardableAttr(cir::CIRDialect::getBuiltinAttrName()))
     return false;
-  if (call->hasAttr(cir::CIRDialect::getNoBuiltinAttrName()))
+  if (call->hasDiscardableAttr(cir::CIRDialect::getNoBuiltinAttrName()))
     return true;
-  auto noBuiltins = call->getAttrOfType<mlir::ArrayAttr>(
+  auto noBuiltins = call->getDiscardableAttrOfType<mlir::ArrayAttr>(
       cir::CIRDialect::getNoBuiltinsAttrName());
   if (!noBuiltins)
     return false;
@@ -101,9 +101,12 @@ template <typename... TargetOps> class StdRecognizer {
         buildCall<TargetOp>(builder, call, std::make_index_sequence<numArgs>());
     // The raised operation keeps every call attribute except the callee,
     // which it carries as original_fn, so lowering back loses nothing.
-    for (mlir::NamedAttribute attr : call->getAttrs())
-      if (attr.getName() != call.getCalleeAttrName())
-        op->setAttr(attr.getName(), attr.getValue());
+    call->walkInherentAttrs([&](llvm::StringRef name, mlir::Attribute &attr) {
+      if (name != call.getCalleeAttrName())
+        op->setDiscardableAttr(name, attr);
+    });
+    for (mlir::NamedAttribute attr : call->getDiscardableAttrs())
+      op->setDiscardableAttr(attr.getName(), attr.getValue());
     call.replaceAllUsesWith(op);
     call.erase();
     return true;

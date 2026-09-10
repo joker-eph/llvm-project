@@ -997,12 +997,13 @@ mlir::Value genLibCall(fir::FirOpBuilder &builder, mlir::Location loc,
   if (!funcOp) {
     funcOp = builder.createFunction(loc, libFuncName, libFuncType);
     // C-interoperability rules apply to these library functions.
-    funcOp->setAttr(fir::getSymbolAttrName(),
-                    mlir::StringAttr::get(builder.getContext(), libFuncName));
+    funcOp->setDiscardableAttr(
+        fir::getSymbolAttrName(),
+        mlir::StringAttr::get(builder.getContext(), libFuncName));
     // Set fir.runtime attribute to distinguish the function that
     // was just created from user functions with the same name.
-    funcOp->setAttr(fir::FIROpsDialect::getFirRuntimeAttrName(),
-                    builder.getUnitAttr());
+    funcOp->setDiscardableAttr(fir::FIROpsDialect::getFirRuntimeAttrName(),
+                               builder.getUnitAttr());
     auto libCall = fir::CallOp::create(builder, loc, funcOp, args);
     // TODO: ensure 'strictfp' setting on the call for "precise/strict"
     //       FP mode. Set appropriate Fast-Math Flags otherwise.
@@ -2323,7 +2324,7 @@ mlir::func::FuncOp IntrinsicLibrary::getWrapper(GeneratorType generator,
   if (!function) {
     // First time this wrapper is needed, build it.
     function = builder.createFunction(loc, wrapperName, funcType);
-    function->setAttr("fir.intrinsic", builder.getUnitAttr());
+    function->setDiscardableAttr("fir.intrinsic", builder.getUnitAttr());
     fir::factory::setInternalLinkage(function);
     function.addEntryBlock();
 
@@ -3388,7 +3389,7 @@ void IntrinsicLibrary::genCFStrPointer(
       mlir::func::FuncOp strlenFunc = builder.getNamedFunction("strlen");
       if (!strlenFunc) {
         strlenFunc = builder.createFunction(loc, "strlen", strlenType);
-        strlenFunc->setAttr(
+        strlenFunc->setDiscardableAttr(
             fir::getSymbolAttrName(),
             mlir::StringAttr::get(builder.getContext(), "strlen"));
       }
@@ -6920,7 +6921,8 @@ mlir::Value IntrinsicLibrary::genMod(mlir::Type resultType,
                                      llvm::ArrayRef<mlir::Value> args) {
   auto mod = builder.getModule();
   bool useFastRealMod = false;
-  if (auto attr = mod->getAttrOfType<mlir::BoolAttr>("fir.fast_real_mod"))
+  if (auto attr =
+          mod->getDiscardableAttrOfType<mlir::BoolAttr>("fir.fast_real_mod"))
     useFastRealMod = attr.getValue();
 
   assert(args.size() == 2);

@@ -2219,7 +2219,7 @@ struct TestTypeConversionDriver
           // Test dropping an i1 value used as an SCF condition.
           Operation *definingOp = v.getDefiningOp();
           if (!definingOp || !v.getType().isInteger(1) ||
-              !definingOp->hasAttr("drop_i1"))
+              !definingOp->hasDiscardableAttr("drop_i1"))
             return std::nullopt;
           return success();
         });

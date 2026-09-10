@@ -404,7 +404,8 @@ mlir::Value emitCoercion(mlir::OpBuilder &builder, mlir::Location loc,
                          unsigned offset) {
   mlir::Value dstSlot = emitCoercionToMemory(builder, loc, dstTy, src,
                                              slotBlock, dl, createdOps, offset);
-  auto load = cir::LoadOp::create(builder, loc, dstSlot);
+  auto load = cir::LoadOp::create(builder, loc, mlir::ValueRange{dstSlot},
+                                  cir::LoadOp::Properties{});
   createdOps.insert(load);
   return load;
 }
@@ -543,7 +544,8 @@ static void emitStructFieldArgs(mlir::OpBuilder &builder, mlir::Location loc,
       mlir::Value fieldPtr = cir::GetMemberOp::create(
           builder, loc, fieldPtrTy, srcLoad.getAddr(), /*name=*/"",
           /*index=*/f);
-      newArgs.push_back(cir::LoadOp::create(builder, loc, fieldPtr));
+      newArgs.push_back(cir::LoadOp::create(
+          builder, loc, mlir::ValueRange{fieldPtr}, cir::LoadOp::Properties{}));
     }
     deadRecordLoads.push_back(srcLoad);
   } else {
@@ -710,8 +712,9 @@ void insertArgCoercion(mlir::FunctionOpInterface funcOp,
             builder, loc, entry.getArgument(blockArgIdx + f), fieldPtr);
         flattenOps.insert(storeOp);
       }
-      auto flatLoaded =
-          cir::LoadOp::create(builder, loc, flatTy, flatSlot.getResult());
+      auto flatLoaded = cir::LoadOp::create(
+          builder, loc, mlir::TypeRange{flatTy},
+          mlir::ValueRange{flatSlot.getResult()}, cir::LoadOp::Properties{});
       flattenOps.insert(flatLoaded);
 
       // If the coerced struct type differs from the original argument type,
@@ -802,7 +805,9 @@ void insertArgCoercion(mlir::FunctionOpInterface funcOp,
         blockArg.setType(ptrTy);
 
         builder.setInsertionPointToStart(&entry);
-        auto loadOp = cir::LoadOp::create(builder, funcOp.getLoc(), blockArg);
+        auto loadOp = cir::LoadOp::create(builder, funcOp.getLoc(),
+                                          mlir::ValueRange{blockArg},
+                                          cir::LoadOp::Properties{});
         SmallPtrSet<mlir::Operation *, 1> loadOps = {loadOp};
         blockArg.replaceAllUsesExcept(loadOp.getResult(), loadOps);
       }
@@ -927,7 +932,17 @@ void applySretSlotAttrs(cir::CallOp newCall, mlir::ArrayAttr argAttrs,
          "arg_attrs wider than the rewritten call's operand list");
   newArgAttrs.resize(newCall.getArgOperands().size(),
                      mlir::DictionaryAttr::get(ctx));
-  newCall->setAttr("arg_attrs", mlir::ArrayAttr::get(ctx, newArgAttrs));
+  newCall.setArgAttrsAttr(mlir::ArrayAttr::get(ctx, newArgAttrs));
+}
+
+static void copyUnsetCallAttributes(cir::CallOp source, cir::CallOp target) {
+  source->walkInherentAttrs([&](llvm::StringRef name, mlir::Attribute &attr) {
+    if (!target->hasInherentAttr(name))
+      target->setInherentAttr(name, attr);
+  });
+  for (mlir::NamedAttribute attr : source->getDiscardableAttrs())
+    if (!target->hasDiscardableAttr(attr.getName()))
+      target->setDiscardableAttr(attr.getName(), attr.getValue());
 }
 
 /// For an indirect call, prepend the callee function pointer as operand 0 so
@@ -1019,16 +1034,14 @@ void rewriteIndirectReturnCall(cir::CallOp call,
   prependIndirectCallee(call, sretArgs, sretVoidTy, builder);
   auto newCall = cir::CallOp::create(
       builder, call.getLoc(), call.getCalleeAttr(), sretVoidTy, sretArgs);
-  for (mlir::NamedAttribute attr : call->getAttrs())
-    if (!newCall->hasAttr(attr.getName()))
-      newCall->setAttr(attr.getName(), attr.getValue());
+  copyUnsetCallAttributes(call, newCall);
 
   // Shape the per-argument attrs exactly as the non-sret path does
   // (signext / zeroext for Extend, drop Ignore slots, byval / align for
   // Indirect, flatten for Expand and Direct+canFlatten) before prepending the
   // sret slot, so sret composes correctly with Extend / Ignore / Indirect /
   // Expand / Direct+canFlatten args.
-  mlir::ArrayAttr argAttrs = call->getAttrOfType<mlir::ArrayAttr>("arg_attrs");
+  mlir::ArrayAttr argAttrs = call.getArgAttrsAttr();
   bool needsArgAttrUpdate =
       llvm::any_of(fc.argInfos, [](const ArgClassification &ac) {
         return ac.kind == ArgKind::Ignore || ac.kind == ArgKind::Extend ||
@@ -1206,7 +1219,7 @@ mlir::LogicalResult CIRABIRewriteContext::rewriteFunctionDefinition(
                getFlattenedCoercedType(ac);
       });
   if (needsArgAttrUpdate) {
-    auto existing = funcOp->getAttrOfType<mlir::ArrayAttr>("arg_attrs");
+    auto existing = funcOp.getArgAttrsAttr();
     mlir::ArrayAttr updated = updateArgAttrs(ctx, oldArgTypes, existing, fc);
     if (hasSRet) {
       // Prepend the sret slot's attribute dict (slot 0); the per-argument
@@ -1218,17 +1231,17 @@ mlir::LogicalResult CIRABIRewriteContext::rewriteFunctionDefinition(
       SmallVector<mlir::Attribute> withSret;
       withSret.push_back(mlir::DictionaryAttr::get(ctx, sretAttrs));
       llvm::append_range(withSret, updated);
-      funcOp->setAttr("arg_attrs", mlir::ArrayAttr::get(ctx, withSret));
+      funcOp.setArgAttrsAttr(mlir::ArrayAttr::get(ctx, withSret));
     } else {
-      funcOp->setAttr("arg_attrs", updated);
+      funcOp.setArgAttrsAttr(updated);
     }
   }
 
   // Rebuild res_attrs: layer llvm.signext / llvm.zeroext onto an Extend
   // return.
   if (fc.returnInfo.kind == ArgKind::Extend) {
-    auto existing = funcOp->getAttrOfType<mlir::ArrayAttr>("res_attrs");
-    funcOp->setAttr("res_attrs", updateResAttrs(ctx, existing, fc.returnInfo));
+    auto existing = funcOp.getResAttrsAttr();
+    funcOp.setResAttrsAttr(updateResAttrs(ctx, existing, fc.returnInfo));
   }
 
   return mlir::success();
@@ -1309,8 +1322,10 @@ CIRABIRewriteContext::rewriteCallSite(mlir::Operation *callOp,
           auto fieldPtr =
               cir::GetMemberOp::create(builder, call.getLoc(), fieldPtrTy,
                                        coercedPtr, /*name=*/"", /*index=*/f);
-          newArgs.push_back(cir::LoadOp::create(builder, call.getLoc(), fieldTy,
-                                                fieldPtr.getResult()));
+          newArgs.push_back(cir::LoadOp::create(
+              builder, call.getLoc(), mlir::TypeRange{fieldTy},
+              mlir::ValueRange{fieldPtr.getResult()},
+              cir::LoadOp::Properties{}));
         }
       } else {
         emitStructFieldArgs(builder, call.getLoc(), arg, flatTy, newArgs,
@@ -1392,9 +1407,7 @@ CIRABIRewriteContext::rewriteCallSite(mlir::Operation *callOp,
   prependIndirectCallee(call, newArgs, callRetTy, builder);
   auto newCall = cir::CallOp::create(builder, call.getLoc(),
                                      call.getCalleeAttr(), callRetTy, newArgs);
-  for (mlir::NamedAttribute attr : call->getAttrs())
-    if (!newCall->hasAttr(attr.getName()))
-      newCall->setAttr(attr.getName(), attr.getValue());
+  copyUnsetCallAttributes(call, newCall);
 
   // Direct return with coercion: the new call returns the coerced type;
   // emit a coercion back to the original type for the call's existing uses.
@@ -1417,13 +1430,13 @@ CIRABIRewriteContext::rewriteCallSite(mlir::Operation *callOp,
                getFlattenedCoercedType(ac);
       });
   if (needsArgAttrUpdate) {
-    auto existing = call->getAttrOfType<mlir::ArrayAttr>("arg_attrs");
-    newCall->setAttr("arg_attrs",
-                     updateArgAttrs(ctx, origCallArgTypes, existing, fc));
+    auto existing = call.getArgAttrsAttr();
+    newCall.setArgAttrsAttr(
+        updateArgAttrs(ctx, origCallArgTypes, existing, fc));
   }
   if (fc.returnInfo.kind == ArgKind::Extend) {
-    auto existing = call->getAttrOfType<mlir::ArrayAttr>("res_attrs");
-    newCall->setAttr("res_attrs", updateResAttrs(ctx, existing, fc.returnInfo));
+    auto existing = call.getResAttrsAttr();
+    newCall.setResAttrsAttr(updateResAttrs(ctx, existing, fc.returnInfo));
   }
 
   if (hasResult && fc.returnInfo.kind == ArgKind::Ignore) {

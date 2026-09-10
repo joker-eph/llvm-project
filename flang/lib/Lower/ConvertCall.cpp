@@ -543,7 +543,7 @@ Fortran::lower::genCallOpAndResult(
     // a runtime function name a call to which has been already
     // lowered (implying that the FuncOp has been created).
     // The behavior is undefined in this case.
-    if (caller.getFuncOp()->hasAttrOfType<mlir::UnitAttr>(
+    if (caller.getFuncOp()->hasDiscardableAttrOfType<mlir::UnitAttr>(
             fir::FIROpsDialect::getFirRuntimeAttrName()))
       LLVM_DEBUG(mlir::emitWarning(
           loc,

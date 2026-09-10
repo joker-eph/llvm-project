@@ -939,8 +939,8 @@ transform::TransformState::applyTransform(TransformOpInterface transform) {
   DiagnosedSilenceableFailure trackingFailure =
       trackingListener.checkAndResetError();
   if (!transform->hasTrait<ReportTrackingListenerFailuresOpTrait>() ||
-      transform->hasAttr(FindPayloadReplacementOpInterface::
-                             kSilenceTrackingFailuresAttrName)) {
+      transform->hasDiscardableAttr(FindPayloadReplacementOpInterface::
+                                        kSilenceTrackingFailuresAttrName)) {
     // Only report failures for ReportTrackingListenerFailuresOpTrait ops. Also
     // do not report failures if the above mentioned attribute is set.
     if (trackingFailure.isSilenceableFailure())

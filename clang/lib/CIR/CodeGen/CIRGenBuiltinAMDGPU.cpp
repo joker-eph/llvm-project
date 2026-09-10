@@ -94,7 +94,9 @@ static mlir::Value emitLogbBuiltin(CIRGenFunction &cgf, const CallExpr *e,
   mlir::Value siToFp = cir::CastOp::create(
       builder, loc, srcTy, cir::CastKind::int_to_float, expMinus1);
 
-  mlir::Value fabs = cir::FAbsOp::create(builder, loc, srcTy, src0);
+  mlir::Value fabs =
+      cir::FAbsOp::create(builder, loc, mlir::TypeRange{srcTy},
+                          mlir::ValueRange{src0}, cir::FAbsOp::Properties{});
 
   llvm::APFloat infVal = llvm::APFloat::getInf(fSem);
   mlir::Value inf = builder.getConstant(loc, cir::FPAttr::get(srcTy, infVal));

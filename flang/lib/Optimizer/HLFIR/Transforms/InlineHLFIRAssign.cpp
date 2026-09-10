@@ -48,8 +48,8 @@ static bool isCUDADeviceCode(mlir::Operation *op) {
   if (cuf::isCUDADeviceContext(op))
     return true;
   if (auto func = op->getParentOfType<mlir::func::FuncOp>())
-    if (auto procAttr =
-            func->getAttrOfType<cuf::ProcAttributeAttr>(cuf::getProcAttrName()))
+    if (auto procAttr = func->getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
+            cuf::getProcAttrName()))
       return procAttr.getValue() == cuf::ProcAttribute::HostDevice;
   return false;
 }
@@ -159,8 +159,9 @@ public:
 
     const bool useWorkshare = flangomp::shouldUseWorkshareLowering(assign);
     mlir::ArrayAttr accessGroups;
-    if (auto attrs = assign.getOperation()->getAttrOfType<mlir::ArrayAttr>(
-            fir::getAccessGroupsAttrName()))
+    if (auto attrs =
+            assign.getOperation()->getDiscardableAttrOfType<mlir::ArrayAttr>(
+                fir::getAccessGroupsAttrName()))
       accessGroups = attrs;
 
     auto emitAssignFrom = [&](hlfir::Entity rhsEntity) {

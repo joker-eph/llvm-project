@@ -385,9 +385,7 @@ public:
         return mlir::failure();
     }
     // Extract dummy_arg_no attribute if present
-    mlir::IntegerAttr dummyArgNoAttr;
-    if (auto attr = declareOp->getAttrOfType<mlir::IntegerAttr>("dummy_arg_no"))
-      dummyArgNoAttr = attr;
+    mlir::IntegerAttr dummyArgNoAttr = declareOp.getDummyArgNoAttr();
     // FIXME: Add FortranAttrs and CudaAttrs
     auto xDeclOp = fir::cg::XDeclareOp::create(
         rewriter, loc, declareOp.getType(), declareOp.getMemref(), shapeOpers,

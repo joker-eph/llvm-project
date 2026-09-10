@@ -703,8 +703,8 @@ static void emitAtomicOp(CIRGenFunction &cgf, AtomicExpr *expr, Address dest,
     cir::LoadOp load =
         builder.createLoad(loc, ptr, /*isVolatile=*/expr->isVolatile());
 
-    load->setAttr("mem_order", orderAttr);
-    load->setAttr("sync_scope", scopeAttr);
+    load.setMemOrderAttr(orderAttr);
+    load.setSyncScopeAttr(scopeAttr);
 
     builder.createStore(loc, load->getResult(0), dest);
     return;
@@ -919,13 +919,13 @@ static void emitAtomicOp(CIRGenFunction &cgf, AtomicExpr *expr, Address dest,
                                           atomicOperands, atomicResTys);
 
   if (fetchAttr)
-    rmwOp->setAttr("binop", fetchAttr);
-  rmwOp->setAttr("mem_order", orderAttr);
-  rmwOp->setAttr("sync_scope", scopeAttr);
+    rmwOp->setInherentAttr("binop", fetchAttr);
+  rmwOp->setInherentAttr("mem_order", orderAttr);
+  rmwOp->setInherentAttr("sync_scope", scopeAttr);
   if (expr->isVolatile())
-    rmwOp->setAttr("is_volatile", builder.getUnitAttr());
+    rmwOp->setInherentAttr("is_volatile", builder.getUnitAttr());
   if (fetchFirst && opName == cir::AtomicFetchOp::getOperationName())
-    rmwOp->setAttr("fetch_first", builder.getUnitAttr());
+    rmwOp->setInherentAttr("fetch_first", builder.getUnitAttr());
 
   mlir::Value result = rmwOp->getResult(0);
 

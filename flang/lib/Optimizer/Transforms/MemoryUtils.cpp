@@ -334,8 +334,8 @@ fir::AllocMemOp fir::createAllocMemFromAlloca(mlir::OpBuilder &builder,
 static bool isDeviceCode(mlir::Operation *func, mlir::ModuleOp mod) {
   if (func->getParentOfType<mlir::gpu::GPUModuleOp>())
     return true;
-  if (auto procAttr =
-          func->getAttrOfType<cuf::ProcAttributeAttr>(cuf::getProcAttrName()))
+  if (auto procAttr = func->getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
+          cuf::getProcAttrName()))
     // As in the inDeviceContext helpers of the CUF passes, attributes(host,
     // device) is not device code here: this is the host copy of the routine,
     // and its device copy is in the gpu.module handled above.
@@ -374,7 +374,7 @@ bool fir::promoteDynamicVariableAllocasToCudaHeap(mlir::RewriterBase &rewriter,
     // An alloca pinned to the stack (e.g. an array function result, whose
     // storage the abstract-result pass replaces by the caller buffer) would
     // only be left with a dead malloc/free pair.
-    if (auto attr = alloca->getAttrOfType<fir::MustBeStackAttr>(
+    if (auto attr = alloca->getDiscardableAttrOfType<fir::MustBeStackAttr>(
             fir::MustBeStackAttr::getAttrName()))
       if (attr.getValue())
         return false;
@@ -387,8 +387,9 @@ bool fir::promoteDynamicVariableAllocasToCudaHeap(mlir::RewriterBase &rewriter,
     fir::setCudaHeapAllocMode(heap.getOperation(), mode);
     // Keep the placement passes from sinking it back to the stack: the
     // allocator is chosen here and the matching free is emitted below.
-    heap->setAttr(fir::MustBeHeapAttr::getAttrName(),
-                  fir::MustBeHeapAttr::get(builder.getContext(), true));
+    heap->setDiscardableAttr(
+        fir::MustBeHeapAttr::getAttrName(),
+        fir::MustBeHeapAttr::get(builder.getContext(), true));
     changed = true;
     return heap;
   };

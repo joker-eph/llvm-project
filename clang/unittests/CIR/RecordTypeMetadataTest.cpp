@@ -79,8 +79,8 @@ TEST_F(RecordLayoutAttrTest, ModuleLevelLookup) {
 
   llvm::SmallVector<mlir::NamedAttribute> entries;
   entries.push_back(mlir::NamedAttribute(getName("TestRecord"), layoutAttr));
-  module->setAttr(CIRDialect::getRecordLayoutsAttrName(),
-                  mlir::DictionaryAttr::get(&context, entries));
+  module->setDiscardableAttr(CIRDialect::getRecordLayoutsAttrName(),
+                             mlir::DictionaryAttr::get(&context, entries));
 
   RecordLayoutAttr result = cir::getRecordLayout(module, getName("TestRecord"));
   EXPECT_EQ(result.getArgPassingKind(), ArgPassingKind::CanPassInRegs);

@@ -78,10 +78,11 @@ struct MapInfoOpConversion
     if (failed(converter->convertTypes(curOp->getResultTypes(), resTypes)))
       return mlir::failure();
 
-    llvm::SmallVector<mlir::NamedAttribute> newAttrs;
+    auto newProperties = curOp.getProperties();
+    llvm::SmallVector<mlir::NamedAttribute> newDiscardableAttrs;
     mlir::omp::MapBoundsOp mapBoundsOp;
-    for (mlir::NamedAttribute attr : curOp->getAttrs()) {
-      if (auto typeAttr = mlir::dyn_cast<mlir::TypeAttr>(attr.getValue())) {
+    auto convertAttr = [&](mlir::Attribute attr) -> mlir::Attribute {
+      if (auto typeAttr = mlir::dyn_cast<mlir::TypeAttr>(attr)) {
         mlir::Type newAttr;
         if (fir::isTypeWithDescriptor(typeAttr.getValue())) {
           newAttr = lowerTy().convertBoxTypeAsStruct(
@@ -155,14 +156,23 @@ struct MapInfoOpConversion
         } else {
           newAttr = converter->convertType(typeAttr.getValue());
         }
-        newAttrs.emplace_back(attr.getName(), mlir::TypeAttr::get(newAttr));
-      } else {
-        newAttrs.push_back(attr);
+        return mlir::TypeAttr::get(newAttr);
       }
-    }
+      return attr;
+    };
+    mlir::omp::MapInfoOp::walkInherentAttrs(
+        curOp.getContext(), newProperties,
+        [&](llvm::StringRef, mlir::Attribute &attr) {
+          attr = convertAttr(attr);
+        });
+    for (mlir::NamedAttribute attr :
+         curOp->getDiscardableAttrDictionary().getValue())
+      newDiscardableAttrs.emplace_back(attr.getName(),
+                                       convertAttr(attr.getValue()));
 
     auto newOp = rewriter.replaceOpWithNewOp<mlir::omp::MapInfoOp>(
-        curOp, resTypes, adaptor.getOperands(), newAttrs);
+        curOp, resTypes, adaptor.getOperands(), newProperties,
+        newDiscardableAttrs);
     if (mapBoundsOp) {
       rewriter.startOpModification(newOp);
       newOp.getBoundsMutable().append(mlir::ValueRange{mapBoundsOp});

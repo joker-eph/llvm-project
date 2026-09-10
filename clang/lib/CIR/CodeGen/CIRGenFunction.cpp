@@ -358,7 +358,8 @@ cir::ReturnOp CIRGenFunction::LexicalScope::emitReturn(mlir::Location loc) {
   if (!fn.getFunctionType().hasVoidReturn()) {
     // Load the value from `__retval` and return it via the `cir.return` op.
     auto value = cir::LoadOp::create(
-        builder, loc, fn.getFunctionType().getReturnType(), *cgf.fnRetAlloca);
+        builder, loc, mlir::TypeRange{fn.getFunctionType().getReturnType()},
+        mlir::ValueRange{*cgf.fnRetAlloca}, cir::LoadOp::Properties{});
     return cir::ReturnOp::create(builder, loc,
                                  llvm::ArrayRef(value.getResult()));
   }
@@ -545,8 +546,8 @@ void CIRGenFunction::startFunction(GlobalDecl gd, QualType returnType,
       (!fd && (eb != LangOptions::FPExceptionModeKind::FPE_Ignore ||
                rm != llvm::RoundingMode::NearestTiesToEven))) {
     builder.setIsFPConstrained(true);
-    fn->setAttr(cir::CIRDialect::getStrictFPAttrName(),
-                mlir::UnitAttr::get(fn.getContext()));
+    fn->setDiscardableAttr(cir::CIRDialect::getStrictFPAttrName(),
+                           mlir::UnitAttr::get(fn.getContext()));
   }
   prologueCleanupDepth = ehStack.stable_begin();
 

@@ -44,6 +44,6 @@ void cir::setMLIRDataLayout(mlir::ModuleOp mod, const llvm::DataLayout &dl) {
       dlSpec.getEntries().begin(), dlSpec.getEntries().end());
   entries.push_back(mlir::DataLayoutEntryAttr::get(ptrKey, ptrSpec));
 
-  mod->setAttr(mlir::DLTIDialect::kDataLayoutAttrName,
-               mlir::DataLayoutSpecAttr::get(mlirContext, entries));
+  mod->setDiscardableAttr(mlir::DLTIDialect::kDataLayoutAttrName,
+                          mlir::DataLayoutSpecAttr::get(mlirContext, entries));
 }

@@ -124,7 +124,8 @@ public:
       return failure();
 
     auto *newOp = Operation::create(
-        op->getLoc(), op->getName(), resultTypes, operands, op->getAttrs(),
+        op->getLoc(), op->getName(), resultTypes, operands,
+        op->getDiscardableAttrDictionary().getValue(),
         op->getPropertiesStorage(), op->getSuccessors(), op->getNumRegions());
     for (auto regions : llvm::zip(op->getRegions(), newOp->getRegions())) {
       Region &before = std::get<0>(regions);

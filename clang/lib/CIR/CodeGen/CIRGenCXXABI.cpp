@@ -70,7 +70,9 @@ mlir::Value CIRGenCXXABI::loadIncomingCXXThis(CIRGenFunction &cgf) {
   ImplicitParamDecl *vd = getThisDecl(cgf);
   Address addr = cgf.getAddrOfLocalVar(vd);
   return cir::LoadOp::create(cgf.getBuilder(), cgf.getLoc(vd->getLocation()),
-                             addr.getElementType(), addr.getPointer());
+                             mlir::TypeRange{addr.getElementType()},
+                             mlir::ValueRange{addr.getPointer()},
+                             cir::LoadOp::Properties{});
 }
 
 void CIRGenCXXABI::setCXXABIThisValue(CIRGenFunction &cgf,

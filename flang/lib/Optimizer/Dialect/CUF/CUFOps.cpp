@@ -287,6 +287,15 @@ bool cuf::KernelOp::canMoveOutOf(mlir::Operation *candidate) {
   // Operations that have !fir.ref operands cannot be moved
   // out of cuf.kernel, because this may break implicit data mapping
   // passes that may run after LICM.
+  bool hasSymbolRefAttr = false;
+  candidate->walkInherentAttrs([&](llvm::StringRef, mlir::Attribute &attr) {
+    hasSymbolRefAttr |= mlir::isa_and_present<mlir::SymbolRefAttr>(attr);
+  });
+  hasSymbolRefAttr |= llvm::any_of(
+      candidate->getDiscardableAttrDictionary().getValue(),
+      [&](mlir::NamedAttribute attr) {
+        return mlir::isa_and_present<mlir::SymbolRefAttr>(attr.getValue());
+      });
   return !llvm::any_of(candidate->getOperands(),
                        [&](mlir::Value candidateOperand) {
                          return fir::isa_ref_type(candidateOperand.getType());
@@ -294,9 +303,7 @@ bool cuf::KernelOp::canMoveOutOf(mlir::Operation *candidate) {
          // Same is true for symbol operands (this has to be revisited,
          // because this may indicate an issue in ordering between
          // CUFDeviceGlobal and OffloadLiveInValueCanonicalization passes).
-         !llvm::any_of(candidate->getAttrs(), [&](mlir::NamedAttribute attr) {
-           return mlir::isa_and_present<mlir::SymbolRefAttr>(attr.getValue());
-         });
+         !hasSymbolRefAttr;
 }
 
 //===----------------------------------------------------------------------===//
@@ -335,7 +342,7 @@ mlir::LogicalResult cuf::RegisterKernelOp::verify() {
     return mlir::success();
   } else if (auto func =
                  gpuSymTab.lookup<mlir::LLVM::LLVMFuncOp>(getKernelName())) {
-    if (!func->getAttrOfType<mlir::UnitAttr>(
+    if (!func->getDiscardableAttrOfType<mlir::UnitAttr>(
             mlir::gpu::GPUDialect::getKernelFuncAttrName()))
       return emitOpError("only gpu.kernel llvm.func can be registered");
     return mlir::success();

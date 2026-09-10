@@ -21,8 +21,8 @@ mlir::gpu::GPUModuleOp cuf::getOrCreateGPUModule(mlir::ModuleOp mod,
     return gpuMod;
 
   auto *ctx = mod.getContext();
-  mod->setAttr(mlir::gpu::GPUDialect::getContainerModuleAttrName(),
-               mlir::UnitAttr::get(ctx));
+  mod->setDiscardableAttr(mlir::gpu::GPUDialect::getContainerModuleAttrName(),
+                          mlir::UnitAttr::get(ctx));
 
   mlir::OpBuilder builder(ctx);
   auto gpuMod = mlir::gpu::GPUModuleOp::create(builder, mod.getLoc(),
@@ -53,8 +53,9 @@ bool cuf::isCUDADeviceContext(mlir::Region &region,
     return true;
   if (auto funcOp = region.getParentOfType<mlir::func::FuncOp>()) {
     if (auto cudaProcAttr =
-            funcOp.getOperation()->getAttrOfType<cuf::ProcAttributeAttr>(
-                cuf::getProcAttrName())) {
+            funcOp.getOperation()
+                ->getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
+                    cuf::getProcAttrName())) {
       return cudaProcAttr.getValue() != cuf::ProcAttribute::Host &&
              cudaProcAttr.getValue() != cuf::ProcAttribute::HostDevice;
     }

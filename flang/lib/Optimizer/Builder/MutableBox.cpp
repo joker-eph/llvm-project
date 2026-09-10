@@ -793,8 +793,9 @@ void fir::factory::genInlinedAllocation(
     fir::runtime::genDerivedTypeInitialize(builder, loc, irBox);
   }
 
-  heap->setAttr(fir::MustBeHeapAttr::getAttrName(),
-                fir::MustBeHeapAttr::get(builder.getContext(), mustBeHeap));
+  heap->setDiscardableAttr(
+      fir::MustBeHeapAttr::getAttrName(),
+      fir::MustBeHeapAttr::get(builder.getContext(), mustBeHeap));
 }
 
 mlir::Value fir::factory::genFreemem(fir::FirOpBuilder &builder,

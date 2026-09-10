@@ -51,7 +51,7 @@ inline bool isaCall(mlir::Operation *op) {
 inline bool impureCall(mlir::Operation *op) {
   // Should we also auto-detect that the called function is pure if its
   // arguments are not references?  For now, rely on a "pure" attribute.
-  return op && isaCall(op) && !op->getAttr("pure");
+  return op && isaCall(op) && !op->getDiscardableAttr("pure");
 }
 
 /// Return true iff the Operation is a fir::CallOp, fir::DispatchOp,
@@ -60,7 +60,7 @@ inline bool impureCall(mlir::Operation *op) {
 inline bool pureCall(mlir::Operation *op) {
   // Should we also auto-detect that the called function is pure if its
   // arguments are not references?  For now, rely on a "pure" attribute.
-  return op && isaCall(op) && op->getAttr("pure");
+  return op && isaCall(op) && op->getDiscardableAttr("pure");
 }
 
 /// Get or create a FuncOp in a module.
@@ -164,7 +164,7 @@ bool hasHostAssociationArgument(mlir::func::FuncOp func);
 /// Some internal procedures may have access to saved host procedure
 /// variables even when they do not have a tuple argument.
 inline bool isInternalProcedure(mlir::func::FuncOp func) {
-  return func->hasAttr(fir::getHostSymbolAttrName());
+  return func->hasDiscardableAttr(fir::getHostSymbolAttrName());
 }
 
 /// Tell if \p value is:
@@ -244,7 +244,7 @@ inline bool hasProcedureAttr(mlir::Operation *op) {
   if (auto firCallOp = mlir::dyn_cast<fir::DispatchOp>(op))
     return hasProcedureAttr<Flag>(firCallOp.getProcedureAttrsAttr());
   return hasProcedureAttr<Flag>(
-      op->getAttrOfType<fir::FortranProcedureFlagsEnumAttr>(
+      op->getDiscardableAttrOfType<fir::FortranProcedureFlagsEnumAttr>(
           getFortranProcedureFlagsAttrName()));
 }
 

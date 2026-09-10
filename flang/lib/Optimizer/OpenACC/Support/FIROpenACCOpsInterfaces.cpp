@@ -159,7 +159,7 @@ void OutlineIdentityOperandDeclareModel<
   auto declareOp = mlir::cast<fir::DeclareOp>(op);
   if (declareOp.getDummyScope()) {
     declareOp.getDummyScopeMutable().clear();
-    declareOp->removeAttr(declareOp.getDummyArgNoAttrName());
+    declareOp->removeInherentAttr(declareOp.getDummyArgNoAttrName());
   }
 }
 
@@ -169,7 +169,7 @@ void OutlineIdentityOperandDeclareModel<
   auto declareOp = mlir::cast<hlfir::DeclareOp>(op);
   if (declareOp.getDummyScope()) {
     declareOp.getDummyScopeMutable().clear();
-    declareOp->removeAttr(declareOp.getDummyArgNoAttrName());
+    declareOp->removeInherentAttr(declareOp.getDummyArgNoAttrName());
   }
 }
 

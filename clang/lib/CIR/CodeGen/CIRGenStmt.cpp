@@ -705,8 +705,9 @@ mlir::LogicalResult CIRGenFunction::emitReturnStmt(const ReturnStmt &s) {
     // Load the value from `__retval` and return it via the `cir.return` op.
     cir::AllocaOp retAlloca =
         mlir::cast<cir::AllocaOp>(fnRetAlloca->getDefiningOp());
-    auto value = cir::LoadOp::create(builder, loc, retAlloca.getAllocaType(),
-                                     *fnRetAlloca);
+    auto value = cir::LoadOp::create(
+        builder, loc, mlir::TypeRange{retAlloca.getAllocaType()},
+        mlir::ValueRange{*fnRetAlloca}, cir::LoadOp::Properties{});
 
     cir::ReturnOp::create(builder, loc, {value});
   } else {
@@ -1384,8 +1385,9 @@ void CIRGenFunction::emitReturnOfRValue(mlir::Location loc, RValue rv,
   // Load the value from `__retval` and return it via the `cir.return` op.
   cir::AllocaOp retAlloca =
       mlir::cast<cir::AllocaOp>(fnRetAlloca->getDefiningOp());
-  auto value = cir::LoadOp::create(builder, loc, retAlloca.getAllocaType(),
-                                   *fnRetAlloca);
+  auto value = cir::LoadOp::create(
+      builder, loc, mlir::TypeRange{retAlloca.getAllocaType()},
+      mlir::ValueRange{*fnRetAlloca}, cir::LoadOp::Properties{});
 
   cir::ReturnOp::create(builder, loc, {value});
 }

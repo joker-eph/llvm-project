@@ -88,12 +88,12 @@ public:
                          bool isConstant) {
     // Attach the device var attribute to the GlobalOp
     auto &builder = cgm.getBuilder();
-    var->setAttr(cir::CUDAVarRegistrationInfoAttr::getMnemonic(),
-                 cir::CUDAVarRegistrationInfoAttr::get(
-                     builder.getContext(),
-                     getDeviceSideName(cast<NamedDecl>(vd)),
-                     cir::CUDADeviceVarKind::Variable, isExtern, isConstant,
-                     vd->hasAttr<HIPManagedAttr>()));
+    var->setDiscardableAttr(cir::CUDAVarRegistrationInfoAttr::getMnemonic(),
+                            cir::CUDAVarRegistrationInfoAttr::get(
+                                builder.getContext(),
+                                getDeviceSideName(cast<NamedDecl>(vd)),
+                                cir::CUDADeviceVarKind::Variable, isExtern,
+                                isConstant, vd->hasAttr<HIPManagedAttr>()));
     deviceVars.push_back({
         var,
         vd,
@@ -105,13 +105,13 @@ public:
                           bool isExtern) {
     auto &builder = cgm.getBuilder();
 
-    var->setAttr(cir::CUDAVarRegistrationInfoAttr::getMnemonic(),
-                 cir::CUDAVarRegistrationInfoAttr::get(
-                     builder.getContext(),
-                     getDeviceSideName(cast<NamedDecl>(vd)),
-                     cir::CUDADeviceVarKind::Surface, isExtern,
-                     /*isConstant=*/false,
-                     /*isManaged=*/false));
+    var->setDiscardableAttr(cir::CUDAVarRegistrationInfoAttr::getMnemonic(),
+                            cir::CUDAVarRegistrationInfoAttr::get(
+                                builder.getContext(),
+                                getDeviceSideName(cast<NamedDecl>(vd)),
+                                cir::CUDADeviceVarKind::Surface, isExtern,
+                                /*isConstant=*/false,
+                                /*isManaged=*/false));
 
     deviceVars.push_back({
         var,
@@ -123,13 +123,13 @@ public:
   void registerDeviceTex(const VarDecl *vd, cir::GlobalOp &var, bool isExtern) {
     auto &builder = cgm.getBuilder();
 
-    var->setAttr(cir::CUDAVarRegistrationInfoAttr::getMnemonic(),
-                 cir::CUDAVarRegistrationInfoAttr::get(
-                     builder.getContext(),
-                     getDeviceSideName(cast<NamedDecl>(vd)),
-                     cir::CUDADeviceVarKind::Texture, isExtern,
-                     /*isConstant=*/false,
-                     /*isManaged=*/false));
+    var->setDiscardableAttr(cir::CUDAVarRegistrationInfoAttr::getMnemonic(),
+                            cir::CUDAVarRegistrationInfoAttr::get(
+                                builder.getContext(),
+                                getDeviceSideName(cast<NamedDecl>(vd)),
+                                cir::CUDADeviceVarKind::Texture, isExtern,
+                                /*isConstant=*/false,
+                                /*isManaged=*/false));
 
     deviceVars.push_back({
         var,
@@ -347,10 +347,10 @@ void CIRGenNVCUDARuntime::emitDeviceStub(CIRGenFunction &cgf, cir::FuncOp fn,
     auto sym = mlir::FlatSymbolRefAttr::get(fn.getSymNameAttr());
     auto gv = cir::GlobalViewAttr::get(fnPtrTy, sym);
 
-    globalOp->setAttr("initial_value", gv);
-    globalOp->removeAttr("sym_visibility");
-    globalOp->setAttr("alignment", builder.getI64IntegerAttr(
-                                       cgm.getPointerAlign().getQuantity()));
+    globalOp.setInitialValueAttr(gv);
+    globalOp.removeSymVisibilityAttr();
+    globalOp.setAlignmentAttr(
+        builder.getI64IntegerAttr(cgm.getPointerAlign().getQuantity()));
   }
 
   // CUDA 9.0 changed the way to launch kernels.
@@ -408,8 +408,8 @@ mlir::Operation *CIRGenNVCUDARuntime::getKernelHandle(cir::FuncOp fn,
   cir::GlobalOp globalOp =
       cgm.createGlobalOp(fn.getLoc(), globalName, fnPtrTy, /*isConstant=*/true);
 
-  globalOp->setAttr("alignment", builder.getI64IntegerAttr(
-                                     cgm.getPointerAlign().getQuantity()));
+  globalOp.setAlignmentAttr(
+      builder.getI64IntegerAttr(cgm.getPointerAlign().getQuantity()));
 
   // Store references
   kernelHandles[fn.getSymName()] = globalOp;

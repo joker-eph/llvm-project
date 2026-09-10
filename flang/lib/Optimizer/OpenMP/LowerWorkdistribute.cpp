@@ -74,7 +74,7 @@ static bool isRuntimeCall(Operation *op) {
     if (!callee)
       return false;
     auto *func = op->getParentOfType<ModuleOp>().lookupSymbol(*callee);
-    if (func->getAttr(fir::FIROpsDialect::getFirRuntimeAttrName()))
+    if (func->getDiscardableAttr(fir::FIROpsDialect::getFirRuntimeAttrName()))
       return true;
   }
   return false;

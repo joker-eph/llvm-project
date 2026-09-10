@@ -123,20 +123,25 @@ void GotoSolverPass::runOnOperation() {
   // to be a successor only once.
   llvm::StringMap<llvm::SmallSetVector<StringRef, 4>> globalBlockAddrLabels;
   getOperation()->walk([&](mlir::Operation *op) {
-    for (const mlir::NamedAttribute &namedAttr : op->getAttrs()) {
-      namedAttr.getValue().walk([&](cir::BlockAddrInfoAttr info) {
+    auto collectBlockAddresses = [&](mlir::Attribute attr) {
+      attr.walk([&](cir::BlockAddrInfoAttr info) {
         globalBlockAddrLabels[info.getFunc().getValue()].insert(
             info.getLabel());
       });
       // A block-address difference attribute references two labels in the same
       // function; keep both alive.
-      namedAttr.getValue().walk([&](cir::BlockAddrDiffAttr diff) {
+      attr.walk([&](cir::BlockAddrDiffAttr diff) {
         llvm::SmallSetVector<StringRef, 4> &labels =
             globalBlockAddrLabels[diff.getFunc().getValue()];
         labels.insert(diff.getLhsLabel().getValue());
         labels.insert(diff.getRhsLabel().getValue());
       });
-    }
+    };
+    op->walkInherentAttrs([&](llvm::StringRef, mlir::Attribute &attr) {
+      collectBlockAddresses(attr);
+    });
+    for (const mlir::NamedAttribute &attr : op->getDiscardableAttrs())
+      collectBlockAddresses(attr.getValue());
   });
 
   static const llvm::SmallVector<StringRef> empty;

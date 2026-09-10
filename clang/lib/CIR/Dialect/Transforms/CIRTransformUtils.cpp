@@ -83,7 +83,20 @@ mlir::Block *cir::replaceCallWithTryCall(cir::CallOp callOp,
       cir::CIRDialect::getCalleeAttrName(), // Set by create()
       cir::CIRDialect::getOperandSegmentSizesAttrName(),
   };
-  for (mlir::NamedAttribute attr : callOp->getAttrs()) {
+  callOp->walkInherentAttrs([&](llvm::StringRef name, mlir::Attribute &attr) {
+    if (llvm::is_contained(excludedAttrs, name))
+      return;
+    assert(!llvm::is_contained(
+               {
+                   cir::CIRDialect::getNoThrowAttrName(),
+                   cir::CIRDialect::getNoUnwindAttrName(),
+               },
+               name) &&
+           "unexpected attribute on converted call");
+    if (tryCallOp->getInherentAttr(name))
+      tryCallOp->setInherentAttr(name, attr);
+  });
+  for (mlir::NamedAttribute attr : callOp->getDiscardableAttrs()) {
     if (llvm::is_contained(excludedAttrs, attr.getName()))
       continue;
     assert(!llvm::is_contained(
@@ -93,7 +106,7 @@ mlir::Block *cir::replaceCallWithTryCall(cir::CallOp callOp,
                },
                attr.getName()) &&
            "unexpected attribute on converted call");
-    tryCallOp->setAttr(attr.getName(), attr.getValue());
+    tryCallOp->setDiscardableAttr(attr.getName(), attr.getValue());
   }
 
   // Replace uses of the call result with the try_call result. Use the
@@ -137,10 +150,16 @@ mlir::Block *cir::replaceThrowWithTryThrow(cir::ThrowOp throwOp,
       "type_info",
       "dtor",
   };
-  for (mlir::NamedAttribute attr : throwOp->getAttrs()) {
+  throwOp->walkInherentAttrs([&](llvm::StringRef name, mlir::Attribute &attr) {
+    if (llvm::is_contained(excludedAttrs, name))
+      return;
+    if (tryThrowOp->getInherentAttr(name))
+      tryThrowOp->setInherentAttr(name, attr);
+  });
+  for (mlir::NamedAttribute attr : throwOp->getDiscardableAttrs()) {
     if (llvm::is_contained(excludedAttrs, attr.getName()))
       continue;
-    tryThrowOp->setAttr(attr.getName(), attr.getValue());
+    tryThrowOp->setDiscardableAttr(attr.getName(), attr.getValue());
   }
 
   // Erase the throw along with any operations that followed it in its

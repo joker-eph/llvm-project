@@ -616,7 +616,8 @@ void AddDebugInfoPass::handleFuncOp(mlir::func::FuncOp funcOp,
   }
 
   mlir::StringAttr fullName = mlir::StringAttr::get(context, funcOp.getName());
-  mlir::Attribute attr = funcOp->getAttr(fir::getInternalFuncNameAttrName());
+  mlir::Attribute attr =
+      funcOp->getDiscardableAttr(fir::getInternalFuncNameAttrName());
   mlir::StringAttr funcName =
       (attr) ? mlir::cast<mlir::StringAttr>(attr)
              : mlir::StringAttr::get(context, funcOp.getName());
@@ -701,7 +702,7 @@ void AddDebugInfoPass::handleFuncOp(mlir::func::FuncOp funcOp,
   if (fir::isInternalProcedure(funcOp)) {
     // For contained functions, the scope is the parent subroutine.
     mlir::SymbolRefAttr sym = mlir::cast<mlir::SymbolRefAttr>(
-        funcOp->getAttr(fir::getHostSymbolAttrName()));
+        funcOp->getDiscardableAttr(fir::getHostSymbolAttrName()));
     if (sym) {
       if (auto func =
               symbolTable->lookup<mlir::func::FuncOp>(sym.getLeafReference())) {
@@ -1029,7 +1030,8 @@ void AddDebugInfoPass::markSubmoduleAncestorsDefined(mlir::ModuleOp module) {
   for (auto funcOp : module.getOps<mlir::func::FuncOp>()) {
     if (funcOp.isExternal())
       continue;
-    mlir::Attribute attr = funcOp->getAttr(fir::getInternalFuncNameAttrName());
+    mlir::Attribute attr =
+        funcOp->getDiscardableAttr(fir::getInternalFuncNameAttrName());
     llvm::StringRef name =
         attr ? mlir::cast<mlir::StringAttr>(attr).getValue() : funcOp.getName();
     std::pair result = fir::NameUniquer::deconstruct(name);

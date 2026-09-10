@@ -2453,13 +2453,23 @@ void OpEmitter::genInlineCreateBody(
 
     nonBuilderStateArgs = ", " + nonBuilderStateArgs;
   }
-  if (cWithLoc)
+  if (cWithLoc) {
+    if (deprecated)
+      cWithLoc->body() << "LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_PUSH\n";
     cWithLoc->body() << llvm::formatv(inlineCreateBody, locParamName,
                                       nonBuilderStateArgs,
                                       opClass.getClassName());
-  if (cImplicitLoc)
+    if (deprecated)
+      cWithLoc->body() << "LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_POP\n";
+  }
+  if (cImplicitLoc) {
+    if (deprecated)
+      cImplicitLoc->body() << "LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_PUSH\n";
     cImplicitLoc->body() << llvm::formatv(inlineCreateBodyImplicitLoc,
                                           nonBuilderStateArgs);
+    if (deprecated)
+      cImplicitLoc->body() << "LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_POP\n";
+  }
 }
 
 void OpEmitter::genSeparateArgParamBuilder() {

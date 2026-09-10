@@ -420,9 +420,11 @@ CIRGenFunction::emitCoroutineBody(const CoroutineBodyStmt &s) {
 
   curCoro.data->coroBegin = cir::CoroBeginOp::create(
       cgm.getBuilder(), openCurlyLoc,
-      mlir::ValueRange{
-          curCoro.data->coroId.getResult(),
-          cir::LoadOp::create(builder, openCurlyLoc, allocaTy, storeAddr)});
+      mlir::ValueRange{curCoro.data->coroId.getResult(),
+                       cir::LoadOp::create(builder, openCurlyLoc,
+                                           mlir::TypeRange{allocaTy},
+                                           mlir::ValueRange{storeAddr},
+                                           cir::LoadOp::Properties{})});
 
   {
     assert(!cir::MissingFeatures::generateDebugInfo());
@@ -764,17 +766,18 @@ static RValue emitSuspendExpr(CIRGenFunction &cgf,
     return rval;
 
   if (rval.isScalar()) {
-    rval = RValue::get(cir::LoadOp::create(cgf.getBuilder(), scopeLoc,
-                                           rval.getValue().getType(),
-                                           tmpResumeRValAddr));
+    rval = RValue::get(cir::LoadOp::create(
+        cgf.getBuilder(), scopeLoc, mlir::TypeRange{rval.getValue().getType()},
+        mlir::ValueRange{tmpResumeRValAddr}, cir::LoadOp::Properties{}));
   } else if (rval.isAggregate()) {
     // This is probably already handled via AggSlot, remove this assertion
     // once we have a testcase and prove all pieces work.
     cgf.cgm.errorNYI("emitSuspendExpr Aggregate");
   } else { // complex
     rval = RValue::getComplex(cir::LoadOp::create(
-        cgf.getBuilder(), scopeLoc, rval.getComplexValue().getType(),
-        tmpResumeRValAddr));
+        cgf.getBuilder(), scopeLoc,
+        mlir::TypeRange{rval.getComplexValue().getType()},
+        mlir::ValueRange{tmpResumeRValAddr}, cir::LoadOp::Properties{}));
   }
   return rval;
 }

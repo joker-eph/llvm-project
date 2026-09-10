@@ -81,12 +81,13 @@ void VScaleAttrPass::runOnOperation() {
 
   auto intTy = mlir::IntegerType::get(context, 32);
 
-  func->setAttr(getLlvmFuncPropertyAttrName(
-                    context, mlir::LLVM::LLVMFuncOp::getVscaleRangeAttrName(
-                                 llvmFuncOpName)),
-                mlir::LLVM::VScaleRangeAttr::get(
-                    context, mlir::IntegerAttr::get(intTy, vscaleMin),
-                    mlir::IntegerAttr::get(intTy, vscaleMax)));
+  func->setDiscardableAttr(
+      getLlvmFuncPropertyAttrName(
+          context,
+          mlir::LLVM::LLVMFuncOp::getVscaleRangeAttrName(llvmFuncOpName)),
+      mlir::LLVM::VScaleRangeAttr::get(
+          context, mlir::IntegerAttr::get(intTy, vscaleMin),
+          mlir::IntegerAttr::get(intTy, vscaleMax)));
 
   LLVM_DEBUG(llvm::dbgs() << "=== End " DEBUG_TYPE " ===\n");
 }

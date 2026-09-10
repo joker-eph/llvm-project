@@ -117,7 +117,7 @@ Operation *cir::CIRDialect::materializeConstant(mlir::OpBuilder &builder,
 
 static LogicalResult verifyOffloadKind(mlir::ModuleOp module,
                                        cir::OffloadKind expected) {
-  auto attr = module->getAttrOfType<cir::OffloadKindAttr>(
+  auto attr = module->getDiscardableAttrOfType<cir::OffloadKindAttr>(
       cir::CIRDialect::getOffloadKindAttrName());
   if (!attr)
     return module.emitOpError()
@@ -1366,7 +1366,7 @@ printCallCommon(mlir::Operation *op, mlir::FlatSymbolRefAttr calleeSym,
     printer << tryCall.getUnwindDest();
   }
 
-  if (op->hasAttr(CIRDialect::getMustTailAttrName()))
+  if (op->hasInherentAttr(CIRDialect::getMustTailAttrName()))
     printer << " musttail";
 
   if (isNothrow)
@@ -1378,6 +1378,15 @@ printCallCommon(mlir::Operation *op, mlir::FlatSymbolRefAttr calleeSym,
     printer << ")";
   }
 
+  llvm::SmallVector<mlir::NamedAttribute> attrs;
+  op->walkInherentAttrs([&](llvm::StringRef name, mlir::Attribute &value) {
+    if (value)
+      attrs.emplace_back(mlir::StringAttr::get(op->getContext(), name), value);
+  });
+  llvm::append_range(attrs, op->getDiscardableAttrDictionary().getValue());
+  llvm::sort(attrs, [](mlir::NamedAttribute lhs, mlir::NamedAttribute rhs) {
+    return lhs.getName().strref() < rhs.getName().strref();
+  });
   llvm::SmallVector<::llvm::StringRef> elidedAttrs = {
       CIRDialect::getCalleeAttrName(),
       CIRDialect::getMustTailAttrName(),
@@ -1386,7 +1395,7 @@ printCallCommon(mlir::Operation *op, mlir::FlatSymbolRefAttr calleeSym,
       CIRDialect::getOperandSegmentSizesAttrName(),
       llvm::StringRef("res_attrs"),
       llvm::StringRef("arg_attrs")};
-  printer.printOptionalAttrDict(op->getAttrs(), elidedAttrs);
+  printer.printOptionalAttrDict(attrs, elidedAttrs);
   printer << " : ";
   if (calleeSym || !argAttrs) {
     call_interface_impl::printFunctionSignature(
@@ -1423,8 +1432,8 @@ void cir::CallOp::print(mlir::OpAsmPrinter &p) {
 static LogicalResult
 verifyCallCommInSymbolUses(mlir::Operation *op,
                            SymbolTableCollection &symbolTable) {
-  auto fnAttr =
-      op->getAttrOfType<FlatSymbolRefAttr>(CIRDialect::getCalleeAttrName());
+  auto fnAttr = op->getInherentAttrOfType<FlatSymbolRefAttr>(
+      CIRDialect::getCalleeAttrName());
   if (!fnAttr) {
     // This is an indirect call, thus we don't have to check the symbol uses.
     return mlir::success();
@@ -1630,7 +1639,8 @@ void cir::IfOp::print(OpAsmPrinter &p) {
                   /*printBlockTerminators=*/!omitRegionTerm(elseRegion));
   }
 
-  p.printOptionalAttrDict(getOperation()->getAttrs());
+  p.printOptionalAttrDict(
+      getOperation()->getDiscardableAttrDictionary().getValue());
 }
 
 /// Default callback for IfOp builders.
@@ -4233,11 +4243,8 @@ void cir::InlineAsmOp::print(OpAsmPrinter &p) {
   if (getSideEffects())
     p << " side_effects";
 
-  std::array elidedAttrs{
-      llvm::StringRef("asm_flavor"),        llvm::StringRef("asm_string"),
-      llvm::StringRef("constraints"),       llvm::StringRef("operand_attrs"),
-      llvm::StringRef("operands_segments"), llvm::StringRef("side_effects")};
-  p.printOptionalAttrDict(getOperation()->getAttrs(), elidedAttrs);
+  p.printOptionalAttrDict(
+      getOperation()->getDiscardableAttrDictionary().getValue());
 
   if (auto v = getRes())
     p << " -> " << v.getType();
@@ -4736,7 +4743,7 @@ LogicalResult cir::MemChrOp::verify() {
 
   auto checkWidth = [&](cir::IntType type, llvm::StringRef operandName,
                         llvm::StringRef attrName) -> LogicalResult {
-    mlir::Attribute attr = moduleOp->getAttr(attrName);
+    mlir::Attribute attr = moduleOp->getDiscardableAttr(attrName);
     if (!attr)
       return emitOpError("expects the module to record ") << attrName;
     std::optional<unsigned> width = getRecordedIntegerWidth(attr);
@@ -4772,7 +4779,7 @@ LogicalResult cir::ConstructCatchParamOp::verifySymbolUses(
     return emitOpError("'")
            << *getCopyFn() << "' does not reference a valid cir.func";
 
-  if (!fn->hasAttr(cir::CIRDialect::getCatchCopyThunkAttrName()))
+  if (!fn->hasDiscardableAttr(cir::CIRDialect::getCatchCopyThunkAttrName()))
     return emitOpError("catch-init copy_fn must be tagged with the ")
            << cir::CIRDialect::getCatchCopyThunkAttrName() << " attribute";
 

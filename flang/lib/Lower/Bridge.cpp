@@ -419,15 +419,15 @@ private:
     // Set abstract, init, destroy, and nofinal attributes.
     const Fortran::semantics::Symbol &dtSymbol = info.typeSpec.typeSymbol();
     if (dtSymbol.attrs().test(Fortran::semantics::Attr::ABSTRACT))
-      dt->setAttr(dt.getAbstractAttrName(), builder.getUnitAttr());
+      dt.setAbstractAttr(builder.getUnitAttr());
 
     if (!info.typeSpec.HasDefaultInitialization(/*ignoreAllocatable=*/false,
                                                 /*ignorePointer=*/false))
-      dt->setAttr(dt.getNoInitAttrName(), builder.getUnitAttr());
+      dt.setNoInitAttr(builder.getUnitAttr());
     if (!info.typeSpec.HasDestruction())
-      dt->setAttr(dt.getNoDestroyAttrName(), builder.getUnitAttr());
+      dt.setNoDestroyAttr(builder.getUnitAttr());
     if (!Fortran::semantics::MayRequireFinalization(info.typeSpec))
-      dt->setAttr(dt.getNoFinalAttrName(), builder.getUnitAttr());
+      dt.setNoFinalAttr(builder.getUnitAttr());
 
     const Fortran::semantics::Scope &derivedScope =
         DEREF(info.typeSpec.GetScope());
@@ -450,8 +450,7 @@ private:
             mlir::SymbolRefAttr::get(builder.getContext(), bindingName));
         // Propagate DEFERRED attribute on the binding to fir.dt_entry.
         if (binding.get().attrs().test(Fortran::semantics::Attr::DEFERRED))
-          dtEntry->setAttr(fir::DTEntryOp::getDeferredAttrNameStr(),
-                           builder.getUnitAttr());
+          dtEntry.setDeferredAttr(builder.getUnitAttr());
       }
       fir::FirEndOp::create(builder, info.loc);
     }
@@ -2557,16 +2556,15 @@ private:
             // In some loops, the HLFIR AssignOp operation can be translated
             // into FIR operation(s) containing StoreOp. It is therefore
             // necessary to forward the AccessGroups attribute.
-            assignOp.getOperation()->setAttr(fir::getAccessGroupsAttrName(),
-                                             attrs);
+            assignOp->setDiscardableAttr(fir::getAccessGroupsAttrName(), attrs);
           } else if (hlfir::RegionAssignOp regionAssignOp =
                          mlir::dyn_cast<hlfir::RegionAssignOp>(op)) {
             // User defined assignment, WHERE and FORALL assignments are
             // abstracted via hlfir.region_assign at that stage. Set the
             // access group on it so that it can later be propagated to
             // hlfir.assign/fir.store/fir.loads created to implement it.
-            regionAssignOp.getOperation()->setAttr(
-                fir::getAccessGroupsAttrName(), attrs);
+            regionAssignOp->setDiscardableAttr(fir::getAccessGroupsAttrName(),
+                                               attrs);
           } else if (fir::CallOp callOp = mlir::dyn_cast<fir::CallOp>(op)) {
             callOp.setAccessGroupsAttr(attrs);
           }
@@ -3463,7 +3461,7 @@ private:
       const std::string symName =
           currentFunctionUnit->getSubprogramSymbol().name().ToString();
       if (dir.v.value().ToString() == symName) {
-        func->setAttr("llvm.always_inline", builder->getUnitAttr());
+        func->setDiscardableAttr("llvm.always_inline", builder->getUnitAttr());
       }
     }
   }

@@ -36,9 +36,10 @@ struct TestIncrementAttrPass
   void runOnOperation() override {
     Operation *op = getOperation();
     int64_t counter = 0;
-    if (auto attr = op->getAttrOfType<IntegerAttr>("test.counter"))
+    if (auto attr = op->getDiscardableAttrOfType<IntegerAttr>("test.counter"))
       counter = attr.getInt();
-    op->setAttr("test.counter", Builder(op).getI64IntegerAttr(counter + 1));
+    op->setDiscardableAttr("test.counter",
+                           Builder(op).getI64IntegerAttr(counter + 1));
   }
 };
 } // namespace

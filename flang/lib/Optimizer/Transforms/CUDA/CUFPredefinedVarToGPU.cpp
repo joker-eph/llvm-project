@@ -150,8 +150,9 @@ struct CUFPredefinedVarToGPU
 
     bool rewrittenWholeFunction = false;
     if (auto cudaProcAttr =
-            funcOp.getOperation()->getAttrOfType<cuf::ProcAttributeAttr>(
-                cuf::getProcAttrName())) {
+            funcOp.getOperation()
+                ->getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
+                    cuf::getProcAttrName())) {
       if (cudaProcAttr.getValue() == cuf::ProcAttribute::Device ||
           cudaProcAttr.getValue() == cuf::ProcAttribute::Global ||
           cudaProcAttr.getValue() == cuf::ProcAttribute::GridGlobal ||

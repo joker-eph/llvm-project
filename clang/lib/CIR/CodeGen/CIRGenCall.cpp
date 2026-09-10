@@ -1422,8 +1422,8 @@ RValue CIRGenFunction::emitCall(const CIRGenFunctionInfo &funcInfo,
       return getUndefRValue(retTy);
     }
 
-    theCall->setAttr(cir::CIRDialect::getMustTailAttrName(),
-                     builder.getUnitAttr());
+    theCall->setInherentAttr(cir::CIRDialect::getMustTailAttrName(),
+                             builder.getUnitAttr());
 
     if (isa<cir::VoidType>(convertType(retTy)))
       cir::ReturnOp::create(builder, loc);
@@ -1505,8 +1505,12 @@ mlir::Value CIRGenFunction::emitRuntimeCall(mlir::Location loc,
   assert(call->getNumResults() <= 1 &&
          "runtime functions have at most 1 result");
 
-  if (!attrs.empty())
-    call->setAttrs(attrs);
+  for (mlir::NamedAttribute attr : attrs) {
+    if (call->getInherentAttr(attr.getName()).has_value())
+      call->setInherentAttr(attr.getName(), attr.getValue());
+    else
+      call->setDiscardableAttr(attr.getName(), attr.getValue());
+  }
 
   if (call->getNumResults() == 0)
     return nullptr;

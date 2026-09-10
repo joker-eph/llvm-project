@@ -661,23 +661,25 @@ static void addSymbolAttribute(mlir::func::FuncOp func,
               ultimate.owner().symbol()) {
         std::string hostName = Fortran::lower::mangle::mangleName(
             *hostProcedure, /*keepExternalInScope=*/true);
-        func->setAttr(
+        func->setDiscardableAttr(
             fir::getHostSymbolAttrName(),
             mlir::SymbolRefAttr::get(
                 &mlirContext, mlir::StringAttr::get(&mlirContext, hostName)));
       }
     } else if (ultimate.owner().kind() ==
                Fortran::semantics::Scope::Kind::MainProgram) {
-      func->setAttr(fir::getHostSymbolAttrName(),
-                    mlir::SymbolRefAttr::get(
-                        &mlirContext,
-                        mlir::StringAttr::get(
-                            &mlirContext, fir::NameUniquer::doProgramEntry())));
+      func->setDiscardableAttr(
+          fir::getHostSymbolAttrName(),
+          mlir::SymbolRefAttr::get(
+              &mlirContext,
+              mlir::StringAttr::get(&mlirContext,
+                                    fir::NameUniquer::doProgramEntry())));
     }
   }
 
   if (procAttrs)
-    func->setAttr(fir::getFortranProcedureFlagsAttrName(), procAttrs);
+    func->setDiscardableAttr(fir::getFortranProcedureFlagsAttrName(),
+                             procAttrs);
 
   // Only add this on bind(C) functions for which the symbol is not reflected in
   // the current context.
@@ -685,8 +687,8 @@ static void addSymbolAttribute(mlir::func::FuncOp func,
     return;
   std::string name =
       Fortran::lower::mangle::mangleName(sym, /*keepExternalInScope=*/true);
-  func->setAttr(fir::getSymbolAttrName(),
-                mlir::StringAttr::get(&mlirContext, name));
+  func->setDiscardableAttr(fir::getSymbolAttrName(),
+                           mlir::StringAttr::get(&mlirContext, name));
 }
 
 static void
@@ -695,7 +697,7 @@ setCUDAAttributes(mlir::func::FuncOp func,
                   std::optional<Fortran::evaluate::characteristics::Procedure>
                       characteristic) {
   if (characteristic && characteristic->cudaSubprogramAttrs) {
-    func.getOperation()->setAttr(
+    func.getOperation()->setDiscardableAttr(
         cuf::getProcAttrName(),
         cuf::getProcAttribute(func.getContext(),
                               *characteristic->cudaSubprogramAttrs));
@@ -721,7 +723,7 @@ setCUDAAttributes(mlir::func::FuncOp func,
         if (details->cudaLaunchBounds().size() > 2)
           ubAttr =
               mlir::IntegerAttr::get(i64Ty, details->cudaLaunchBounds()[2]);
-        func.getOperation()->setAttr(
+        func.getOperation()->setDiscardableAttr(
             cuf::getLaunchBoundsAttrName(),
             cuf::LaunchBoundsAttr::get(func.getContext(), maxTPBAttr,
                                        minBPMAttr, ubAttr));
@@ -735,7 +737,7 @@ setCUDAAttributes(mlir::func::FuncOp func,
             mlir::IntegerAttr::get(i64Ty, details->cudaClusterDims()[1]);
         auto zAttr =
             mlir::IntegerAttr::get(i64Ty, details->cudaClusterDims()[2]);
-        func.getOperation()->setAttr(
+        func.getOperation()->setDiscardableAttr(
             cuf::getClusterDimsAttrName(),
             cuf::ClusterDimsAttr::get(func.getContext(), xAttr, yAttr, zAttr));
       }
@@ -770,9 +772,10 @@ void Fortran::lower::CallInterface<T>::declare() {
           fir::FirOpBuilder::createFunction(loc, module, name, ty, symbolTable);
       if (const Fortran::semantics::Symbol *sym = side().getProcedureSymbol()) {
         if (side().isMainProgram()) {
-          func->setAttr(fir::getSymbolAttrName(),
-                        mlir::StringAttr::get(&converter.getMLIRContext(),
-                                              sym->name().ToString()));
+          func->setDiscardableAttr(
+              fir::getSymbolAttrName(),
+              mlir::StringAttr::get(&converter.getMLIRContext(),
+                                    sym->name().ToString()));
         } else {
           addSymbolAttribute(func, *sym, getProcedureAttrs(&mlirContext),
                              mlirContext);

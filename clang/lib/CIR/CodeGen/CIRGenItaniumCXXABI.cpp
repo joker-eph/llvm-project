@@ -2178,8 +2178,8 @@ static cir::FuncOp getItaniumDynamicCastFn(CIRGenFunction &cgf) {
   cir::FuncType FTy = cgf.getBuilder().getFuncType(
       {voidPtrTy, rttiPtrTy, rttiPtrTy, ptrDiffTy}, voidPtrTy);
   cir::FuncOp fn = cgf.cgm.createRuntimeFunction(FTy, "__dynamic_cast");
-  fn->setAttr(cir::CIRDialect::getNoThrowAttrName(),
-              mlir::UnitAttr::get(cgf.getBuilder().getContext()));
+  fn->setDiscardableAttr(cir::CIRDialect::getNoThrowAttrName(),
+                         mlir::UnitAttr::get(cgf.getBuilder().getContext()));
   return fn;
 }
 

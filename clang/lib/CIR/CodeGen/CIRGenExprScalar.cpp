@@ -2974,7 +2974,8 @@ mlir::Value ScalarExprEmitter::VisitRealImag(const UnaryOperator *e,
   mlir::Value operand;
   if (op->isGLValue()) {
     operand = cgf.emitLValue(op).getPointer();
-    operand = cir::LoadOp::create(builder, loc, operand);
+    operand = cir::LoadOp::create(builder, loc, mlir::ValueRange{operand},
+                                  cir::LoadOp::Properties{});
   } else if (!promotionTy.isNull()) {
     operand = cgf.emitPromotedScalarExpr(op, promotionTy);
   } else {

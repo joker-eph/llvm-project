@@ -143,7 +143,9 @@ Operation *Operation::create(Location location, OperationName name,
     new (&blockOperands[i]) BlockOperand(op, successors[i]);
 
   // This must be done after properties are initialized.
+  LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_PUSH
   op->setAttrs(attributes);
+  LLVM_SUPPRESS_DEPRECATED_DECLARATIONS_POP
 
   return op;
 }

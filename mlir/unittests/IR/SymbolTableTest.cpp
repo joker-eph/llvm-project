@@ -199,8 +199,8 @@ TEST(SymbolOpInterface, Visibility) {
                   "visibility of symbol to nested";
 
   ASSERT_EQ(diagStr, expectedDiag);
-  ASSERT_FALSE(
-      symOp->hasAttr(SymbolOpInterface::getDefaultVisibilityAttrName()));
+  ASSERT_FALSE(symOp->hasDiscardableAttr(
+      SymbolOpInterface::getDefaultVisibilityAttrName()));
 }
 
 } // namespace

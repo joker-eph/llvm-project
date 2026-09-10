@@ -63,7 +63,7 @@ struct TestDataLayoutQuery
         });
       };
 
-      op->setAttrs(
+      op->setDiscardableAttrs(
           {builder.getNamedAttr("size", convertTypeSizeToAttr(size)),
            builder.getNamedAttr("bitsize", convertTypeSizeToAttr(bitsize)),
            builder.getNamedAttr("alignment", builder.getIndexAttr(alignment)),

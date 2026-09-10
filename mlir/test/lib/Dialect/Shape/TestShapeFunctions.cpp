@@ -46,7 +46,7 @@ void ReportShapeFnPass::runOnOperation() {
       op->emitRemark() << "associated shape function: " << fn.getName();
       return true;
     }
-    if (auto symbol = op->getAttrOfType<SymbolRefAttr>(shapeFnId)) {
+    if (auto symbol = op->getDiscardableAttrOfType<SymbolRefAttr>(shapeFnId)) {
       auto fn =
           cast<shape::FuncOp>(SymbolTable::lookupSymbolIn(module, symbol));
       op->emitRemark() << "associated shape function: " << fn.getName();

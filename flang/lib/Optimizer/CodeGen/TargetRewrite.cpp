@@ -554,9 +554,9 @@ public:
         newCall.getClusterSizeZMutable().assign(callOp.getClusterSizeZ());
       newCallResults.append(newCall.result_begin(), newCall.result_end());
       if (auto cudaProcAttr =
-              callOp->template getAttrOfType<cuf::ProcAttributeAttr>(
+              callOp->template getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
                   cuf::getProcAttrName())) {
-        newCall->setAttr(cuf::getProcAttrName(), cudaProcAttr);
+        newCall->setDiscardableAttr(cuf::getProcAttrName(), cudaProcAttr);
       }
     } else if constexpr (std::is_same_v<std::decay_t<A>, fir::CallOp>) {
       fir::CallOp newCall;
@@ -798,13 +798,13 @@ public:
 
     for (auto fn : mod.getOps<mlir::func::FuncOp>()) {
       if (targetCPUAttr)
-        fn->setAttr("llvm.target_cpu", targetCPUAttr);
+        fn->setDiscardableAttr("llvm.target_cpu", targetCPUAttr);
 
       if (tuneCPUAttr)
-        fn->setAttr("llvm.tune_cpu", tuneCPUAttr);
+        fn->setDiscardableAttr("llvm.tune_cpu", tuneCPUAttr);
 
       if (targetFeaturesAttr)
-        fn->setAttr("llvm.target_features", targetFeaturesAttr);
+        fn->setDiscardableAttr("llvm.target_features", targetFeaturesAttr);
 
       convertSignature<mlir::func::ReturnOp, mlir::func::FuncOp>(fn);
     }
@@ -824,9 +824,10 @@ public:
     auto funcOp = mlir::dyn_cast<mlir::func::FuncOp>(op);
     if (!funcOp)
       return false;
-    return op->hasAttrOfType<mlir::UnitAttr>(
+    return op->hasDiscardableAttrOfType<mlir::UnitAttr>(
                fir::FIROpsDialect::getFirRuntimeAttrName()) ||
-           op->hasAttrOfType<mlir::StringAttr>(fir::getSymbolAttrName());
+           op->hasDiscardableAttrOfType<mlir::StringAttr>(
+               fir::getSymbolAttrName());
   }
 
   /// If the signature does not need any special target-specific conversions,

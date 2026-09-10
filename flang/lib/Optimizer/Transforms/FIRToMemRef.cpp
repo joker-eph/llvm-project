@@ -282,13 +282,23 @@ bool FIRToMemRef::isCompilerGeneratedAlloca(Operation *op) const {
   if (!isa<fir::AllocaOp, memref::AllocaOp>(op))
     llvm_unreachable("expected alloca op");
 
-  return !op->getAttr("bindc_name") && !op->getAttr("uniq_name");
+  auto hasAttribute = [&](llvm::StringRef name) {
+    return op->hasInherentAttr(name) || op->hasDiscardableAttr(name);
+  };
+  return !hasAttribute("bindc_name") && !hasAttribute("uniq_name");
 }
 
 void FIRToMemRef::copyAttribute(Operation *from, Operation *to,
                                 llvm::StringRef name) const {
-  if (Attribute value = from->getAttr(name))
-    to->setAttr(name, value);
+  std::optional<Attribute> inherent = from->getInherentAttr(name);
+  Attribute value =
+      inherent.has_value() ? *inherent : from->getDiscardableAttr(name);
+  if (!value)
+    return;
+  if (to->getInherentAttr(name).has_value())
+    to->setInherentAttr(name, value);
+  else
+    to->setDiscardableAttr(name, value);
 }
 
 Type FIRToMemRef::getBaseType(Type type, bool complexBaseTypes) const {
@@ -352,7 +362,7 @@ Value FIRToMemRef::materializeBoxAddressIfNeeded(Value basePtr,
 
   auto boxAddrOp = fir::BoxAddrOp::create(rewriter, loc, basePtr);
   if (auto cudaAttr = findCudaDataAttr(basePtr))
-    boxAddrOp->setAttr(cuf::getDataAttrName(), cudaAttr);
+    boxAddrOp->setDiscardableAttr(cuf::getDataAttrName(), cudaAttr);
   return boxAddrOp.getResult();
 }
 
@@ -1719,11 +1729,11 @@ void FIRToMemRef::rewriteLoadOp(fir::LoadOp load, PatternRewriter &rewriter,
 
   rewriter.setInsertionPointAfter(load);
 
-  Attribute attr = (load.getOperation())->getAttr("tbaa");
+  Attribute attr = load.getTbaaAttr();
   memref::LoadOp loadOp =
       rewriter.replaceOpWithNewOp<memref::LoadOp>(load, converted, indices);
   if (attr)
-    loadOp.getOperation()->setAttr("tbaa", attr);
+    loadOp.getOperation()->setDiscardableAttr("tbaa", attr);
 
   LLVM_DEBUG(llvm::dbgs() << "FIRToMemRef: new memref.load op:\n";
              loadOp.dump(); assert(succeeded(verify(loadOp))));
@@ -1775,11 +1785,11 @@ void FIRToMemRef::rewriteStoreOp(fir::StoreOp store, PatternRewriter &rewriter,
     value =
         createTypeConversion(rewriter, store.getLoc(), convertedType, value);
 
-  Attribute attr = store.getOperation()->getAttr("tbaa");
+  Attribute attr = store.getTbaaAttr();
   memref::StoreOp storeOp = rewriter.replaceOpWithNewOp<memref::StoreOp>(
       store, value, converted, indices);
   if (attr)
-    storeOp.getOperation()->setAttr("tbaa", attr);
+    storeOp.getOperation()->setDiscardableAttr("tbaa", attr);
 
   LLVM_DEBUG(llvm::dbgs() << "FIRToMemRef: new memref.store op:\n";
              storeOp.dump(); assert(succeeded(verify(storeOp))));

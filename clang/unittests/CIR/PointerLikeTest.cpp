@@ -269,7 +269,8 @@ protected:
     mlir::Value accessVal = access.get();
 
     // Load the value of the second member. This is the pointer we want to test.
-    OwningOpRef<cir::LoadOp> loadOp = cir::LoadOp::create(b, loc, accessVal);
+    OwningOpRef<cir::LoadOp> loadOp = cir::LoadOp::create(
+        b, loc, mlir::ValueRange{accessVal}, cir::LoadOp::Properties{});
     mlir::Value loadVal = loadOp.get();
 
     // Verify that the type category is the expected type category.

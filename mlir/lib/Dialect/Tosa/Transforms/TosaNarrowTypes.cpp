@@ -520,7 +520,8 @@ public:
     if (!isa<tosa::TosaOp>(op))
       return failure();
 
-    const auto accumulatorType = op->getAttrOfType<TypeAttr>("acc_type");
+    const auto accumulatorType =
+        op->getInherentAttrOfType<TypeAttr>("acc_type");
     if (!accumulatorType ||
         !typeNeedsConversion<Kind>(accumulatorType.getValue()))
       return failure();
@@ -529,8 +530,9 @@ public:
     if (!convertedType)
       return failure();
 
-    rewriter.modifyOpInPlace(
-        op, [&] { op->setAttr("acc_type", TypeAttr::get(convertedType)); });
+    rewriter.modifyOpInPlace(op, [&] {
+      op->setInherentAttr("acc_type", TypeAttr::get(convertedType));
+    });
     return success();
   }
 };
@@ -768,7 +770,8 @@ LogicalResult runTosaNarrowing(Operation *op, bool aggressiveRewrite,
           return false;
         if (!convertAccumulatorType)
           return true;
-        const auto accumulatorType = op->getAttrOfType<TypeAttr>("acc_type");
+        const auto accumulatorType =
+            op->getInherentAttrOfType<TypeAttr>("acc_type");
         return !accumulatorType ||
                !typeNeedsConversion<Kind>(accumulatorType.getValue());
       });

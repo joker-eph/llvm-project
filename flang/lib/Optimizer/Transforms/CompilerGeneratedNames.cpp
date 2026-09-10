@@ -73,14 +73,23 @@ void CompilerGeneratedNamesConversionPass::runOnOperation() {
 
   // Update all uses of the functions and globals that have been renamed.
   op.walk([&remappings](mlir::Operation *nestedOp) {
-    llvm::SmallVector<std::pair<mlir::StringAttr, mlir::SymbolRefAttr>> updates;
-    for (const mlir::NamedAttribute &attr : nestedOp->getAttrDictionary())
-      if (auto symRef = llvm::dyn_cast<mlir::SymbolRefAttr>(attr.getValue()))
+    auto updateAttribute = [&](mlir::Attribute &attr) {
+      if (auto symRef = llvm::dyn_cast<mlir::SymbolRefAttr>(attr))
         if (auto remap = remappings.find(symRef.getRootReference());
             remap != remappings.end())
-          updates.emplace_back(std::pair<mlir::StringAttr, mlir::SymbolRefAttr>{
-              attr.getName(), mlir::SymbolRefAttr(remap->second)});
-    for (auto update : updates)
-      nestedOp->setAttr(update.first, update.second);
+          attr = mlir::SymbolRefAttr(remap->second);
+    };
+    nestedOp->walkInherentAttrs(
+        [&](llvm::StringRef, mlir::Attribute &attr) { updateAttribute(attr); });
+    llvm::SmallVector<mlir::NamedAttribute> discardableUpdates;
+    for (mlir::NamedAttribute attr :
+         nestedOp->getDiscardableAttrDictionary().getValue()) {
+      mlir::Attribute value = attr.getValue();
+      updateAttribute(value);
+      if (value != attr.getValue())
+        discardableUpdates.emplace_back(attr.getName(), value);
+    }
+    for (mlir::NamedAttribute update : discardableUpdates)
+      nestedOp->setDiscardableAttr(update.getName(), update.getValue());
   });
 }

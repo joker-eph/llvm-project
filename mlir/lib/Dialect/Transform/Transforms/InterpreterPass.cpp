@@ -34,7 +34,7 @@ static Operation *findPayloadRoot(Operation *passRoot, StringRef tag) {
   auto tagAttrName = StringAttr::get(
       passRoot->getContext(), transform::TransformDialect::kTargetTagAttrName);
   WalkResult walkResult = passRoot->walk([&](Operation *op) {
-    auto attr = op->getAttrOfType<StringAttr>(tagAttrName);
+    auto attr = op->getDiscardableAttrOfType<StringAttr>(tagAttrName);
     if (!attr || attr.getValue() != tag)
       return WalkResult::advance();
 

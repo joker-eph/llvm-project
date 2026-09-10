@@ -77,7 +77,7 @@ TEST_F(FIRCallInterfaceTest, setCalleeFromCallable_directToDirect) {
                 .getValue(),
       "other");
   EXPECT_EQ(callOp.getNumOperands(), 0u);
-  EXPECT_TRUE(callOp->getAttr(fir::CallOp::getCalleeAttrNameStr()));
+  EXPECT_TRUE(callOp->hasInherentAttr(fir::CallOp::getCalleeAttrNameStr()));
 }
 
 TEST_F(FIRCallInterfaceTest, setCalleeFromCallable_indirectToDirect) {
@@ -94,7 +94,7 @@ TEST_F(FIRCallInterfaceTest, setCalleeFromCallable_indirectToDirect) {
       llvm::ArrayRef<mlir::Type>{}, ValueRange{callTargetValue});
   ASSERT_TRUE(isValue(callOp.getCallableForCallee()));
   EXPECT_EQ(callOp.getNumOperands(), 1u);
-  EXPECT_FALSE(callOp->getAttr(fir::CallOp::getCalleeAttrNameStr()));
+  EXPECT_FALSE(callOp->hasInherentAttr(fir::CallOp::getCalleeAttrNameStr()));
 
   // Switch to direct call; operand 0 must be removed.
   auto callTargetRef = FlatSymbolRefAttr::get(&context, "direct_target");
@@ -106,7 +106,7 @@ TEST_F(FIRCallInterfaceTest, setCalleeFromCallable_indirectToDirect) {
                 .getValue(),
       "direct_target");
   EXPECT_EQ(callOp.getNumOperands(), 0u);
-  EXPECT_TRUE(callOp->getAttr(fir::CallOp::getCalleeAttrNameStr()));
+  EXPECT_TRUE(callOp->hasInherentAttr(fir::CallOp::getCalleeAttrNameStr()));
 }
 
 TEST_F(FIRCallInterfaceTest, setCalleeFromCallable_directToIndirect) {
@@ -131,7 +131,7 @@ TEST_F(FIRCallInterfaceTest, setCalleeFromCallable_directToIndirect) {
   EXPECT_TRUE(isValue(callOp.getCallableForCallee()));
   EXPECT_EQ(callOp.getNumOperands(), 1u);
   EXPECT_EQ(callOp.getOperand(0), callTargetValue);
-  EXPECT_FALSE(callOp->getAttr(fir::CallOp::getCalleeAttrNameStr()));
+  EXPECT_FALSE(callOp->hasInherentAttr(fir::CallOp::getCalleeAttrNameStr()));
 }
 
 TEST_F(FIRCallInterfaceTest, setCalleeFromCallable_indirectToIndirect) {
@@ -159,7 +159,7 @@ TEST_F(FIRCallInterfaceTest, setCalleeFromCallable_indirectToIndirect) {
   EXPECT_TRUE(isValue(callOp.getCallableForCallee()));
   EXPECT_EQ(callOp.getNumOperands(), 1u);
   EXPECT_EQ(callOp.getOperand(0), callTarget1);
-  EXPECT_FALSE(callOp->getAttr(fir::CallOp::getCalleeAttrNameStr()));
+  EXPECT_FALSE(callOp->hasInherentAttr(fir::CallOp::getCalleeAttrNameStr()));
 }
 
 TEST_F(FIRCallInterfaceTest, setCalleeFromCallable_directToIndirect_withArgs) {
@@ -188,7 +188,7 @@ TEST_F(FIRCallInterfaceTest, setCalleeFromCallable_directToIndirect_withArgs) {
   EXPECT_EQ(callOp.getNumOperands(), 2u);
   EXPECT_EQ(callOp.getOperand(0), calleeVal);
   EXPECT_EQ(callOp.getOperand(1), argVal);
-  EXPECT_FALSE(callOp->getAttr(fir::CallOp::getCalleeAttrNameStr()));
+  EXPECT_FALSE(callOp->hasInherentAttr(fir::CallOp::getCalleeAttrNameStr()));
 }
 
 TEST_F(FIRCallInterfaceTest, setCalleeFromCallable_indirectToDirect_withArgs) {
@@ -217,7 +217,7 @@ TEST_F(FIRCallInterfaceTest, setCalleeFromCallable_indirectToDirect_withArgs) {
   EXPECT_TRUE(isSymbolRef(callOp.getCallableForCallee()));
   EXPECT_EQ(callOp.getNumOperands(), 1u);
   EXPECT_EQ(callOp.getOperand(0), argVal);
-  EXPECT_TRUE(callOp->getAttr(fir::CallOp::getCalleeAttrNameStr()));
+  EXPECT_TRUE(callOp->hasInherentAttr(fir::CallOp::getCalleeAttrNameStr()));
 }
 
 TEST_F(
@@ -248,7 +248,7 @@ TEST_F(
   EXPECT_EQ(callOp.getNumOperands(), 2u);
   EXPECT_EQ(callOp.getOperand(0), callee1);
   EXPECT_EQ(callOp.getOperand(1), argVal);
-  EXPECT_FALSE(callOp->getAttr(fir::CallOp::getCalleeAttrNameStr()));
+  EXPECT_FALSE(callOp->hasInherentAttr(fir::CallOp::getCalleeAttrNameStr()));
 }
 
 static ArrayAttr makeArgAttrs(
@@ -278,7 +278,7 @@ TEST_F(
   auto callTargetRef = FlatSymbolRefAttr::get(&context, "target");
   auto callOp = fir::CallOp::create(builder, loc, callTargetRef,
       llvm::ArrayRef<mlir::Type>{}, ValueRange{argVal});
-  callOp->setAttr(callOp.getArgAttrsAttrName(),
+  callOp->setInherentAttr(callOp.getArgAttrsAttrName(),
       makeArgAttrs(&context, {makeTestArgDict(&context, "arg0")}));
   ASSERT_TRUE(isSymbolRef(callOp.getCallableForCallee()));
   EXPECT_EQ(callOp.getNumOperands(), 1u);
@@ -317,7 +317,7 @@ TEST_F(
   auto callTargetRef = FlatSymbolRefAttr::get(&context, "target");
   auto callOp = fir::CallOp::create(builder, loc, callTargetRef,
       llvm::ArrayRef<mlir::Type>{}, ValueRange{argVal});
-  callOp->setAttr(callOp.getArgAttrsAttrName(),
+  callOp->setInherentAttr(callOp.getArgAttrsAttrName(),
       makeArgAttrs(&context, {makeTestArgDict(&context, "arg0")}));
   ASSERT_TRUE(isSymbolRef(callOp.getCallableForCallee()));
   EXPECT_EQ(callOp.getNumOperands(), 1u);
@@ -354,7 +354,7 @@ TEST_F(
   // Indirect call with callee + one argument
   auto callOp = fir::CallOp::create(builder, loc, SymbolRefAttr{},
       llvm::ArrayRef<mlir::Type>{}, ValueRange{calleeVal, argVal});
-  callOp->setAttr(callOp.getArgAttrsAttrName(),
+  callOp->setInherentAttr(callOp.getArgAttrsAttrName(),
       makeArgAttrs(&context,
           {DictionaryAttr::get(&context, {}),
               makeTestArgDict(&context, "arg0")}));
@@ -391,7 +391,7 @@ TEST_F(FIRCallInterfaceTest,
   // Indirect call with one argument and arg_attrs
   auto callOp = fir::CallOp::create(builder, loc, SymbolRefAttr{},
       llvm::ArrayRef<mlir::Type>{}, ValueRange{callee0, argVal});
-  callOp->setAttr(callOp.getArgAttrsAttrName(),
+  callOp->setInherentAttr(callOp.getArgAttrsAttrName(),
       makeArgAttrs(&context,
           {DictionaryAttr::get(&context, {}),
               makeTestArgDict(&context, "arg0")}));

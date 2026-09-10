@@ -751,8 +751,9 @@ bool fir::acc::isValidSymbolUse(mlir::Operation *user,
           fir::FIROpsDialect::getFirRuntimeAttrName()))
     return true;
 
-  if (auto cufProcAttr = definingOp->getAttrOfType<cuf::ProcAttributeAttr>(
-          cuf::getProcAttrName())) {
+  if (auto cufProcAttr =
+          definingOp->getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
+              cuf::getProcAttrName())) {
     if (cufProcAttr.getValue() != cuf::ProcAttribute::Host)
       return true;
   }

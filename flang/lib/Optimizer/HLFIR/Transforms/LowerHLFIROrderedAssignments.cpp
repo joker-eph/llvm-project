@@ -523,9 +523,11 @@ void OrderedAssignmentRewriter::pre(hlfir::RegionAssignOp regionAssignOp) {
     // TODO: preserve allocatable assignment aspects for forall once
     // they are conveyed in hlfir.region_assign.
     auto assignOp = hlfir::AssignOp::create(builder, loc, rhsEntity, lhsEntity);
-    if (auto accessGroups = regionAssignOp->getAttrOfType<mlir::ArrayAttr>(
-            fir::getAccessGroupsAttrName()))
-      assignOp->setAttr(fir::getAccessGroupsAttrName(), accessGroups);
+    if (auto accessGroups =
+            regionAssignOp->getDiscardableAttrOfType<mlir::ArrayAttr>(
+                fir::getAccessGroupsAttrName()))
+      assignOp->setDiscardableAttr(fir::getAccessGroupsAttrName(),
+                                   accessGroups);
   }
   generateCleanupIfAny(loweredLhs.elementalCleanup);
   if (loweredLhs.vectorSubscriptLoopNest)

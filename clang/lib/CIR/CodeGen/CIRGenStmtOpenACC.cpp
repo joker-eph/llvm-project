@@ -29,7 +29,8 @@ mlir::LogicalResult CIRGenFunction::emitOpenACCOpAssociatedStmt(
 
   llvm::SmallVector<mlir::Type> retTy;
   llvm::SmallVector<mlir::Value> operands;
-  auto op = Op::create(builder, start, retTy, operands);
+  auto op =
+      Op::create(builder, start, retTy, operands, typename Op::Properties{});
 
   emitOpenACCClauses(op, dirKind, clauses);
 
@@ -72,7 +73,8 @@ mlir::LogicalResult CIRGenFunction::emitOpenACCOpCombinedConstruct(
   llvm::SmallVector<mlir::Type> retTy;
   llvm::SmallVector<mlir::Value> operands;
 
-  auto computeOp = Op::create(builder, start, retTy, operands);
+  auto computeOp =
+      Op::create(builder, start, retTy, operands, typename Op::Properties{});
   computeOp.setCombinedAttr(builder.getUnitAttr());
   mlir::acc::LoopOp loopOp;
 
@@ -84,7 +86,8 @@ mlir::LogicalResult CIRGenFunction::emitOpenACCOpCombinedConstruct(
     builder.setInsertionPointToEnd(&block);
 
     LexicalScope ls{*this, start, builder.getInsertionBlock()};
-    auto loopOp = LoopOp::create(builder, start, retTy, operands);
+    auto loopOp =
+        LoopOp::create(builder, start, retTy, operands, LoopOp::Properties{});
     loopOp.setCombinedAttr(mlir::acc::CombinedConstructsTypeAttr::get(
         builder.getContext(), CombinedType<Op>::value));
 
@@ -118,7 +121,8 @@ Op CIRGenFunction::emitOpenACCOp(
     llvm::ArrayRef<const OpenACCClause *> clauses) {
   llvm::SmallVector<mlir::Type> retTy;
   llvm::SmallVector<mlir::Value> operands;
-  auto op = Op::create(builder, start, retTy, operands);
+  auto op =
+      Op::create(builder, start, retTy, operands, typename Op::Properties{});
 
   emitOpenACCClauses(op, dirKind, clauses);
   return op;
@@ -363,7 +367,8 @@ emitAtomicUpdate(CIRGenFunction &cgf, CIRGenBuilderTy &builder,
     if (inf.WholeExpr)
       res = cgf.emitStmt(inf.WholeExpr, /*useCurrentScope=*/true);
 
-    auto load = cir::LoadOp::create(builder, start, {alloca});
+    auto load = cir::LoadOp::create(builder, start, mlir::ValueRange{alloca},
+                                    cir::LoadOp::Properties{});
     mlir::acc::YieldOp::create(builder, end, {load});
   }
 

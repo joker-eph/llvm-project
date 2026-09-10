@@ -310,8 +310,30 @@ TEST(OperandStorageTest, PopulateDefaultAttrs) {
   auto typed = op->getInherentAttrOfType<IntegerAttr>("default_valued_attr");
   ASSERT_TRUE(typed) << *op;
   EXPECT_EQ(typed.getInt(), 42);
+  EXPECT_TRUE(op->hasInherentAttr("default_valued_attr"));
+  EXPECT_TRUE(op->hasInherentAttrOfType<IntegerAttr>("default_valued_attr"));
+  EXPECT_FALSE(op->hasInherentAttrOfType<StringAttr>("default_valued_attr"));
+  EXPECT_FALSE(op->hasInherentAttr("unknown_attr"));
   EXPECT_FALSE(op->getInherentAttrOfType<StringAttr>("default_valued_attr"));
   EXPECT_FALSE(op->getInherentAttrOfType<IntegerAttr>("unknown_attr"));
+
+  op->setInherentAttr("default_valued_attr", b.getI32IntegerAttr(43));
+  EXPECT_EQ(
+      op->getInherentAttrOfType<IntegerAttr>("default_valued_attr").getInt(),
+      43);
+
+  op->walkInherentAttrs([&](StringRef name, Attribute &attr) {
+    if (name == "default_valued_attr")
+      attr = b.getI32IntegerAttr(44);
+  });
+  EXPECT_EQ(
+      op->getInherentAttrOfType<IntegerAttr>("default_valued_attr").getInt(),
+      44);
+
+  EXPECT_EQ(op->removeInherentAttr("default_valued_attr"),
+            b.getI32IntegerAttr(44));
+  EXPECT_FALSE(op->hasInherentAttr("default_valued_attr"));
+  EXPECT_FALSE(op->removeInherentAttr("default_valued_attr"));
 
   op->destroy();
 }

@@ -793,8 +793,7 @@ void CIRGenFunction::emitMustTailThunk(GlobalDecl gd,
   mlir::Type retTy = calleeTy.getReturnType();
 
   cir::CallOp call = builder.createCallOp(loc, callee, args);
-  call->setAttr(cir::CIRDialect::getMustTailAttrName(),
-                mlir::UnitAttr::get(builder.getContext()));
+  call.setMusttailAttr(mlir::UnitAttr::get(builder.getContext()));
 
   if (isa<cir::VoidType>(retTy))
     cir::ReturnOp::create(builder, loc);

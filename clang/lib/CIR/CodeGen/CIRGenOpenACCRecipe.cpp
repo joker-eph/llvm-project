@@ -65,7 +65,8 @@ void OpenACCRecipeBuilderBase::makeAllocaCopy(mlir::Location loc,
           if (!numEltsToCopy)
             numEltsToCopy = builder.getConstInt(loc, itrTy, 1);
 
-          auto loadCur = cir::LoadOp::create(builder, loc, {itr});
+          auto loadCur = cir::LoadOp::create(
+              builder, loc, mlir::ValueRange{itr}, cir::LoadOp::Properties{});
           auto cmp = builder.createCompare(loc, cir::CmpOpKind::lt, loadCur,
                                            numEltsToCopy);
           builder.createCondition(cmp);
@@ -73,7 +74,8 @@ void OpenACCRecipeBuilderBase::makeAllocaCopy(mlir::Location loc,
         /*bodyBuilder=*/
         [&](mlir::OpBuilder &b, mlir::Location loc) {
           // destAlloca[itr] = srcAlloca[offsetPerSubArray * itr];
-          auto loadCur = cir::LoadOp::create(builder, loc, {itr});
+          auto loadCur = cir::LoadOp::create(
+              builder, loc, mlir::ValueRange{itr}, cir::LoadOp::Properties{});
           auto srcOffset = builder.createMul(loc, offsetPerSubarray, loadCur);
 
           auto ptrToOffsetIntoSrc = cir::PtrStrideOp::create(
@@ -90,7 +92,8 @@ void OpenACCRecipeBuilderBase::makeAllocaCopy(mlir::Location loc,
         /*stepBuilder=*/
         [&](mlir::OpBuilder &b, mlir::Location loc) {
           // Simple increment of the iterator.
-          auto load = cir::LoadOp::create(builder, loc, {itr});
+          auto load = cir::LoadOp::create(builder, loc, mlir::ValueRange{itr},
+                                          cir::LoadOp::Properties{});
           auto inc = builder.createInc(loc, load);
           builder.CIRBaseBuilderTy::createStore(loc, inc, itr);
           builder.createYield(loc);
@@ -241,7 +244,8 @@ std::pair<mlir::Value, mlir::Value> OpenACCRecipeBuilderBase::createBoundsLoop(
 
     assert(isa<cir::PointerType>(eltTy));
 
-    auto eltLoad = cir::LoadOp::create(builder, loc, {subVal});
+    auto eltLoad = cir::LoadOp::create(builder, loc, mlir::ValueRange{subVal},
+                                       cir::LoadOp::Properties{});
 
     return cir::PtrStrideOp::create(builder, loc, eltLoad.getType(), eltLoad,
                                     idxLoad);
@@ -282,7 +286,8 @@ std::pair<mlir::Value, mlir::Value> OpenACCRecipeBuilderBase::createBoundsLoop(
         loc,
         /*condBuilder=*/
         [&](mlir::OpBuilder &b, mlir::Location loc) {
-          auto loadCur = cir::LoadOp::create(builder, loc, {itr});
+          auto loadCur = cir::LoadOp::create(
+              builder, loc, mlir::ValueRange{itr}, cir::LoadOp::Properties{});
           // Use 'not equal' since we are just doing an increment/decrement.
           auto cmp = builder.createCompare(
               loc, inverse ? cir::CmpOpKind::ge : cir::CmpOpKind::lt, loadCur,
@@ -291,7 +296,8 @@ std::pair<mlir::Value, mlir::Value> OpenACCRecipeBuilderBase::createBoundsLoop(
         },
         /*bodyBuilder=*/
         [&](mlir::OpBuilder &b, mlir::Location loc) {
-          auto load = cir::LoadOp::create(builder, loc, {itr});
+          auto load = cir::LoadOp::create(builder, loc, mlir::ValueRange{itr},
+                                          cir::LoadOp::Properties{});
 
           if (subscriptedValue)
             subscriptedValue = doSubscriptOp(subscriptedValue, load);
@@ -301,7 +307,8 @@ std::pair<mlir::Value, mlir::Value> OpenACCRecipeBuilderBase::createBoundsLoop(
         },
         /*stepBuilder=*/
         [&](mlir::OpBuilder &b, mlir::Location loc) {
-          auto load = cir::LoadOp::create(builder, loc, {itr});
+          auto load = cir::LoadOp::create(builder, loc, mlir::ValueRange{itr},
+                                          cir::LoadOp::Properties{});
           auto unary = inverse ? builder.createDec(loc, load)
                                : builder.createInc(loc, load);
           builder.CIRBaseBuilderTy::createStore(loc, unary, itr);
@@ -623,7 +630,8 @@ void OpenACCRecipeBuilderBase::createReductionRecipeCombiner(
         loc,
         /*condBuilder=*/
         [&](mlir::OpBuilder &b, mlir::Location loc) {
-          auto loadItr = cir::LoadOp::create(builder, loc, {itr});
+          auto loadItr = cir::LoadOp::create(
+              builder, loc, mlir::ValueRange{itr}, cir::LoadOp::Properties{});
           mlir::Value arraySize = builder.getConstInt(
               loc, mlir::cast<cir::IntType>(cgf.ptrDiffTy), cat->getZExtSize());
           auto cmp = builder.createCompare(loc, cir::CmpOpKind::lt, loadItr,
@@ -632,7 +640,8 @@ void OpenACCRecipeBuilderBase::createReductionRecipeCombiner(
         },
         /*bodyBuilder=*/
         [&](mlir::OpBuilder &b, mlir::Location loc) {
-          auto loadItr = cir::LoadOp::create(builder, loc, {itr});
+          auto loadItr = cir::LoadOp::create(
+              builder, loc, mlir::ValueRange{itr}, cir::LoadOp::Properties{});
           auto lhsElt = builder.getArrayElement(
               loc, loc, lhsArg, cgf.convertType(cat->getElementType()), loadItr,
               /*shouldDecay=*/true);
@@ -645,7 +654,8 @@ void OpenACCRecipeBuilderBase::createReductionRecipeCombiner(
         },
         /*stepBuilder=*/
         [&](mlir::OpBuilder &b, mlir::Location loc) {
-          auto loadItr = cir::LoadOp::create(builder, loc, {itr});
+          auto loadItr = cir::LoadOp::create(
+              builder, loc, mlir::ValueRange{itr}, cir::LoadOp::Properties{});
           auto inc = builder.createInc(loc, loadItr);
           builder.CIRBaseBuilderTy::createStore(loc, inc, itr);
           builder.createYield(loc);

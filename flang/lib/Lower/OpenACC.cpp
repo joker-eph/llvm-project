@@ -165,8 +165,8 @@ createDataEntryOp(fir::FirOpBuilder &builder, mlir::Location loc,
     op.setVarType(baseAddr.getType());
   }
 
-  op->setAttr(Op::getOperandSegmentSizeAttr(),
-              builder.getDenseI32ArrayAttr(operandSegments));
+  op->setInherentAttr(Op::getOperandSegmentSizeAttr(),
+                      builder.getDenseI32ArrayAttr(operandSegments));
   if (!asyncDeviceTypes.empty())
     op.setAsyncOperandsDeviceTypeAttr(builder.getArrayAttr(asyncDeviceTypes));
   if (!asyncOnlyDeviceTypes.empty())
@@ -189,10 +189,11 @@ static void addDeclareAttr(fir::FirOpBuilder &builder, mlir::Operation *op,
                            mlir::acc::DataClause clause) {
   if (!op)
     return;
-  op->setAttr(mlir::acc::getDeclareAttrName(),
-              mlir::acc::DeclareAttr::get(builder.getContext(),
-                                          mlir::acc::DataClauseAttr::get(
-                                              builder.getContext(), clause)));
+  op->setDiscardableAttr(
+      mlir::acc::getDeclareAttrName(),
+      mlir::acc::DeclareAttr::get(
+          builder.getContext(),
+          mlir::acc::DataClauseAttr::get(builder.getContext(), clause)));
 }
 
 static mlir::func::FuncOp createDeclareFunc(
@@ -209,8 +210,8 @@ static mlir::func::FuncOp createDeclareFunc(
   mlir::func::ReturnOp::create(builder, loc);
   builder.setInsertionPointToStart(&funcOp.getRegion().back());
   if (linkable)
-    funcOp->setAttr(mlir::acc::getDeclareActionAttrName(),
-                    mlir::UnitAttr::get(modBuilder.getContext()));
+    funcOp->setDiscardableAttr(mlir::acc::getDeclareActionAttrName(),
+                               mlir::UnitAttr::get(modBuilder.getContext()));
   return funcOp;
 }
 
@@ -221,8 +222,8 @@ createSimpleOp(fir::FirOpBuilder &builder, mlir::Location loc,
                const llvm::SmallVectorImpl<int32_t> &operandSegments) {
   Op op = Op::create(builder, loc, mlir::TypeRange{}, operands,
                      typename Op::Properties{});
-  op->setAttr(Op::getOperandSegmentSizeAttr(),
-              builder.getDenseI32ArrayAttr(operandSegments));
+  op->setInherentAttr(Op::getOperandSegmentSizeAttr(),
+                      builder.getDenseI32ArrayAttr(operandSegments));
   return op;
 }
 
@@ -1310,8 +1311,8 @@ createRegionOp(fir::FirOpBuilder &builder, mlir::Location loc,
   mlir::Block &block = op.getRegion().back();
   builder.setInsertionPointToStart(&block);
 
-  op->setAttr(Op::getOperandSegmentSizeAttr(),
-              builder.getDenseI32ArrayAttr(operandSegments));
+  op->setInherentAttr(Op::getOperandSegmentSizeAttr(),
+                      builder.getDenseI32ArrayAttr(operandSegments));
 
   // Place the insertion point to the start of the first block.
   builder.setInsertionPointToStart(&block);
@@ -4698,15 +4699,17 @@ static bool compareDeviceTypeInfo(
 static void attachRoutineInfo(mlir::func::FuncOp func,
                               mlir::SymbolRefAttr routineAttr) {
   llvm::SmallVector<mlir::SymbolRefAttr> routines;
-  if (func.getOperation()->hasAttr(mlir::acc::getRoutineInfoAttrName())) {
+  if (func.getOperation()->hasDiscardableAttr(
+          mlir::acc::getRoutineInfoAttrName())) {
     auto routineInfo =
-        func.getOperation()->getAttrOfType<mlir::acc::RoutineInfoAttr>(
-            mlir::acc::getRoutineInfoAttrName());
+        func.getOperation()
+            ->getDiscardableAttrOfType<mlir::acc::RoutineInfoAttr>(
+                mlir::acc::getRoutineInfoAttrName());
     routines.append(routineInfo.getAccRoutines().begin(),
                     routineInfo.getAccRoutines().end());
   }
   routines.push_back(routineAttr);
-  func.getOperation()->setAttr(
+  func.getOperation()->setDiscardableAttr(
       mlir::acc::getRoutineInfoAttrName(),
       mlir::acc::RoutineInfoAttr::get(func.getContext(), routines));
 }
@@ -4964,7 +4967,7 @@ void Fortran::lower::materializeOpenACCRoutineBindTargets(
     auto createRoutineForBindTarget =
         [&](mlir::func::FuncOp target,
             llvm::ArrayRef<mlir::Attribute> bindTargetDeviceTypes) {
-          if (target->hasAttr(mlir::acc::getRoutineInfoAttrName()))
+          if (target->hasDiscardableAttr(mlir::acc::getRoutineInfoAttrName()))
             return;
 
           llvm::SmallVector<mlir::Attribute> emptyBindIdNames,
@@ -5277,21 +5280,23 @@ void Fortran::lower::attachDeclarePostAllocAction(
   }
   assert(op && "expect operation to attach the post allocation action");
 
-  if (op->hasAttr(mlir::acc::getDeclareActionAttrName())) {
-    auto attr = op->getAttrOfType<mlir::acc::DeclareActionAttr>(
+  if (op->hasDiscardableAttr(mlir::acc::getDeclareActionAttrName())) {
+    auto attr = op->getDiscardableAttrOfType<mlir::acc::DeclareActionAttr>(
         mlir::acc::getDeclareActionAttrName());
-    op->setAttr(mlir::acc::getDeclareActionAttrName(),
-                mlir::acc::DeclareActionAttr::get(
-                    builder.getContext(), attr.getPreAlloc(),
-                    /*postAlloc=*/builder.getSymbolRefAttr(fctName.str()),
-                    attr.getPreDealloc(), attr.getPostDealloc()));
+    op->setDiscardableAttr(
+        mlir::acc::getDeclareActionAttrName(),
+        mlir::acc::DeclareActionAttr::get(
+            builder.getContext(), attr.getPreAlloc(),
+            /*postAlloc=*/builder.getSymbolRefAttr(fctName.str()),
+            attr.getPreDealloc(), attr.getPostDealloc()));
   } else {
-    op->setAttr(mlir::acc::getDeclareActionAttrName(),
-                mlir::acc::DeclareActionAttr::get(
-                    builder.getContext(),
-                    /*preAlloc=*/{},
-                    /*postAlloc=*/builder.getSymbolRefAttr(fctName.str()),
-                    /*preDealloc=*/{}, /*postDealloc=*/{}));
+    op->setDiscardableAttr(
+        mlir::acc::getDeclareActionAttrName(),
+        mlir::acc::DeclareActionAttr::get(
+            builder.getContext(),
+            /*preAlloc=*/{},
+            /*postAlloc=*/builder.getSymbolRefAttr(fctName.str()),
+            /*preDealloc=*/{}, /*postDealloc=*/{}));
   }
 }
 
@@ -5313,22 +5318,23 @@ void Fortran::lower::attachDeclarePreDeallocAction(
   fctName << converter.mangleName(sym) << declarePreDeallocSuffix.str();
 
   auto *op = beginOpValue.getDefiningOp();
-  if (op->hasAttr(mlir::acc::getDeclareActionAttrName())) {
-    auto attr = op->getAttrOfType<mlir::acc::DeclareActionAttr>(
+  if (op->hasDiscardableAttr(mlir::acc::getDeclareActionAttrName())) {
+    auto attr = op->getDiscardableAttrOfType<mlir::acc::DeclareActionAttr>(
         mlir::acc::getDeclareActionAttrName());
-    op->setAttr(mlir::acc::getDeclareActionAttrName(),
-                mlir::acc::DeclareActionAttr::get(
-                    builder.getContext(), attr.getPreAlloc(),
-                    attr.getPostAlloc(),
-                    /*preDealloc=*/builder.getSymbolRefAttr(fctName.str()),
-                    attr.getPostDealloc()));
+    op->setDiscardableAttr(
+        mlir::acc::getDeclareActionAttrName(),
+        mlir::acc::DeclareActionAttr::get(
+            builder.getContext(), attr.getPreAlloc(), attr.getPostAlloc(),
+            /*preDealloc=*/builder.getSymbolRefAttr(fctName.str()),
+            attr.getPostDealloc()));
   } else {
-    op->setAttr(mlir::acc::getDeclareActionAttrName(),
-                mlir::acc::DeclareActionAttr::get(
-                    builder.getContext(),
-                    /*preAlloc=*/{}, /*postAlloc=*/{},
-                    /*preDealloc=*/builder.getSymbolRefAttr(fctName.str()),
-                    /*postDealloc=*/{}));
+    op->setDiscardableAttr(
+        mlir::acc::getDeclareActionAttrName(),
+        mlir::acc::DeclareActionAttr::get(
+            builder.getContext(),
+            /*preAlloc=*/{}, /*postAlloc=*/{},
+            /*preDealloc=*/builder.getSymbolRefAttr(fctName.str()),
+            /*postDealloc=*/{}));
   }
 }
 
@@ -5362,20 +5368,22 @@ void Fortran::lower::attachDeclarePostDeallocAction(
     op = op->getPrevNode();
   }
   assert(op && "expect operation to attach the post deallocation action");
-  if (op->hasAttr(mlir::acc::getDeclareActionAttrName())) {
-    auto attr = op->getAttrOfType<mlir::acc::DeclareActionAttr>(
+  if (op->hasDiscardableAttr(mlir::acc::getDeclareActionAttrName())) {
+    auto attr = op->getDiscardableAttrOfType<mlir::acc::DeclareActionAttr>(
         mlir::acc::getDeclareActionAttrName());
-    op->setAttr(mlir::acc::getDeclareActionAttrName(),
-                mlir::acc::DeclareActionAttr::get(
-                    builder.getContext(), attr.getPreAlloc(),
-                    attr.getPostAlloc(), attr.getPreDealloc(),
-                    /*postDealloc=*/builder.getSymbolRefAttr(fctName.str())));
+    op->setDiscardableAttr(
+        mlir::acc::getDeclareActionAttrName(),
+        mlir::acc::DeclareActionAttr::get(
+            builder.getContext(), attr.getPreAlloc(), attr.getPostAlloc(),
+            attr.getPreDealloc(),
+            /*postDealloc=*/builder.getSymbolRefAttr(fctName.str())));
   } else {
-    op->setAttr(mlir::acc::getDeclareActionAttrName(),
-                mlir::acc::DeclareActionAttr::get(
-                    builder.getContext(),
-                    /*preAlloc=*/{}, /*postAlloc=*/{}, /*preDealloc=*/{},
-                    /*postDealloc=*/builder.getSymbolRefAttr(fctName.str())));
+    op->setDiscardableAttr(
+        mlir::acc::getDeclareActionAttrName(),
+        mlir::acc::DeclareActionAttr::get(
+            builder.getContext(),
+            /*preAlloc=*/{}, /*postAlloc=*/{}, /*preDealloc=*/{},
+            /*postDealloc=*/builder.getSymbolRefAttr(fctName.str())));
   }
 }
 
@@ -5425,8 +5433,9 @@ static bool isInsideSeqOpenACCRoutine(fir::FirOpBuilder &builder) {
   mlir::func::FuncOp funcOp = builder.getFunction();
   if (!mlir::acc::isAccRoutine(funcOp.getOperation()))
     return false;
-  auto routineInfo = funcOp->getAttrOfType<mlir::acc::RoutineInfoAttr>(
-      mlir::acc::getRoutineInfoAttrName());
+  auto routineInfo =
+      funcOp->getDiscardableAttrOfType<mlir::acc::RoutineInfoAttr>(
+          mlir::acc::getRoutineInfoAttrName());
   if (!routineInfo)
     return false;
   for (mlir::SymbolRefAttr routineRef : routineInfo.getAccRoutines()) {

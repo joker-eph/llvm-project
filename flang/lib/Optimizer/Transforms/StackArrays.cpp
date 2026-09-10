@@ -264,7 +264,7 @@ mlir::LogicalResult AllocationAnalysis::visitOperation(
 
   if (auto allocmem = mlir::dyn_cast<fir::AllocMemOp>(op)) {
     assert(op->getNumResults() == 1 && "fir.allocmem has one result");
-    auto attr = op->getAttrOfType<fir::MustBeHeapAttr>(
+    auto attr = op->getDiscardableAttrOfType<fir::MustBeHeapAttr>(
         fir::MustBeHeapAttr::getAttrName());
     if (attr && attr.getValue()) {
       LLVM_DEBUG(llvm::dbgs() << "--Found fir.must_be_heap: skipping\n");
@@ -748,7 +748,7 @@ void fir::AllocMemConversion::insertLifetimeMarkers(
     return;
   llvm::StringRef attrName = fir::getHasLifetimeMarkerAttrName();
   // Do not add lifetime markers if the alloca already has any.
-  if (newAlloc->hasAttr(attrName))
+  if (newAlloc->hasDiscardableAttr(attrName))
     return;
   if (std::optional<int64_t> size =
           fir::getAllocaByteSize(newAlloc, *dl, *kindMap)) {
@@ -760,7 +760,7 @@ void fir::AllocMemConversion::insertLifetimeMarkers(
       rewriter.setInsertionPoint(op);
       fir::factory::genLifetimeEnd(rewriter, op->getLoc(), ptr);
     });
-    newAlloc->setAttr(attrName, rewriter.getUnitAttr());
+    newAlloc->setDiscardableAttr(attrName, rewriter.getUnitAttr());
   }
 }
 

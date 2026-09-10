@@ -779,9 +779,9 @@ private:
         rewriter, loc, outputs.resultTypes, inputs, outputs.values,
         genericOp.getIndexingMapsArray(), genericOp.getIteratorTypesArray());
     if (StringAttr doc = genericOp.getDocAttr())
-      splitOp->setAttr(splitOp.getDocAttrName(), doc);
+      splitOp.setDocAttr(doc);
     if (StringAttr libraryCall = genericOp.getLibraryCallAttr())
-      splitOp->setAttr(splitOp.getLibraryCallAttrName(), libraryCall);
+      splitOp.setLibraryCallAttr(libraryCall);
     splitOp->setDiscardableAttrs(genericOp->getDiscardableAttrDictionary());
     rewriter.cloneRegionBefore(genericOp.getRegion(), splitOp.getRegion(),
                                splitOp.getRegion().begin());

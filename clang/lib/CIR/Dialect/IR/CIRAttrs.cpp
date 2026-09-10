@@ -928,7 +928,7 @@ RecordLayoutAttr cir::tryGetRecordLayout(mlir::ModuleOp mod,
                                          mlir::StringAttr name) {
   if (!name)
     return {};
-  auto dict = mod->getAttrOfType<mlir::DictionaryAttr>(
+  auto dict = mod->getDiscardableAttrOfType<mlir::DictionaryAttr>(
       CIRDialect::getRecordLayoutsAttrName());
   if (!dict)
     return {};

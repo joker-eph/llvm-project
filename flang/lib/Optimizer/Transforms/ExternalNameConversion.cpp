@@ -124,7 +124,8 @@ void ExternalNameConversionPass::runOnOperation() {
       auto newSymRef = mlir::FlatSymbolRefAttr::get(newAttr);
       remappings.try_emplace(symName, newSymRef);
       if (llvm::isa<mlir::func::FuncOp>(funcOrGlobal))
-        funcOrGlobal.setAttr(fir::getInternalFuncNameAttrName(), symName);
+        funcOrGlobal.setDiscardableAttr(fir::getInternalFuncNameAttrName(),
+                                        symName);
     }
   };
 
@@ -150,18 +151,11 @@ void ExternalNameConversionPass::runOnOperation() {
 
   // Update all uses of the functions and globals that have been renamed.
   op.walk([&remappings](mlir::Operation *nestedOp) {
-    llvm::SmallVector<std::pair<mlir::StringAttr, mlir::SymbolRefAttr>>
-        symRefUpdates;
-    llvm::SmallVector<std::pair<mlir::StringAttr, mlir::ArrayAttr>>
-        arrayUpdates;
-    for (const mlir::NamedAttribute &attr : nestedOp->getAttrDictionary())
-      if (auto symRef = llvm::dyn_cast<mlir::SymbolRefAttr>(attr.getValue())) {
+    auto updateAttribute = [&](mlir::Attribute attr) -> mlir::Attribute {
+      if (auto symRef = llvm::dyn_cast<mlir::SymbolRefAttr>(attr)) {
         if (auto newSymRef = processSymbolRef(symRef, nestedOp, remappings))
-          symRefUpdates.emplace_back(
-              std::pair<mlir::StringAttr, mlir::SymbolRefAttr>{attr.getName(),
-                                                               *newSymRef});
-      } else if (auto arrayAttr =
-                     llvm::dyn_cast<mlir::ArrayAttr>(attr.getValue())) {
+          return *newSymRef;
+      } else if (auto arrayAttr = llvm::dyn_cast<mlir::ArrayAttr>(attr)) {
         llvm::SmallVector<mlir::Attribute> symbolRefs;
         for (auto element : arrayAttr) {
           if (!element) {
@@ -177,13 +171,21 @@ void ExternalNameConversionPass::runOnOperation() {
           else
             symbolRefs.push_back(*updatedSymRef);
         }
-        arrayUpdates.push_back(std::make_pair(
-            attr.getName(),
-            mlir::ArrayAttr::get(nestedOp->getContext(), symbolRefs)));
+        return mlir::ArrayAttr::get(nestedOp->getContext(), symbolRefs);
       }
-    for (auto update : symRefUpdates)
-      nestedOp->setAttr(update.first, update.second);
-    for (auto update : arrayUpdates)
-      nestedOp->setAttr(update.first, update.second);
+      return attr;
+    };
+    nestedOp->walkInherentAttrs([&](llvm::StringRef, mlir::Attribute &attr) {
+      attr = updateAttribute(attr);
+    });
+    llvm::SmallVector<mlir::NamedAttribute> discardableUpdates;
+    for (mlir::NamedAttribute attr :
+         nestedOp->getDiscardableAttrDictionary().getValue()) {
+      mlir::Attribute value = updateAttribute(attr.getValue());
+      if (value != attr.getValue())
+        discardableUpdates.emplace_back(attr.getName(), value);
+    }
+    for (mlir::NamedAttribute update : discardableUpdates)
+      nestedOp->setDiscardableAttr(update.getName(), update.getValue());
   });
 }

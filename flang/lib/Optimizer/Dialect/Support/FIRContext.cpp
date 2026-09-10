@@ -19,12 +19,12 @@
 
 void fir::setTargetTriple(mlir::ModuleOp mod, llvm::StringRef triple) {
   auto target = fir::determineTargetTriple(triple);
-  mod->setAttr(mlir::LLVM::LLVMDialect::getTargetTripleAttrName(),
-               mlir::StringAttr::get(mod.getContext(), target));
+  mod->setDiscardableAttr(mlir::LLVM::LLVMDialect::getTargetTripleAttrName(),
+                          mlir::StringAttr::get(mod.getContext(), target));
 }
 
 llvm::Triple fir::getTargetTriple(mlir::ModuleOp mod) {
-  if (auto target = mod->getAttrOfType<mlir::StringAttr>(
+  if (auto target = mod->getDiscardableAttrOfType<mlir::StringAttr>(
           mlir::LLVM::LLVMDialect::getTargetTripleAttrName()))
     return llvm::Triple(target.getValue());
   return llvm::Triple(llvm::sys::getDefaultTargetTriple());
@@ -35,16 +35,19 @@ static constexpr const char *defKindName = "fir.defaultkind";
 
 void fir::setKindMapping(mlir::ModuleOp mod, fir::KindMapping &kindMap) {
   auto *ctx = mod.getContext();
-  mod->setAttr(kindMapName, mlir::StringAttr::get(ctx, kindMap.mapToString()));
+  mod->setDiscardableAttr(kindMapName,
+                          mlir::StringAttr::get(ctx, kindMap.mapToString()));
   auto defs = kindMap.defaultsToString();
-  mod->setAttr(defKindName, mlir::StringAttr::get(ctx, defs));
+  mod->setDiscardableAttr(defKindName, mlir::StringAttr::get(ctx, defs));
 }
 
 fir::KindMapping fir::getKindMapping(mlir::ModuleOp mod) {
   auto *ctx = mod.getContext();
-  if (auto defs = mod->getAttrOfType<mlir::StringAttr>(defKindName)) {
+  if (auto defs =
+          mod->getDiscardableAttrOfType<mlir::StringAttr>(defKindName)) {
     auto defVals = fir::KindMapping::toDefaultKinds(defs.getValue());
-    if (auto maps = mod->getAttrOfType<mlir::StringAttr>(kindMapName))
+    if (auto maps =
+            mod->getDiscardableAttrOfType<mlir::StringAttr>(kindMapName))
       return fir::KindMapping(ctx, maps.getValue(), defVals);
     return fir::KindMapping(ctx, defVals);
   }
@@ -67,11 +70,12 @@ void fir::setTargetCPU(mlir::ModuleOp mod, llvm::StringRef cpu) {
     return;
 
   auto *ctx = mod.getContext();
-  mod->setAttr(targetCpuName, mlir::StringAttr::get(ctx, cpu));
+  mod->setDiscardableAttr(targetCpuName, mlir::StringAttr::get(ctx, cpu));
 }
 
 llvm::StringRef fir::getTargetCPU(mlir::ModuleOp mod) {
-  if (auto attr = mod->getAttrOfType<mlir::StringAttr>(targetCpuName))
+  if (auto attr =
+          mod->getDiscardableAttrOfType<mlir::StringAttr>(targetCpuName))
     return attr.getValue();
 
   return {};
@@ -85,7 +89,7 @@ void fir::setTuneCPU(mlir::ModuleOp mod, llvm::StringRef cpu) {
 
   auto *ctx = mod.getContext();
 
-  mod->setAttr(tuneCpuName, mlir::StringAttr::get(ctx, cpu));
+  mod->setDiscardableAttr(tuneCpuName, mlir::StringAttr::get(ctx, cpu));
 }
 
 static constexpr const char *atomicIgnoreDenormalModeName =
@@ -94,15 +98,16 @@ static constexpr const char *atomicIgnoreDenormalModeName =
 void fir::setAtomicIgnoreDenormalMode(mlir::ModuleOp mod, bool value) {
   if (value) {
     auto *ctx = mod.getContext();
-    mod->setAttr(atomicIgnoreDenormalModeName, mlir::UnitAttr::get(ctx));
+    mod->setDiscardableAttr(atomicIgnoreDenormalModeName,
+                            mlir::UnitAttr::get(ctx));
   } else {
-    if (mod->hasAttr(atomicIgnoreDenormalModeName))
-      mod->removeAttr(atomicIgnoreDenormalModeName);
+    if (mod->hasDiscardableAttr(atomicIgnoreDenormalModeName))
+      mod->removeDiscardableAttr(atomicIgnoreDenormalModeName);
   }
 }
 
 bool fir::getAtomicIgnoreDenormalMode(mlir::ModuleOp mod) {
-  return mod->hasAttr(atomicIgnoreDenormalModeName);
+  return mod->hasDiscardableAttr(atomicIgnoreDenormalModeName);
 }
 
 static constexpr const char *atomicFineGrainedMemoryName =
@@ -111,15 +116,16 @@ static constexpr const char *atomicFineGrainedMemoryName =
 void fir::setAtomicFineGrainedMemory(mlir::ModuleOp mod, bool value) {
   if (value) {
     auto *ctx = mod.getContext();
-    mod->setAttr(atomicFineGrainedMemoryName, mlir::UnitAttr::get(ctx));
+    mod->setDiscardableAttr(atomicFineGrainedMemoryName,
+                            mlir::UnitAttr::get(ctx));
   } else {
-    if (mod->hasAttr(atomicFineGrainedMemoryName))
-      mod->removeAttr(atomicFineGrainedMemoryName);
+    if (mod->hasDiscardableAttr(atomicFineGrainedMemoryName))
+      mod->removeDiscardableAttr(atomicFineGrainedMemoryName);
   }
 }
 
 bool fir::getAtomicFineGrainedMemory(mlir::ModuleOp mod) {
-  return mod->hasAttr(atomicFineGrainedMemoryName);
+  return mod->hasDiscardableAttr(atomicFineGrainedMemoryName);
 }
 
 static constexpr const char *atomicRemoteMemoryName =
@@ -128,19 +134,19 @@ static constexpr const char *atomicRemoteMemoryName =
 void fir::setAtomicRemoteMemory(mlir::ModuleOp mod, bool value) {
   if (value) {
     auto *ctx = mod.getContext();
-    mod->setAttr(atomicRemoteMemoryName, mlir::UnitAttr::get(ctx));
+    mod->setDiscardableAttr(atomicRemoteMemoryName, mlir::UnitAttr::get(ctx));
   } else {
-    if (mod->hasAttr(atomicRemoteMemoryName))
-      mod->removeAttr(atomicRemoteMemoryName);
+    if (mod->hasDiscardableAttr(atomicRemoteMemoryName))
+      mod->removeDiscardableAttr(atomicRemoteMemoryName);
   }
 }
 
 bool fir::getAtomicRemoteMemory(mlir::ModuleOp mod) {
-  return mod->hasAttr(atomicRemoteMemoryName);
+  return mod->hasDiscardableAttr(atomicRemoteMemoryName);
 }
 
 llvm::StringRef fir::getTuneCPU(mlir::ModuleOp mod) {
-  if (auto attr = mod->getAttrOfType<mlir::StringAttr>(tuneCpuName))
+  if (auto attr = mod->getDiscardableAttrOfType<mlir::StringAttr>(tuneCpuName))
     return attr.getValue();
 
   return {};
@@ -153,11 +159,12 @@ void fir::setTargetABI(mlir::ModuleOp mod, llvm::StringRef abi) {
     return;
 
   auto *ctx = mod.getContext();
-  mod->setAttr(targetABIName, mlir::StringAttr::get(ctx, abi));
+  mod->setDiscardableAttr(targetABIName, mlir::StringAttr::get(ctx, abi));
 }
 
 mlir::StringRef fir::getTargetABI(mlir::ModuleOp mod) {
-  if (auto attr = mod->getAttrOfType<mlir::StringAttr>(targetABIName))
+  if (auto attr =
+          mod->getDiscardableAttrOfType<mlir::StringAttr>(targetABIName))
     return attr.getValue();
 
   return {};
@@ -170,12 +177,12 @@ void fir::setTargetFeatures(mlir::ModuleOp mod, llvm::StringRef features) {
     return;
 
   auto *ctx = mod.getContext();
-  mod->setAttr(targetFeaturesName,
-               mlir::LLVM::TargetFeaturesAttr::get(ctx, features));
+  mod->setDiscardableAttr(targetFeaturesName,
+                          mlir::LLVM::TargetFeaturesAttr::get(ctx, features));
 }
 
 mlir::LLVM::TargetFeaturesAttr fir::getTargetFeatures(mlir::ModuleOp mod) {
-  if (auto attr = mod->getAttrOfType<mlir::LLVM::TargetFeaturesAttr>(
+  if (auto attr = mod->getDiscardableAttrOfType<mlir::LLVM::TargetFeaturesAttr>(
           targetFeaturesName))
     return attr;
 
@@ -187,12 +194,12 @@ void fir::setIdent(mlir::ModuleOp mod, llvm::StringRef ident) {
     return;
 
   mlir::MLIRContext *ctx = mod.getContext();
-  mod->setAttr(mlir::LLVM::LLVMDialect::getIdentAttrName(),
-               mlir::StringAttr::get(ctx, ident));
+  mod->setDiscardableAttr(mlir::LLVM::LLVMDialect::getIdentAttrName(),
+                          mlir::StringAttr::get(ctx, ident));
 }
 
 llvm::StringRef fir::getIdent(mlir::ModuleOp mod) {
-  if (auto attr = mod->getAttrOfType<mlir::StringAttr>(
+  if (auto attr = mod->getDiscardableAttrOfType<mlir::StringAttr>(
           mlir::LLVM::LLVMDialect::getIdentAttrName()))
     return attr;
   return {};
@@ -203,12 +210,12 @@ void fir::setCommandline(mlir::ModuleOp mod, llvm::StringRef cmdLine) {
     return;
 
   mlir::MLIRContext *ctx = mod.getContext();
-  mod->setAttr(mlir::LLVM::LLVMDialect::getCommandlineAttrName(),
-               mlir::StringAttr::get(ctx, cmdLine));
+  mod->setDiscardableAttr(mlir::LLVM::LLVMDialect::getCommandlineAttrName(),
+                          mlir::StringAttr::get(ctx, cmdLine));
 }
 
 llvm::StringRef fir::getCommandline(mlir::ModuleOp mod) {
-  if (auto attr = mod->getAttrOfType<mlir::StringAttr>(
+  if (auto attr = mod->getDiscardableAttrOfType<mlir::StringAttr>(
           mlir::LLVM::LLVMDialect::getCommandlineAttrName()))
     return attr;
   return {};
@@ -218,13 +225,15 @@ static constexpr const char *relocationModelName = "fir.relocation_model";
 
 void fir::setRelocationModel(mlir::ModuleOp mod, llvm::Reloc::Model rm) {
   auto *ctx = mod.getContext();
-  mod->setAttr(relocationModelName,
-               mlir::IntegerAttr::get(mlir::IntegerType::get(ctx, 32),
-                                      static_cast<unsigned>(rm)));
+  mod->setDiscardableAttr(
+      relocationModelName,
+      mlir::IntegerAttr::get(mlir::IntegerType::get(ctx, 32),
+                             static_cast<unsigned>(rm)));
 }
 
 llvm::Reloc::Model fir::getRelocationModel(mlir::ModuleOp mod) {
-  if (auto attr = mod->getAttrOfType<mlir::IntegerAttr>(relocationModelName)) {
+  if (auto attr = mod->getDiscardableAttrOfType<mlir::IntegerAttr>(
+          relocationModelName)) {
     auto val = attr.getInt();
     if (val >= llvm::Reloc::Static && val <= llvm::Reloc::ROPI_RWPI)
       return static_cast<llvm::Reloc::Model>(val);
@@ -239,32 +248,35 @@ static constexpr const char *isPIEName = "fir.is_pie";
 void fir::setIsPIE(mlir::ModuleOp mod, bool value) {
   if (value) {
     auto *ctx = mod.getContext();
-    mod->setAttr(isPIEName, mlir::UnitAttr::get(ctx));
+    mod->setDiscardableAttr(isPIEName, mlir::UnitAttr::get(ctx));
   } else {
-    if (mod->hasAttr(isPIEName))
-      mod->removeAttr(isPIEName);
+    if (mod->hasDiscardableAttr(isPIEName))
+      mod->removeDiscardableAttr(isPIEName);
   }
 }
 
-bool fir::getIsPIE(mlir::ModuleOp mod) { return mod->hasAttr(isPIEName); }
+bool fir::getIsPIE(mlir::ModuleOp mod) {
+  return mod->hasDiscardableAttr(isPIEName);
+}
 
 static constexpr const char *cudaHeapAllocModeName = "fir.cuda_heap_alloc";
 
 static void setCudaHeapAllocModeOn(mlir::Operation *op,
                                    fir::CudaHeapAllocMode mode) {
   if (mode == fir::CudaHeapAllocMode::None) {
-    if (op->hasAttr(cudaHeapAllocModeName))
-      op->removeAttr(cudaHeapAllocModeName);
+    if (op->hasDiscardableAttr(cudaHeapAllocModeName))
+      op->removeDiscardableAttr(cudaHeapAllocModeName);
     return;
   }
   llvm::StringRef value =
       mode == fir::CudaHeapAllocMode::Unified ? "unified" : "managed";
-  op->setAttr(cudaHeapAllocModeName,
-              mlir::StringAttr::get(op->getContext(), value));
+  op->setDiscardableAttr(cudaHeapAllocModeName,
+                         mlir::StringAttr::get(op->getContext(), value));
 }
 
 static fir::CudaHeapAllocMode getCudaHeapAllocModeOf(mlir::Operation *op) {
-  if (auto attr = op->getAttrOfType<mlir::StringAttr>(cudaHeapAllocModeName)) {
+  if (auto attr = op->getDiscardableAttrOfType<mlir::StringAttr>(
+          cudaHeapAllocModeName)) {
     if (attr.getValue() == "unified")
       return fir::CudaHeapAllocMode::Unified;
     if (attr.getValue() == "managed")

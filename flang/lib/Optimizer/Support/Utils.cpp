@@ -154,8 +154,8 @@ std::string fir::getPresentableFunctionName(mlir::FunctionOpInterface func) {
     // Main program entry is all uppercase - to avoid name conflicts. But
     // from a reporting perspective, keep it lowercase for consistency with
     // every other symbol.
-    if (auto bindcName =
-            func->getAttrOfType<mlir::StringAttr>(fir::getSymbolAttrName())) {
+    if (auto bindcName = func->getDiscardableAttrOfType<mlir::StringAttr>(
+            fir::getSymbolAttrName())) {
       llvm::StringRef name = bindcName.getValue();
       if (!name.empty())
         return name.lower();
@@ -165,7 +165,7 @@ std::string fir::getPresentableFunctionName(mlir::FunctionOpInterface func) {
   // The internal name is the saved name after ExternalNameConversion prepares
   // the names for external visibility. Without doing this, for many names we
   // would get the underscore version instead of the name as user wrote it.
-  if (auto internalName = func->getAttrOfType<mlir::StringAttr>(
+  if (auto internalName = func->getDiscardableAttrOfType<mlir::StringAttr>(
           fir::getInternalFuncNameAttrName());
       internalName && !internalName.getValue().empty())
     result = internalName.getValue().str();

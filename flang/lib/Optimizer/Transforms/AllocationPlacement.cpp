@@ -228,7 +228,7 @@ void AllocationPlacementPass::runOnOperation() {
       // Do not touch to fir.alloca that must stay fir.alloca (e.g.
       // the temporary alloca for array function results that will
       // later be promoted to hidden arguments).
-      auto attr = alloca->getAttrOfType<fir::MustBeStackAttr>(
+      auto attr = alloca->getDiscardableAttrOfType<fir::MustBeStackAttr>(
           fir::MustBeStackAttr::getAttrName());
       if (attr && attr.getValue())
         return;

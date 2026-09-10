@@ -29,11 +29,12 @@ struct CUFLaunchAttachAttr
     getOperation()->walk([](gpu::LaunchFuncOp op) {
       if (!op.getKernelName().getValue().contains(cudaKernelInfix))
         return;
-      if (op->getAttrOfType<cuf::ProcAttributeAttr>(cuf::getProcAttrName()))
+      if (op->getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
+              cuf::getProcAttrName()))
         return;
-      op->setAttr(cuf::getProcAttrName(),
-                  cuf::ProcAttributeAttr::get(op.getContext(),
-                                              cuf::ProcAttribute::Global));
+      op->setDiscardableAttr(cuf::getProcAttrName(),
+                             cuf::ProcAttributeAttr::get(
+                                 op.getContext(), cuf::ProcAttribute::Global));
     });
   }
 };

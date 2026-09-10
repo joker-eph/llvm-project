@@ -102,7 +102,7 @@ struct GPULaunchKernelConversion
   matchAndRewrite(mlir::gpu::LaunchFuncOp op, OpAdaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const override {
     // Only convert gpu.launch_func for CUDA Fortran.
-    if (!op.getOperation()->getAttrOfType<cuf::ProcAttributeAttr>(
+    if (!op.getOperation()->getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
             cuf::getProcAttrName()))
       return mlir::failure();
 
@@ -177,8 +177,8 @@ struct GPULaunchKernelConversion
                            stream, dynamicMemorySize, kernelArgs, nullPtr});
       rewriter.eraseOp(op);
     } else {
-      auto procAttr =
-          op->getAttrOfType<cuf::ProcAttributeAttr>(cuf::getProcAttrName());
+      auto procAttr = op->getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
+          cuf::getProcAttrName());
       bool isGridGlobal =
           procAttr && procAttr.getValue() == cuf::ProcAttribute::GridGlobal;
       llvm::StringRef fctName = isGridGlobal
@@ -328,8 +328,9 @@ public:
 
     target.addDynamicallyLegalOp<mlir::gpu::LaunchFuncOp>(
         [&](mlir::gpu::LaunchFuncOp op) {
-          if (op.getOperation()->getAttrOfType<cuf::ProcAttributeAttr>(
-                  cuf::getProcAttrName()))
+          if (op.getOperation()
+                  ->getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
+                      cuf::getProcAttrName()))
             return false;
           return true;
         });

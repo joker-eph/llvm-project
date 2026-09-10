@@ -48,9 +48,10 @@ void mlir::omp::setOpenMPVersionAttribute(ModuleOp module, int64_t version) {
 }
 
 void mlir::omp::setOpenMPIntegerWrapAround(ModuleOp module, bool value) {
-  module->setAttr(StringAttr::get(module.getContext(),
-                                  llvm::Twine{"omp.integer_wrap_around"}),
-                  IntegerWrapAroundAttr::get(module.getContext(), value));
+  module->setDiscardableAttr(
+      StringAttr::get(module.getContext(),
+                      llvm::Twine{"omp.integer_wrap_around"}),
+      IntegerWrapAroundAttr::get(module.getContext(), value));
 }
 
 int64_t mlir::omp::getOpenMPVersionAttribute(ModuleOp module,

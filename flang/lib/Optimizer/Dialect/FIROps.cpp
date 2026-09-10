@@ -56,11 +56,26 @@ static void propagateAttributes(mlir::Operation *fromOp,
   if (!fromOp || !toOp)
     return;
 
-  for (mlir::NamedAttribute attr : fromOp->getAttrs()) {
+  for (mlir::NamedAttribute attr :
+       fromOp->getDiscardableAttrDictionary().getValue()) {
     if (attr.getName().getValue().starts_with(
             mlir::acc::OpenACCDialect::getDialectNamespace()))
-      toOp->setAttr(attr.getName(), attr.getValue());
+      toOp->setDiscardableAttr(attr.getName(), attr.getValue());
   }
+}
+
+static llvm::SmallVector<mlir::NamedAttribute>
+collectAttrsForPrinting(mlir::Operation *op) {
+  llvm::SmallVector<mlir::NamedAttribute> attrs;
+  op->walkInherentAttrs([&](llvm::StringRef name, mlir::Attribute &value) {
+    if (value)
+      attrs.emplace_back(mlir::StringAttr::get(op->getContext(), name), value);
+  });
+  llvm::append_range(attrs, op->getDiscardableAttrDictionary().getValue());
+  llvm::sort(attrs, [](mlir::NamedAttribute lhs, mlir::NamedAttribute rhs) {
+    return lhs.getName().strref() < rhs.getName().strref();
+  });
+  return attrs;
 }
 
 /// Return true if a sequence type is of some incomplete size or a record type
@@ -174,7 +189,8 @@ static void printAllocatableOp(mlir::OpAsmPrinter &p, OP &op) {
     p << ", ";
     p.printOperand(sh);
   }
-  p.printOptionalAttrDict(op->getAttrs(), {"in_type", "operandSegmentSizes"});
+  p.printOptionalAttrDict(collectAttrsForPrinting(op),
+                          {"in_type", "operandSegmentSizes"});
 }
 
 bool fir::mayBeAbsentBox(mlir::Value val) {
@@ -1507,7 +1523,7 @@ void fir::CallOp::print(mlir::OpAsmPrinter &p) {
     p.printStrippedAttrOrType(fmfAttr);
   }
 
-  p.printOptionalAttrDict((*this)->getAttrs(),
+  p.printOptionalAttrDict(collectAttrsForPrinting(*this),
                           {fir::CallOp::getCalleeAttrNameStr(),
                            getFastmathAttrName(), getProcedureAttrsAttrName(),
                            getArgAttrsAttrName(), getResAttrsAttrName()});
@@ -1604,7 +1620,7 @@ void fir::CallOp::setCalleeFromCallable(mlir::CallInterfaceCallable callee) {
   if (auto symbolRef = llvm::dyn_cast<mlir::SymbolRefAttr>(callee)) {
     // Handling a direct call.
     bool wasIndirect = llvm::isa<mlir::Value>(getCallableForCallee());
-    (*this)->setAttr(getCalleeAttrName(), symbolRef);
+    (*this)->setInherentAttr(getCalleeAttrName(), symbolRef);
     // If it was indirect before, the operand list and associated attributes
     // needs to be fixed up.
     if (wasIndirect) {
@@ -1619,17 +1635,18 @@ void fir::CallOp::setCalleeFromCallable(mlir::CallInterfaceCallable callee) {
         llvm::SmallVector<mlir::Attribute> newAttrs(argAttrs.begin() + 1,
                                                     argAttrs.end());
         if (newAttrs.empty())
-          (*this)->removeAttr(getArgAttrsAttrName());
+          (*this)->removeInherentAttr(getArgAttrsAttrName());
         else
-          (*this)->setAttr(getArgAttrsAttrName(),
-                           mlir::ArrayAttr::get(getContext(), newAttrs));
+          (*this)->setInherentAttr(
+              getArgAttrsAttrName(),
+              mlir::ArrayAttr::get(getContext(), newAttrs));
       }
     }
     return;
   }
   // The provided callee makes this an indirect call now.
   bool wasIndirect = llvm::isa<mlir::Value>(getCallableForCallee());
-  (*this)->removeAttr(getCalleeAttrNameStr());
+  (*this)->removeInherentAttr(getCalleeAttrNameStr());
   mlir::Value calleeVal = llvm::cast<mlir::Value>(callee);
   if (wasIndirect) {
     setOperand(0, calleeVal);
@@ -1644,8 +1661,8 @@ void fir::CallOp::setCalleeFromCallable(mlir::CallInterfaceCallable callee) {
       newAttrs.reserve(1 + argAttrs.size());
       newAttrs.push_back(mlir::DictionaryAttr::get(getContext(), {}));
       newAttrs.append(argAttrs.begin(), argAttrs.end());
-      (*this)->setAttr(getArgAttrsAttrName(),
-                       mlir::ArrayAttr::get(getContext(), newAttrs));
+      (*this)->setInherentAttr(getArgAttrsAttrName(),
+                               mlir::ArrayAttr::get(getContext(), newAttrs));
     }
   }
 }
@@ -1676,7 +1693,7 @@ template <typename OPTY>
 static void printCmpOp(mlir::OpAsmPrinter &p, OPTY op) {
   p << ' ';
   auto predSym = mlir::arith::symbolizeCmpFPredicate(
-      op->template getAttrOfType<mlir::IntegerAttr>(
+      op->template getDiscardableAttrOfType<mlir::IntegerAttr>(
             OPTY::getPredicateAttrName())
           .getInt());
   assert(predSym.has_value() && "invalid symbol value for predicate");
@@ -1685,7 +1702,7 @@ static void printCmpOp(mlir::OpAsmPrinter &p, OPTY op) {
   p.printOperand(op.getLhs());
   p << ", ";
   p.printOperand(op.getRhs());
-  p.printOptionalAttrDict(op->getAttrs(),
+  p.printOptionalAttrDict(collectAttrsForPrinting(op),
                           /*elidedAttrs=*/{OPTY::getPredicateAttrName()});
   p << " : " << op.getLhs().getType();
 }
@@ -2237,7 +2254,7 @@ void fir::CoordinateOp::print(mlir::OpAsmPrinter &p) {
     }
   }
   p.printOptionalAttrDict(
-      (*this)->getAttrs(),
+      collectAttrsForPrinting(*this),
       /*elideAttrs=*/{getBaseTypeAttrName(), getFieldIndicesAttrName()});
   p << " : ";
   p.printFunctionalType(getOperandTypes(), (*this)->getResultTypes());
@@ -2779,8 +2796,8 @@ mlir::ParseResult fir::TypeDescOp::parse(mlir::OpAsmParser &parser,
 }
 
 void fir::TypeDescOp::print(mlir::OpAsmPrinter &p) {
-  p << ' ' << getOperation()->getAttr("in_type");
-  p.printOptionalAttrDict(getOperation()->getAttrs(), {"in_type"});
+  p << ' ' << getInTypeAttr();
+  p.printOptionalAttrDict(collectAttrsForPrinting(getOperation()), {"in_type"});
 }
 
 llvm::LogicalResult fir::TypeDescOp::verify() {
@@ -2879,13 +2896,13 @@ void fir::GlobalOp::print(mlir::OpAsmPrinter &p) {
     p << '(' << val << ')';
   // Print all other attributes that are not pretty printed here.
   p.printOptionalAttrDict(
-      (*this)->getAttrs(), /*elideAttrs=*/{
+      collectAttrsForPrinting(*this), /*elideAttrs=*/{
           getSymNameAttrName(), getSymrefAttrName(), getTypeAttrName(),
           getConstantAttrName(), getTargetAttrName(), getLinkageAttrName(),
           getInitValAttrName(), getSymVisibilityAttrName()});
-  if (getOperation()->getAttr(getConstantAttrName()))
+  if (getConstant())
     p << " " << getConstantAttrName().strref();
-  if (getOperation()->getAttr(getTargetAttrName()))
+  if (getTarget())
     p << " " << getTargetAttrName().strref();
   p << " : ";
   p.printType(getType());
@@ -2996,8 +3013,7 @@ mlir::ParseResult fir::GlobalLenOp::parse(mlir::OpAsmParser &parser,
 }
 
 void fir::GlobalLenOp::print(mlir::OpAsmPrinter &p) {
-  p << ' ' << getOperation()->getAttr(fir::GlobalLenOp::getLenParamAttrName())
-    << ", " << getOperation()->getAttr(fir::GlobalLenOp::getIntAttrName());
+  p << ' ' << getLenparamAttr() << ", " << getIntvalAttr();
 }
 
 //===----------------------------------------------------------------------===//
@@ -3041,12 +3057,7 @@ mlir::ParseResult fir::FieldIndexOp::parse(mlir::OpAsmParser &parser,
 
 template <typename OP>
 void printFieldLikeOp(mlir::OpAsmPrinter &p, OP &op) {
-  p << ' '
-    << op.getOperation()
-           ->template getAttrOfType<mlir::StringAttr>(
-               fir::FieldIndexOp::getFieldAttrName())
-           .getValue()
-    << ", " << op.getOperation()->getAttr(fir::FieldIndexOp::getTypeAttrName());
+  p << ' ' << op.getFieldIdAttr().getValue() << ", " << op.getOnTypeAttr();
   if (op.getNumOperands()) {
     p << '(';
     p.printOperands(op.getTypeparams());
@@ -3431,7 +3442,7 @@ void fir::IterWhileOp::print(mlir::OpAsmPrinter &p) {
   } else if (getFinalValue()) {
     p << " -> (" << getResultTypes() << ')';
   }
-  p.printOptionalAttrDictWithKeyword((*this)->getAttrs(),
+  p.printOptionalAttrDictWithKeyword(collectAttrsForPrinting(*this),
                                      {getFinalValueAttrNameStr()});
   p << ' ';
   p.printRegion(getRegion(), /*printEntryBlockArgs=*/false,
@@ -3595,7 +3606,7 @@ mlir::ParseResult fir::LoadOp::parse(mlir::OpAsmParser &parser,
 void fir::LoadOp::print(mlir::OpAsmPrinter &p) {
   p << ' ';
   p.printOperand(getMemref());
-  p.printOptionalAttrDict(getOperation()->getAttrs(), {});
+  p.printOptionalAttrDict(collectAttrsForPrinting(getOperation()), {});
   p << " : " << getMemref().getType();
 }
 
@@ -3862,7 +3873,7 @@ void fir::DoLoopOp::print(mlir::OpAsmPrinter &p) {
   if (!getInductionVar().getType().isIndex())
     p << " : " << getInductionVar().getType();
   p.printOptionalAttrDictWithKeyword(
-      (*this)->getAttrs(),
+      collectAttrsForPrinting(*this),
       {"unordered", "finalValue", "reduceAttrs", "operandSegmentSizes"});
   p << ' ';
   p.printRegion(getRegion(), /*printEntryBlockArgs=*/false,
@@ -3999,7 +4010,7 @@ mlir::ParseResult fir::DTEntryOp::parse(mlir::OpAsmParser &parser,
 
 void fir::DTEntryOp::print(mlir::OpAsmPrinter &p) {
   p << ' ' << getMethodAttr() << ", " << getProcAttr();
-  if ((*this)->getAttr(fir::DTEntryOp::getDeferredAttrNameStr()))
+  if (getDeferredAttr())
     p << " deferred";
 }
 
@@ -4261,8 +4272,7 @@ static llvm::LogicalResult verifyIntegralSwitchTerminator(OpT op) {
   if (!mlir::isa<mlir::IntegerType, mlir::IndexType, fir::IntegerType>(
           op.getSelector().getType()))
     return op.emitOpError("must be an integer");
-  auto cases =
-      op->template getAttrOfType<mlir::ArrayAttr>(op.getCasesAttr()).getValue();
+  auto cases = op.getCases().getValue();
   auto count = op.getNumDest();
   if (count == 0)
     return op.emitOpError("must have at least one successor");
@@ -4327,8 +4337,7 @@ static void printIntegralSwitchTerminator(OpT op, mlir::OpAsmPrinter &p) {
   p << ' ';
   p.printOperand(op.getSelector());
   p << " : " << op.getSelector().getType() << " [";
-  auto cases =
-      op->template getAttrOfType<mlir::ArrayAttr>(op.getCasesAttr()).getValue();
+  auto cases = op.getCases().getValue();
   auto count = op.getNumConditions();
   for (decltype(count) i = 0; i != count; ++i) {
     if (i)
@@ -4342,9 +4351,10 @@ static void printIntegralSwitchTerminator(OpT op, mlir::OpAsmPrinter &p) {
     op.printSuccessorAtIndex(p, i);
   }
   p << ']';
-  p.printOptionalAttrDict(
-      op->getAttrs(), {op.getCasesAttr(), getCompareOffsetAttr(),
-                       getTargetOffsetAttr(), op.getOperandSegmentSizeAttr()});
+  p.printOptionalAttrDict(collectAttrsForPrinting(op),
+                          {op.getCasesAttr(), getCompareOffsetAttr(),
+                           getTargetOffsetAttr(),
+                           op.getOperandSegmentSizeAttr()});
 }
 
 //===----------------------------------------------------------------------===//
@@ -4380,7 +4390,7 @@ getMutableSuccessorOperands(unsigned pos, mlir::MutableOperandRange operands,
                             llvm::StringRef offsetAttr) {
   mlir::Operation *owner = operands.getOwner();
   mlir::NamedAttribute targetOffsetAttr =
-      *owner->getAttrDictionary().getNamed(offsetAttr);
+      *owner->getDiscardableAttrDictionary().getNamed(offsetAttr);
   return getSubOperands(
       pos, operands,
       mlir::cast<mlir::DenseI32ArrayAttr>(targetOffsetAttr.getValue()),
@@ -4404,25 +4414,25 @@ mlir::SuccessorOperands fir::SelectOp::getSuccessorOperands(unsigned oper) {
 std::optional<llvm::ArrayRef<mlir::Value>>
 fir::SelectOp::getSuccessorOperands(llvm::ArrayRef<mlir::Value> operands,
                                     unsigned oper) {
-  auto a =
-      (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr());
-  auto segments = (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(
+  auto a = (*this)->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(
+      getTargetOffsetAttr());
+  auto segments = (*this)->getInherentAttrOfType<mlir::DenseI32ArrayAttr>(
       getOperandSegmentSizeAttr());
   return {getSubOperands(oper, getSubOperands(2, operands, segments), a)};
 }
 
 std::optional<mlir::ValueRange>
 fir::SelectOp::getSuccessorOperands(mlir::ValueRange operands, unsigned oper) {
-  auto a =
-      (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr());
-  auto segments = (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(
+  auto a = (*this)->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(
+      getTargetOffsetAttr());
+  auto segments = (*this)->getInherentAttrOfType<mlir::DenseI32ArrayAttr>(
       getOperandSegmentSizeAttr());
   return {getSubOperands(oper, getSubOperands(2, operands, segments), a)};
 }
 
 unsigned fir::SelectOp::targetOffsetSize() {
   return (*this)
-      ->getAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr())
+      ->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr())
       .size();
 }
 
@@ -4432,17 +4442,17 @@ unsigned fir::SelectOp::targetOffsetSize() {
 
 std::optional<mlir::OperandRange>
 fir::SelectCaseOp::getCompareOperands(unsigned cond) {
-  auto a =
-      (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(getCompareOffsetAttr());
+  auto a = (*this)->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(
+      getCompareOffsetAttr());
   return {getSubOperands(cond, getCompareArgs(), a)};
 }
 
 std::optional<llvm::ArrayRef<mlir::Value>>
 fir::SelectCaseOp::getCompareOperands(llvm::ArrayRef<mlir::Value> operands,
                                       unsigned cond) {
-  auto a =
-      (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(getCompareOffsetAttr());
-  auto segments = (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(
+  auto a = (*this)->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(
+      getCompareOffsetAttr());
+  auto segments = (*this)->getInherentAttrOfType<mlir::DenseI32ArrayAttr>(
       getOperandSegmentSizeAttr());
   return {getSubOperands(cond, getSubOperands(1, operands, segments), a)};
 }
@@ -4450,9 +4460,9 @@ fir::SelectCaseOp::getCompareOperands(llvm::ArrayRef<mlir::Value> operands,
 std::optional<mlir::ValueRange>
 fir::SelectCaseOp::getCompareOperands(mlir::ValueRange operands,
                                       unsigned cond) {
-  auto a =
-      (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(getCompareOffsetAttr());
-  auto segments = (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(
+  auto a = (*this)->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(
+      getCompareOffsetAttr());
+  auto segments = (*this)->getInherentAttrOfType<mlir::DenseI32ArrayAttr>(
       getOperandSegmentSizeAttr());
   return {getSubOperands(cond, getSubOperands(1, operands, segments), a)};
 }
@@ -4465,9 +4475,9 @@ mlir::SuccessorOperands fir::SelectCaseOp::getSuccessorOperands(unsigned oper) {
 std::optional<llvm::ArrayRef<mlir::Value>>
 fir::SelectCaseOp::getSuccessorOperands(llvm::ArrayRef<mlir::Value> operands,
                                         unsigned oper) {
-  auto a =
-      (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr());
-  auto segments = (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(
+  auto a = (*this)->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(
+      getTargetOffsetAttr());
+  auto segments = (*this)->getInherentAttrOfType<mlir::DenseI32ArrayAttr>(
       getOperandSegmentSizeAttr());
   return {getSubOperands(oper, getSubOperands(2, operands, segments), a)};
 }
@@ -4475,9 +4485,9 @@ fir::SelectCaseOp::getSuccessorOperands(llvm::ArrayRef<mlir::Value> operands,
 std::optional<mlir::ValueRange>
 fir::SelectCaseOp::getSuccessorOperands(mlir::ValueRange operands,
                                         unsigned oper) {
-  auto a =
-      (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr());
-  auto segments = (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(
+  auto a = (*this)->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(
+      getTargetOffsetAttr());
+  auto segments = (*this)->getInherentAttrOfType<mlir::DenseI32ArrayAttr>(
       getOperandSegmentSizeAttr());
   return {getSubOperands(oper, getSubOperands(2, operands, segments), a)};
 }
@@ -4562,8 +4572,7 @@ void fir::SelectCaseOp::print(mlir::OpAsmPrinter &p) {
   p << ' ';
   p.printOperand(getSelector());
   p << " : " << getSelector().getType() << " [";
-  auto cases =
-      getOperation()->getAttrOfType<mlir::ArrayAttr>(getCasesAttr()).getValue();
+  auto cases = getCases().getValue();
   auto count = getNumConditions();
   for (decltype(count) i = 0; i != count; ++i) {
     if (i)
@@ -4581,20 +4590,21 @@ void fir::SelectCaseOp::print(mlir::OpAsmPrinter &p) {
     printSuccessorAtIndex(p, i);
   }
   p << ']';
-  p.printOptionalAttrDict(getOperation()->getAttrs(),
+  p.printOptionalAttrDict(collectAttrsForPrinting(getOperation()),
                           {getCasesAttr(), getCompareOffsetAttr(),
                            getTargetOffsetAttr(), getOperandSegmentSizeAttr()});
 }
 
 unsigned fir::SelectCaseOp::compareOffsetSize() {
   return (*this)
-      ->getAttrOfType<mlir::DenseI32ArrayAttr>(getCompareOffsetAttr())
+      ->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(
+          getCompareOffsetAttr())
       .size();
 }
 
 unsigned fir::SelectCaseOp::targetOffsetSize() {
   return (*this)
-      ->getAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr())
+      ->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr())
       .size();
 }
 
@@ -4681,8 +4691,7 @@ llvm::LogicalResult fir::SelectCaseOp::verify() {
   if (!mlir::isa<mlir::IntegerType, mlir::IndexType, fir::IntegerType,
                  fir::LogicalType, fir::CharacterType>(getSelector().getType()))
     return emitOpError("must be an integer, character, or logical");
-  auto cases =
-      getOperation()->getAttrOfType<mlir::ArrayAttr>(getCasesAttr()).getValue();
+  auto cases = getCases().getValue();
   auto count = getNumDest();
   if (count == 0)
     return emitOpError("must have at least one successor");
@@ -4740,9 +4749,9 @@ mlir::SuccessorOperands fir::SelectRankOp::getSuccessorOperands(unsigned oper) {
 std::optional<llvm::ArrayRef<mlir::Value>>
 fir::SelectRankOp::getSuccessorOperands(llvm::ArrayRef<mlir::Value> operands,
                                         unsigned oper) {
-  auto a =
-      (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr());
-  auto segments = (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(
+  auto a = (*this)->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(
+      getTargetOffsetAttr());
+  auto segments = (*this)->getInherentAttrOfType<mlir::DenseI32ArrayAttr>(
       getOperandSegmentSizeAttr());
   return {getSubOperands(oper, getSubOperands(2, operands, segments), a)};
 }
@@ -4750,16 +4759,16 @@ fir::SelectRankOp::getSuccessorOperands(llvm::ArrayRef<mlir::Value> operands,
 std::optional<mlir::ValueRange>
 fir::SelectRankOp::getSuccessorOperands(mlir::ValueRange operands,
                                         unsigned oper) {
-  auto a =
-      (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr());
-  auto segments = (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(
+  auto a = (*this)->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(
+      getTargetOffsetAttr());
+  auto segments = (*this)->getInherentAttrOfType<mlir::DenseI32ArrayAttr>(
       getOperandSegmentSizeAttr());
   return {getSubOperands(oper, getSubOperands(2, operands, segments), a)};
 }
 
 unsigned fir::SelectRankOp::targetOffsetSize() {
   return (*this)
-      ->getAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr())
+      ->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr())
       .size();
 }
 
@@ -4785,9 +4794,9 @@ mlir::SuccessorOperands fir::SelectTypeOp::getSuccessorOperands(unsigned oper) {
 std::optional<llvm::ArrayRef<mlir::Value>>
 fir::SelectTypeOp::getSuccessorOperands(llvm::ArrayRef<mlir::Value> operands,
                                         unsigned oper) {
-  auto a =
-      (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr());
-  auto segments = (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(
+  auto a = (*this)->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(
+      getTargetOffsetAttr());
+  auto segments = (*this)->getInherentAttrOfType<mlir::DenseI32ArrayAttr>(
       getOperandSegmentSizeAttr());
   return {getSubOperands(oper, getSubOperands(2, operands, segments), a)};
 }
@@ -4795,9 +4804,9 @@ fir::SelectTypeOp::getSuccessorOperands(llvm::ArrayRef<mlir::Value> operands,
 std::optional<mlir::ValueRange>
 fir::SelectTypeOp::getSuccessorOperands(mlir::ValueRange operands,
                                         unsigned oper) {
-  auto a =
-      (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr());
-  auto segments = (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(
+  auto a = (*this)->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(
+      getTargetOffsetAttr());
+  auto segments = (*this)->getInherentAttrOfType<mlir::DenseI32ArrayAttr>(
       getOperandSegmentSizeAttr());
   return {getSubOperands(oper, getSubOperands(2, operands, segments), a)};
 }
@@ -4849,7 +4858,7 @@ mlir::ParseResult fir::SelectTypeOp::parse(mlir::OpAsmParser &parser,
 
 unsigned fir::SelectTypeOp::targetOffsetSize() {
   return (*this)
-      ->getAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr())
+      ->getDiscardableAttrOfType<mlir::DenseI32ArrayAttr>(getTargetOffsetAttr())
       .size();
 }
 
@@ -4857,8 +4866,7 @@ void fir::SelectTypeOp::print(mlir::OpAsmPrinter &p) {
   p << ' ';
   p.printOperand(getSelector());
   p << " : " << getSelector().getType() << " [";
-  auto cases =
-      getOperation()->getAttrOfType<mlir::ArrayAttr>(getCasesAttr()).getValue();
+  auto cases = getCases().getValue();
   auto count = getNumConditions();
   for (decltype(count) i = 0; i != count; ++i) {
     if (i)
@@ -4867,7 +4875,7 @@ void fir::SelectTypeOp::print(mlir::OpAsmPrinter &p) {
     printSuccessorAtIndex(p, i);
   }
   p << ']';
-  p.printOptionalAttrDict(getOperation()->getAttrs(),
+  p.printOptionalAttrDict(collectAttrsForPrinting(getOperation()),
                           {getCasesAttr(), getCompareOffsetAttr(),
                            getTargetOffsetAttr(),
                            fir::SelectTypeOp::getOperandSegmentSizeAttr()});
@@ -5153,7 +5161,7 @@ void fir::StoreOp::print(mlir::OpAsmPrinter &p) {
   p.printOperand(getValue());
   p << " to ";
   p.printOperand(getMemref());
-  p.printOptionalAttrDict(getOperation()->getAttrs(), {});
+  p.printOptionalAttrDict(collectAttrsForPrinting(getOperation()), {});
   p << " : " << getMemref().getType();
 }
 
@@ -5412,7 +5420,7 @@ void fir::StringLitOp::print(mlir::OpAsmPrinter &p) {
 llvm::LogicalResult fir::StringLitOp::verify() {
   if (mlir::cast<mlir::IntegerAttr>(getSize()).getValue().isNegative())
     return emitOpError("size must be non-negative");
-  if (auto xl = getOperation()->getAttr(fir::StringLitOp::xlist())) {
+  if (auto xl = getOperation()->getDiscardableAttr(fir::StringLitOp::xlist())) {
     if (auto xList = mlir::dyn_cast<mlir::ArrayAttr>(xl)) {
       for (auto a : xList)
         if (!mlir::isa<mlir::IntegerAttr>(a))
@@ -5606,7 +5614,7 @@ void fir::IfOp::print(mlir::OpAsmPrinter &p) {
     p.printRegion(otherReg, /*printEntryBlockArgs=*/false,
                   printBlockTerminators);
   }
-  p.printOptionalAttrDict((*this)->getAttrs(),
+  p.printOptionalAttrDict(collectAttrsForPrinting(*this),
                           /*elideAttrs=*/{getRegionWeightsAttrName()});
 }
 
@@ -5852,6 +5860,14 @@ valueCheckFirAttributes(mlir::Value value,
 
     return true;
   };
+  auto testOperationAttributes = [&](mlir::Operation *op) {
+    auto hasAttribute = [&](llvm::StringRef name) {
+      return op->hasInherentAttr(name) || op->hasDiscardableAttr(name);
+    };
+    if (checkAny)
+      return llvm::any_of(attributeNames, hasAttribute);
+    return llvm::all_of(attributeNames, hasAttribute);
+  };
   // If this is a fir.box that was loaded, the fir attributes will be on the
   // related fir.ref<fir.box> creation.
   if (mlir::isa<fir::BoxType>(value.getType()))
@@ -5876,18 +5892,18 @@ valueCheckFirAttributes(mlir::Value value,
     // If this is an allocated value, look at the allocation attributes.
     if (mlir::isa<fir::AllocMemOp>(definingOp) ||
         mlir::isa<fir::AllocaOp>(definingOp))
-      return testAttributeSets(definingOp->getAttrs(), attributeNames);
+      return testOperationAttributes(definingOp);
     // If this is an imported global, look at AddrOfOp and GlobalOp attributes.
     // Both operations are looked at because use/host associated variable (the
     // AddrOfOp) can have ASYNCHRONOUS/VOLATILE attributes even if the ultimate
     // entity (the globalOp) does not have them.
     if (auto addressOfOp = mlir::dyn_cast<fir::AddrOfOp>(definingOp)) {
-      if (testAttributeSets(addressOfOp->getAttrs(), attributeNames))
+      if (testOperationAttributes(addressOfOp))
         return true;
       if (auto module = definingOp->getParentOfType<mlir::ModuleOp>())
         if (auto globalOp =
                 module.lookupSymbol<fir::GlobalOp>(addressOfOp.getSymbol()))
-          return testAttributeSets(globalOp->getAttrs(), attributeNames);
+          return testOperationAttributes(globalOp);
     }
   }
   // TODO: Construct associated entities attributes. Decide where the fir
@@ -6695,7 +6711,7 @@ void fir::DoConcurrentLoopOp::print(mlir::OpAsmPrinter &p) {
   p << ' ';
   p.printRegion(getRegion(), /*printEntryBlockArgs=*/false);
   p.printOptionalAttrDict(
-      (*this)->getAttrs(),
+      collectAttrsForPrinting(*this),
       /*elidedAttrs=*/{DoConcurrentLoopOp::getOperandSegmentSizeAttr(),
                        DoConcurrentLoopOp::getLocalSymsAttrName(),
                        DoConcurrentLoopOp::getReduceSymsAttrName(),

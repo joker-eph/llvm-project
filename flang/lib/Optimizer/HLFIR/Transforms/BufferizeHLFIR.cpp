@@ -531,7 +531,7 @@ struct AssociateOpConversion
     }
     if (isTrivialValue) {
       llvm::SmallVector<mlir::NamedAttribute, 1> attrs;
-      if (associate->hasAttr(fir::getAdaptToByRefAttrName())) {
+      if (associate->hasDiscardableAttr(fir::getAdaptToByRefAttrName())) {
         attrs.push_back(fir::getAdaptToByRefAttr(builder));
       }
       llvm::StringRef name = "";

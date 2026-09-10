@@ -205,7 +205,9 @@ emitNeonCallToOp(CIRGenModule &cgm, CIRGenBuilderTy &builder,
                              funcResTy, args)
         .getResult();
   } else {
-    return Operation::create(builder, loc, funcResTy, args).getResult();
+    return Operation::create(builder, loc, mlir::TypeRange{funcResTy}, args,
+                             typename Operation::Properties{})
+        .getResult();
   }
 }
 

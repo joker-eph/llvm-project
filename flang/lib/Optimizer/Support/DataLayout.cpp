@@ -21,11 +21,12 @@ namespace {
 template <typename ModOpTy>
 static void setDataLayout(ModOpTy mlirModule, const llvm::DataLayout &dl) {
   mlir::MLIRContext *context = mlirModule.getContext();
-  mlirModule->setAttr(
+  mlirModule->setDiscardableAttr(
       mlir::LLVM::LLVMDialect::getDataLayoutAttrName(),
       mlir::StringAttr::get(context, dl.getStringRepresentation()));
   mlir::DataLayoutSpecInterface dlSpec = mlir::translateDataLayout(dl, context);
-  mlirModule->setAttr(mlir::DLTIDialect::kDataLayoutAttrName, dlSpec);
+  mlirModule->setDiscardableAttr(mlir::DLTIDialect::kDataLayoutAttrName,
+                                 dlSpec);
 }
 
 template <typename ModOpTy>
@@ -34,7 +35,7 @@ static void setDataLayoutFromAttributes(ModOpTy mlirModule,
   if (mlirModule.getDataLayoutSpec())
     return; // Already set.
   if (auto dataLayoutString =
-          mlirModule->template getAttrOfType<mlir::StringAttr>(
+          mlirModule->template getDiscardableAttrOfType<mlir::StringAttr>(
               mlir::LLVM::LLVMDialect::getDataLayoutAttrName())) {
     llvm::DataLayout llvmDataLayout(dataLayoutString);
     fir::support::setMLIRDataLayout(mlirModule, llvmDataLayout);

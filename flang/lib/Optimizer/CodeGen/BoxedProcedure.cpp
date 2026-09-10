@@ -550,13 +550,23 @@ private:
           op->getResult(i.index()).setType(toTy);
         }
 
-      // Convert the type attributes if needed
-      for (const mlir::NamedAttribute &attr : op->getAttrDictionary())
+      // Convert the type attributes if needed.
+      op->walkInherentAttrs([&](llvm::StringRef, mlir::Attribute &attr) {
+        if (auto tyAttr = llvm::dyn_cast<mlir::TypeAttr>(attr))
+          if (typeConverter.needsConversion(tyAttr.getValue()))
+            attr = mlir::TypeAttr::get(
+                typeConverter.convertType(tyAttr.getValue()));
+      });
+      llvm::SmallVector<mlir::NamedAttribute> convertedDiscardableAttrs;
+      for (mlir::NamedAttribute attr :
+           op->getDiscardableAttrDictionary().getValue())
         if (auto tyAttr = llvm::dyn_cast<mlir::TypeAttr>(attr.getValue()))
-          if (typeConverter.needsConversion(tyAttr.getValue())) {
-            auto toTy{typeConverter.convertType(tyAttr.getValue())};
-            op->setAttr(attr.getName(), mlir::TypeAttr::get(toTy));
-          }
+          if (typeConverter.needsConversion(tyAttr.getValue()))
+            convertedDiscardableAttrs.emplace_back(
+                attr.getName(), mlir::TypeAttr::get(typeConverter.convertType(
+                                    tyAttr.getValue())));
+      for (mlir::NamedAttribute attr : convertedDiscardableAttrs)
+        op->setDiscardableAttr(attr.getName(), attr.getValue());
       rewriter.finalizeOpModification(op);
     }
     // Ensure block arguments are updated if needed.

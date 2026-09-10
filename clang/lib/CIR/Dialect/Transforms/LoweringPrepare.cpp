@@ -1220,8 +1220,8 @@ LoweringPreparePass::buildCXXGlobalVarDeclInitFunc(cir::GlobalOp op) {
   // CodeGen onto the generated initializer function. The marker on the global
   // is no longer meaningful once its regions have been moved out, so clear it.
   if (op.getStrictfp()) {
-    f->setAttr(cir::CIRDialect::getStrictFPAttrName(),
-               mlir::UnitAttr::get(&getContext()));
+    f->setDiscardableAttr(cir::CIRDialect::getStrictFPAttrName(),
+                          mlir::UnitAttr::get(&getContext()));
     op.setStrictfp(false);
   }
 
@@ -1829,16 +1829,18 @@ void LoweringPreparePass::buildGlobalCtorDtorList() {
         prepareCtorDtorAttrList<cir::GlobalCtorAttr>(&getContext(),
                                                      globalCtorList);
 
-    mlirModule->setAttr(cir::CIRDialect::getGlobalCtorsAttrName(),
-                        mlir::ArrayAttr::get(&getContext(), globalCtors));
+    mlirModule->setDiscardableAttr(
+        cir::CIRDialect::getGlobalCtorsAttrName(),
+        mlir::ArrayAttr::get(&getContext(), globalCtors));
   }
 
   if (!globalDtorList.empty()) {
     llvm::SmallVector<mlir::Attribute> globalDtors =
         prepareCtorDtorAttrList<cir::GlobalDtorAttr>(&getContext(),
                                                      globalDtorList);
-    mlirModule->setAttr(cir::CIRDialect::getGlobalDtorsAttrName(),
-                        mlir::ArrayAttr::get(&getContext(), globalDtors));
+    mlirModule->setDiscardableAttr(
+        cir::CIRDialect::getGlobalDtorsAttrName(),
+        mlir::ArrayAttr::get(&getContext(), globalDtors));
   }
 }
 
@@ -1855,7 +1857,7 @@ LoweringPreparePass::createGlobalThreadLocalGuard(CIRBaseBuilderTy &builder,
       builder.getContext(), cir::GlobalLinkageKind::InternalLinkage));
   g.setAlignment(clang::CharUnits::One().getAsAlign().value());
 
-  if (auto defTlsModel = mlirModule->getAttrOfType<TLSModelAttr>(
+  if (auto defTlsModel = mlirModule->getDiscardableAttrOfType<TLSModelAttr>(
           cir::CIRDialect::getDefaultTlsModelAttrName())) {
     g.setTlsModel(defTlsModel.getValue());
   } else {
@@ -1977,7 +1979,7 @@ void LoweringPreparePass::buildCXXGlobalInitFunc() {
   // stored as a module-level attribute, so this pass does not need a live
   // ASTContext in split-compilation flows. Fall back to the AST-based path
   // only when the attribute is absent (e.g. tests that bypass CIRGen).
-  if (auto fnNameAttr = mlirModule->getAttrOfType<mlir::StringAttr>(
+  if (auto fnNameAttr = mlirModule->getDiscardableAttrOfType<mlir::StringAttr>(
           cir::CIRDialect::getCXXModuleInitFnNameAttrName())) {
     fnName += fnNameAttr.getValue();
     linkage = cir::GlobalLinkageKind::ExternalLinkage;
@@ -2099,14 +2101,18 @@ static void lowerArrayDtorCtorIntoLoop(cir::CIRBaseBuilderTy &builder,
         loc,
         /*condBuilder=*/
         [&](mlir::OpBuilder &b, mlir::Location loc) {
-          auto currentElement = cir::LoadOp::create(b, loc, eltTy, tmpAddr);
+          auto currentElement = cir::LoadOp::create(
+              b, loc, mlir::TypeRange{eltTy}, mlir::ValueRange{tmpAddr},
+              cir::LoadOp::Properties{});
           auto cmp = cir::CmpOp::create(builder, loc, cir::CmpOpKind::ne,
                                         currentElement, stop);
           builder.createCondition(cmp);
         },
         /*bodyBuilder=*/
         [&](mlir::OpBuilder &b, mlir::Location loc) {
-          auto currentElement = cir::LoadOp::create(b, loc, eltTy, tmpAddr);
+          auto currentElement = cir::LoadOp::create(
+              b, loc, mlir::TypeRange{eltTy}, mlir::ValueRange{tmpAddr},
+              cir::LoadOp::Properties{});
           if (isCtor) {
             cloneRegionBodyInto(bodyBlock, currentElement);
             mlir::Value stride = builder.getUnsignedInt(loc, 1, sizeTypeSize);
@@ -2135,7 +2141,9 @@ static void lowerArrayDtorCtorIntoLoop(cir::CIRBaseBuilderTy &builder,
         },
         /*cleanupBuilder=*/
         [&](mlir::OpBuilder &b, mlir::Location loc) {
-          auto cur = cir::LoadOp::create(b, loc, eltTy, tmpAddr);
+          auto cur = cir::LoadOp::create(b, loc, mlir::TypeRange{eltTy},
+                                         mlir::ValueRange{tmpAddr},
+                                         cir::LoadOp::Properties{});
           auto cmp =
               cir::CmpOp::create(builder, loc, cir::CmpOpKind::ne, cur, begin);
           cir::IfOp::create(
@@ -2145,14 +2153,18 @@ static void lowerArrayDtorCtorIntoLoop(cir::CIRBaseBuilderTy &builder,
                     loc,
                     /*condBuilder=*/
                     [&](mlir::OpBuilder &b, mlir::Location loc) {
-                      auto el = cir::LoadOp::create(b, loc, eltTy, tmpAddr);
+                      auto el = cir::LoadOp::create(
+                          b, loc, mlir::TypeRange{eltTy},
+                          mlir::ValueRange{tmpAddr}, cir::LoadOp::Properties{});
                       auto neq = cir::CmpOp::create(
                           builder, loc, cir::CmpOpKind::ne, el, begin);
                       builder.createCondition(neq);
                     },
                     /*bodyBuilder=*/
                     [&](mlir::OpBuilder &b, mlir::Location loc) {
-                      auto el = cir::LoadOp::create(b, loc, eltTy, tmpAddr);
+                      auto el = cir::LoadOp::create(
+                          b, loc, mlir::TypeRange{eltTy},
+                          mlir::ValueRange{tmpAddr}, cir::LoadOp::Properties{});
                       mlir::Value negOne =
                           builder.getSignedInt(loc, -1, sizeTypeSize);
                       auto prev = cir::PtrStrideOp::create(builder, loc, eltTy,
@@ -2376,9 +2388,12 @@ void LoweringPreparePass::lowerStdOp(cir::StdOpInterface typedOp) {
     resultType = op->getResult(0).getType();
   cir::CallOp call = builder.createCallOp(
       op->getLoc(), typedOp.getOriginalFnAttr(), resultType, op->getOperands());
-  for (mlir::NamedAttribute attr : op->getAttrs())
-    if (attr.getName() != typedOp.getOriginalFnAttrName())
-      call->setAttr(attr.getName(), attr.getValue());
+  for (mlir::NamedAttribute attr : op->getDiscardableAttrs()) {
+    if (call->getInherentAttr(attr.getName()))
+      call->setInherentAttr(attr.getName(), attr.getValue());
+    else
+      call->setDiscardableAttr(attr.getName(), attr.getValue());
+  }
 
   op->replaceAllUsesWith(call);
   op->erase();
@@ -2401,8 +2416,9 @@ void LoweringPreparePass::runOnOp(mlir::Operation *op) {
     lowerComplexMulOp(complexMul);
   } else if (auto glob = mlir::dyn_cast<cir::GlobalOp>(op)) {
     lowerGlobalOp(glob);
-    if (auto regAttr = glob->getAttrOfType<CUDAVarRegistrationInfoAttr>(
-            CUDAVarRegistrationInfoAttr::getMnemonic()))
+    if (auto regAttr =
+            glob->getDiscardableAttrOfType<CUDAVarRegistrationInfoAttr>(
+                CUDAVarRegistrationInfoAttr::getMnemonic()))
       cudaDeviceVars.emplace_back(glob, regAttr);
   } else if (auto getGlob = mlir::dyn_cast<cir::GetGlobalOp>(op)) {
     lowerGetGlobalOp(getGlob);
@@ -2417,7 +2433,7 @@ void LoweringPreparePass::runOnOp(mlir::Operation *op) {
       globalDtorList.emplace_back(fnOp.getName(), globalDtor.value());
 
     if (mlir::Attribute attr =
-            fnOp->getAttr(cir::CUDAKernelNameAttr::getMnemonic())) {
+            fnOp->getDiscardableAttr(cir::CUDAKernelNameAttr::getMnemonic())) {
       auto kernelNameAttr = dyn_cast<CUDAKernelNameAttr>(attr);
       llvm::StringRef kernelName = kernelNameAttr.getKernelName();
       cudaKernelMap[kernelName] = fnOp;
@@ -2473,7 +2489,7 @@ void LoweringPreparePass::buildCUDAModuleCtor() {
   // There's no device-side binary, so no need to proceed for CUDA.
   // HIP has to create an external symbol in this case, which is NYI.
   mlir::Attribute cudaBinaryHandleAttr =
-      mlirModule->getAttr(CIRDialect::getCUDABinaryHandleAttrName());
+      mlirModule->getDiscardableAttr(CIRDialect::getCUDABinaryHandleAttrName());
   if (!cudaBinaryHandleAttr) {
     if (isHIP)
       assert(!cir::MissingFeatures::hipModuleCtor());
@@ -2712,7 +2728,8 @@ void LoweringPreparePass::buildCUDAModuleCtor() {
 }
 
 std::optional<FuncOp> LoweringPreparePass::buildCUDAModuleDtor() {
-  if (!mlirModule->getAttr(CIRDialect::getCUDABinaryHandleAttrName()))
+  if (!mlirModule->getDiscardableAttr(
+          CIRDialect::getCUDABinaryHandleAttrName()))
     return {};
 
   llvm::StringRef prefix = getCUDAPrefix(astCtx);
@@ -2769,7 +2786,8 @@ std::optional<FuncOp> LoweringPreparePass::buildCUDAModuleDtor() {
 /// the dtor list would cause a double-free. It is meant to be registered via
 /// atexit() at the end of the module ctor.
 std::optional<FuncOp> LoweringPreparePass::buildHIPModuleDtor() {
-  if (!mlirModule->getAttr(CIRDialect::getCUDABinaryHandleAttrName()))
+  if (!mlirModule->getDiscardableAttr(
+          CIRDialect::getCUDABinaryHandleAttrName()))
     return {};
 
   llvm::StringRef prefix = getCUDAPrefix(astCtx);

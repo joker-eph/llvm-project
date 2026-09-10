@@ -225,14 +225,14 @@ CIRGenFunction::emitRISCVBuiltinExpr(unsigned builtinID, const CallExpr *e) {
     if (builtinID == RISCV::BI__builtin_riscv_ntl_load) {
       auto load = builder.createLoad(loc, addr, /*isVolatile=*/false,
                                      /*isNontemporal=*/true);
-      load->setAttr("cir.riscv_nontemporal_domain", domainAttr);
+      load->setDiscardableAttr("cir.riscv_nontemporal_domain", domainAttr);
       return load.getResult();
     }
 
     mlir::Value val = emitToMemory(ops[1], e->getArg(1)->getType());
     auto store = builder.createStore(loc, val, addr, /*isVolatile=*/false,
                                      /*isNontemporal=*/true);
-    store->setAttr("cir.riscv_nontemporal_domain", domainAttr);
+    store->setDiscardableAttr("cir.riscv_nontemporal_domain", domainAttr);
     return mlir::Value{};
   }
 

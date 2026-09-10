@@ -336,8 +336,8 @@ static cir::FuncOp getOrCreateCopyThunk(CIRGenFunction &cgf,
   cgm.insertGlobalSymbol(thunk);
   thunk.setLinkage(cir::GlobalLinkageKind::LinkOnceODRLinkage);
   thunk.setGlobalVisibility(cir::VisibilityKind::Hidden);
-  thunk->setAttr(cir::CIRDialect::getCatchCopyThunkAttrName(),
-                 builder.getUnitAttr());
+  thunk->setDiscardableAttr(cir::CIRDialect::getCatchCopyThunkAttrName(),
+                            builder.getUnitAttr());
 
   mlir::Block *entry = thunk.addEntryBlock();
   builder.setInsertionPointToStart(entry);

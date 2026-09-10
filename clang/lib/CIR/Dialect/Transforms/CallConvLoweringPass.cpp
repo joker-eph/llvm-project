@@ -690,7 +690,8 @@ static llvm::abi::X86AVXABILevel funcAvxLevel(cir::FuncOp func,
   // carries a raised feature list too, and must stay at the module's level.
   assert(!cir::MissingFeatures::opFuncMultiVersioning());
 
-  auto features = func->getAttrOfType<mlir::StringAttr>("cir.target-features");
+  auto features =
+      func->getDiscardableAttrOfType<mlir::StringAttr>("cir.target-features");
   if (!features)
     return base;
   // A '-' entry disables the feature, so match a whole '+' entry rather than
@@ -801,7 +802,8 @@ classifyFunction(cir::FuncOp func, const DataLayout &dl,
   Type returnType = func.getFunctionType().getReturnType();
 
   if (!classificationAttrName.empty()) {
-    auto attr = func->getAttrOfType<DictionaryAttr>(classificationAttrName);
+    auto attr =
+        func->getDiscardableAttrOfType<DictionaryAttr>(classificationAttrName);
     if (!attr) {
       func.emitOpError()
           << "missing classification attribute '" << classificationAttrName
@@ -864,7 +866,7 @@ void CallConvLoweringPass::runOnOperation() {
     return;
   }
 
-  if (!moduleOp->hasAttr(DLTIDialect::kDataLayoutAttrName)) {
+  if (!moduleOp->hasDiscardableAttr(DLTIDialect::kDataLayoutAttrName)) {
     moduleOp.emitOpError()
         << "CallConvLowering requires a DataLayout (dlti.dl_spec attribute "
            "on the module)";

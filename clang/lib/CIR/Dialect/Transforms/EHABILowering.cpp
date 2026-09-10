@@ -243,19 +243,19 @@ void ItaniumEHLowering::ensureClangCallTerminate(mlir::Location loc) {
   auto terminateFuncDecl = getOrCreateRuntimeFuncDecl(
       mod, loc, "_ZSt9terminatev",
       cir::FuncType::get({}, voidType, /*isVarArg=*/false));
-  terminateFuncDecl->setAttr(cir::CIRDialect::getNoReturnAttrName(),
-                             builder.getUnitAttr());
+  terminateFuncDecl->setDiscardableAttr(cir::CIRDialect::getNoReturnAttrName(),
+                                        builder.getUnitAttr());
   auto terminateCall = cir::CallOp::create(
       builder, loc, mlir::FlatSymbolRefAttr::get(terminateFuncDecl), voidType,
       mlir::ValueRange{});
   terminateCall.setNothrowAttr(builder.getUnitAttr());
-  terminateCall->setAttr(cir::CIRDialect::getNoReturnAttrName(),
-                         builder.getUnitAttr());
+  terminateCall->setDiscardableAttr(cir::CIRDialect::getNoReturnAttrName(),
+                                    builder.getUnitAttr());
 
   cir::UnreachableOp::create(builder, loc);
 
-  funcOp->setAttr(cir::CIRDialect::getNoReturnAttrName(),
-                  builder.getUnitAttr());
+  funcOp->setDiscardableAttr(cir::CIRDialect::getNoReturnAttrName(),
+                             builder.getUnitAttr());
   clangCallTerminateFunc = funcOp;
 }
 
@@ -296,8 +296,8 @@ mlir::Block *ItaniumEHLowering::buildTerminateBlock(cir::FuncOp funcOp,
       builder, loc, mlir::FlatSymbolRefAttr::get(clangCallTerminateFunc),
       voidType, mlir::ValueRange{inflight.getExceptionPtr()});
   terminateCall.setNothrowAttr(builder.getUnitAttr());
-  terminateCall->setAttr(cir::CIRDialect::getNoReturnAttrName(),
-                         builder.getUnitAttr());
+  terminateCall->setDiscardableAttr(cir::CIRDialect::getNoReturnAttrName(),
+                                    builder.getUnitAttr());
   cir::UnreachableOp::create(builder, loc);
   return terminateBlock;
 }
@@ -615,8 +615,8 @@ mlir::LogicalResult ItaniumEHLowering::lowerEhInitiate(
             mlir::FlatSymbolRefAttr::get(clangCallTerminateFunc), voidType,
             mlir::ValueRange{exnPtr});
         call.setNothrowAttr(builder.getUnitAttr());
-        call->setAttr(cir::CIRDialect::getNoReturnAttrName(),
-                      builder.getUnitAttr());
+        call->setDiscardableAttr(cir::CIRDialect::getNoReturnAttrName(),
+                                 builder.getUnitAttr());
         cir::UnreachableOp::create(builder, op.getLoc());
         op.erase();
       } else if (auto op = mlir::dyn_cast<cir::ResumeOp>(user)) {
@@ -724,8 +724,9 @@ ItaniumEHLowering::resolveCatchCopyThunk(cir::ConstructCatchParamOp op) {
   cir::FuncOp thunk = mod.lookupSymbol<cir::FuncOp>(thunkRef);
   if (!thunk)
     return op.emitError("could not resolve catch-copy thunk symbol");
-  assert(thunk->hasAttr(cir::CIRDialect::getCatchCopyThunkAttrName()) &&
-         "verifier should have rejected non-thunk catch-copy reference");
+  assert(
+      thunk->hasDiscardableAttr(cir::CIRDialect::getCatchCopyThunkAttrName()) &&
+      "verifier should have rejected non-thunk catch-copy reference");
   if (thunk.isDeclaration())
     return op.emitError("catch-copy thunk has no body to inline");
 
@@ -962,7 +963,9 @@ void ItaniumEHLowering::lowerInitCatchParam(cir::InitCatchParamOp op) {
     // typed pointer and store it into the alloca.
     mlir::Value srcPtr = cir::CastOp::create(builder, loc, paramAddrType,
                                              cir::CastKind::bitcast, exnPtr);
-    auto loadOp = cir::LoadOp::create(builder, loc, elementType, srcPtr);
+    auto loadOp = cir::LoadOp::create(
+        builder, loc, mlir::TypeRange{elementType}, mlir::ValueRange{srcPtr},
+        cir::LoadOp::Properties{});
     cir::StoreOp::create(builder, loc, loadOp.getResult(), paramAddr, {}, {},
                          {}, {}, {});
     break;
@@ -998,7 +1001,7 @@ static void eraseCatchCopyThunks(mlir::ModuleOp mod) {
   llvm::StringRef catchHelperAttr =
       cir::CIRDialect::getCatchCopyThunkAttrName();
   for (cir::FuncOp f : llvm::make_early_inc_range(mod.getOps<cir::FuncOp>())) {
-    if (!f->hasAttr(catchHelperAttr))
+    if (!f->hasDiscardableAttr(catchHelperAttr))
       continue;
     // This is an expensive check, so we need to rely on the implementation
     // to have done the right thing.
@@ -1014,8 +1017,8 @@ void CIREHABILoweringPass::runOnOperation() {
   // The target triple is attached to the module as the "cir.triple"
   // attribute. If it is absent (e.g. a CIR module parsed from text without a
   // triple) we cannot determine the ABI and must skip the pass.
-  auto tripleAttr = mlir::dyn_cast_if_present<mlir::StringAttr>(
-      mod->getAttr(cir::CIRDialect::getTripleAttrName()));
+  auto tripleAttr = mod->getDiscardableAttrOfType<mlir::StringAttr>(
+      cir::CIRDialect::getTripleAttrName());
   if (!tripleAttr) {
     mod.emitError("Module has no target triple");
     return;

@@ -188,10 +188,11 @@ static void attachAccDeclareAttribute(fir::FirOpBuilder &builder,
     clause = mlir::acc::DataClause::acc_declare_device_resident;
   else if (ultimate.test(Flag::AccLink))
     clause = mlir::acc::DataClause::acc_declare_link;
-  global->setAttr(mlir::acc::getDeclareAttrName(),
-                  mlir::acc::DeclareAttr::get(
-                      builder.getContext(), mlir::acc::DataClauseAttr::get(
-                                                builder.getContext(), clause)));
+  global->setDiscardableAttr(
+      mlir::acc::getDeclareAttrName(),
+      mlir::acc::DeclareAttr::get(
+          builder.getContext(),
+          mlir::acc::DataClauseAttr::get(builder.getContext(), clause)));
 }
 
 /// Create the global op declaration without any initializer
@@ -824,8 +825,9 @@ static mlir::Value createNewLocal(Fortran::lower::AbstractConverter &converter,
     if (mlir::isa<fir::SequenceType>(ty) &&
         Fortran::semantics::IsFunctionResult(ultimateSymbol))
       if (auto alloca = local.getDefiningOp<fir::AllocaOp>())
-        alloca->setAttr(fir::MustBeStackAttr::getAttrName(),
-                        fir::MustBeStackAttr::get(builder.getContext(), true));
+        alloca->setDiscardableAttr(
+            fir::MustBeStackAttr::getAttrName(),
+            fir::MustBeStackAttr::get(builder.getContext(), true));
     return local;
   }
 

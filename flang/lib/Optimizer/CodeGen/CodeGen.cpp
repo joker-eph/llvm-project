@@ -163,6 +163,19 @@ struct BuilderAttributes {
   llvm::SmallVector<mlir::NamedAttribute> discardableAttributes;
 };
 
+static llvm::SmallVector<mlir::NamedAttribute>
+collectOperationAttrs(mlir::Operation *op,
+                      llvm::ArrayRef<llvm::StringRef> excluded = {}) {
+  llvm::SmallVector<mlir::NamedAttribute> attributes(
+      op->getDiscardableAttrDictionary().getValue());
+  op->walkInherentAttrs([&](llvm::StringRef name, mlir::Attribute &attribute) {
+    if (attribute && !llvm::is_contained(excluded, name))
+      attributes.emplace_back(mlir::StringAttr::get(op->getContext(), name),
+                              attribute);
+  });
+  return attributes;
+}
+
 template <typename Op>
 static BuilderAttributes<Op>
 splitBuilderAttributes(mlir::ConversionPatternRewriter &rewriter,
@@ -750,19 +763,21 @@ struct CallOpConversion : public fir::FIROpConversion<fir::CallOp> {
   matchAndRewrite(fir::CallOp call, OpAdaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const override {
     llvm::SmallVector<mlir::Type> resultTys;
-    mlir::Attribute memAttr =
-        call->getAttr(fir::FIROpsDialect::getFirCallMemoryAttrName());
+    mlir::Attribute memAttr = call->getDiscardableAttr(
+        fir::FIROpsDialect::getFirCallMemoryAttrName());
     if (memAttr)
-      call->removeAttr(fir::FIROpsDialect::getFirCallMemoryAttrName());
+      call->removeDiscardableAttr(
+          fir::FIROpsDialect::getFirCallMemoryAttrName());
 
     for (auto r : call.getResults())
       resultTys.push_back(convertType(r.getType()));
     // Convert arith::FastMathFlagsAttr to LLVM::FastMathFlagsAttr.
     mlir::arith::AttrConvertFastMathToLLVM<fir::CallOp, mlir::LLVM::CallOp>
         attrConvert(call);
+    auto callAttrs =
+        collectOperationAttrs(call, {call.getFastmathAttrName().getValue()});
     auto builderAttrs = getLLVMCallBuilderAttributes(
-        rewriter, attrConvert.getDiscardableAttrs(),
-        adaptor.getOperands().size());
+        rewriter, callAttrs, adaptor.getOperands().size());
     builderAttrs.properties.callee =
         mlir::cast_if_present<mlir::FlatSymbolRefAttr>(call.getCalleeAttr());
     builderAttrs.properties.fastmathFlags =
@@ -804,7 +819,7 @@ struct CallOpConversion : public fir::FIROpConversion<fir::CallOp> {
       llvmCall.setResAttrsAttr(resAttrs);
 
     if (auto inlineAttr = call.getInlineAttrAttr()) {
-      llvmCall->removeAttr("inline_attr");
+      llvmCall->removeDiscardableAttr("inline_attr");
       if (inlineAttr.getValue() == fir::FortranInlineEnum::no_inline) {
         llvmCall.setNoInlineAttr(rewriter.getUnitAttr());
       } else if (inlineAttr.getValue() == fir::FortranInlineEnum::inline_hint) {
@@ -1534,10 +1549,11 @@ struct AllocMemOpConversion : public fir::FIROpConversion<fir::AllocMemOp> {
           mlir::Value nullPtr =
               mlir::LLVM::ZeroOp::create(rewriter, loc, ptrTy);
           mlir::LLVM::StoreOp::create(rewriter, loc, nullPtr, memptr);
-          heap->setAttr("callee", getPosixMemalign(heap, rewriter, mallocTy,
-                                                   this->options));
-          auto builderAttrs =
-              getLLVMCallBuilderAttributes(rewriter, heap->getAttrs(), 3);
+          heap->setDiscardableAttr(
+              "callee",
+              getPosixMemalign(heap, rewriter, mallocTy, this->options));
+          auto builderAttrs = getLLVMCallBuilderAttributes(
+              rewriter, collectOperationAttrs(heap), 3);
           mlir::LLVM::CallOp::create(rewriter, loc,
                                      mlir::TypeRange{mlir::IntegerType::get(
                                          rewriter.getContext(), 32)},
@@ -1559,10 +1575,10 @@ struct AllocMemOpConversion : public fir::FIROpConversion<fir::AllocMemOp> {
                                   ~static_cast<std::int64_t>(*alignment - 1));
         mlir::Value roundedSize = mlir::LLVM::AndOp::create(
             rewriter, loc, mallocTy, sizePlus, notAlignMinusOne);
-        heap->setAttr("callee",
-                      getAlignedAlloc(heap, rewriter, mallocTy, this->options));
-        auto builderAttrs =
-            getLLVMCallBuilderAttributes(rewriter, heap->getAttrs(), 2);
+        heap->setDiscardableAttr(
+            "callee", getAlignedAlloc(heap, rewriter, mallocTy, this->options));
+        auto builderAttrs = getLLVMCallBuilderAttributes(
+            rewriter, collectOperationAttrs(heap), 2);
         rewriter.replaceOpWithNewOp<mlir::LLVM::CallOp>(
             heap, mlir::TypeRange{::getLlvmPtrType(heap.getContext())},
             mlir::ValueRange{alignVal, roundedSize}, builderAttrs.properties,
@@ -1571,9 +1587,10 @@ struct AllocMemOpConversion : public fir::FIROpConversion<fir::AllocMemOp> {
       }
     }
 
-    heap->setAttr("callee", getMalloc(heap, rewriter, mallocTy, this->options));
+    heap->setDiscardableAttr(
+        "callee", getMalloc(heap, rewriter, mallocTy, this->options));
     auto builderAttrs =
-        getLLVMCallBuilderAttributes(rewriter, heap->getAttrs(), 1);
+        getLLVMCallBuilderAttributes(rewriter, collectOperationAttrs(heap), 1);
     rewriter.replaceOpWithNewOp<mlir::LLVM::CallOp>(
         heap, mlir::TypeRange{::getLlvmPtrType(heap.getContext())},
         mlir::ValueRange{size}, builderAttrs.properties,
@@ -1646,9 +1663,10 @@ struct FreeMemOpConversion : public fir::FIROpConversion<fir::FreeMemOp> {
   matchAndRewrite(fir::FreeMemOp freemem, OpAdaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const override {
     mlir::Location loc = freemem.getLoc();
-    freemem->setAttr("callee", getFree(freemem, rewriter, this->options));
-    auto builderAttrs =
-        getLLVMCallBuilderAttributes(rewriter, freemem->getAttrs(), 1);
+    freemem->setDiscardableAttr("callee",
+                                getFree(freemem, rewriter, this->options));
+    auto builderAttrs = getLLVMCallBuilderAttributes(
+        rewriter, collectOperationAttrs(freemem), 1);
     mlir::LLVM::CallOp::create(rewriter, loc, mlir::TypeRange{},
                                mlir::ValueRange{adaptor.getHeapref()},
                                builderAttrs.properties,
@@ -2671,7 +2689,7 @@ struct XEmboxOpConversion : public EmboxCommonConversion<fir::cg::XEmboxOp> {
   /// that is neither a POINTER nor an ALLOCATABLE should be normalized to a
   /// zero origin lower bound for interoperability with BIND(C).
   inline static bool normalizedLowerBound(fir::cg::XEmboxOp xbox) {
-    return xbox->hasAttr(fir::getNormalizedLowerBoundAttrName());
+    return xbox->hasDiscardableAttr(fir::getNormalizedLowerBoundAttrName());
   }
 };
 
@@ -3389,7 +3407,7 @@ struct CoordinateOpConversion
   static unsigned getFieldNumber(fir::RecordType ty, mlir::Value op) {
     return fir::hasDynamicSize(ty)
                ? op.getDefiningOp()
-                     ->getAttrOfType<mlir::IntegerAttr>("field")
+                     ->getDiscardableAttrOfType<mlir::IntegerAttr>("field")
                      .getInt()
                : getConstantIntValue(op);
   }
@@ -3849,11 +3867,9 @@ struct GlobalOpConversion : public fir::FIROpConversion<fir::GlobalOp> {
     // Apply all non-Fir::GlobalOp attributes to the LLVM::GlobalOp, preserving
     // them; whilst taking care not to apply attributes that are lowered in
     // other ways.
-    llvm::SmallDenseSet<llvm::StringRef> elidedAttrsSet(
-        global.getAttributeNames().begin(), global.getAttributeNames().end());
-    for (auto &attr : global->getAttrs())
-      if (!elidedAttrsSet.contains(attr.getName().strref()))
-        g->setAttr(attr.getName(), attr.getValue());
+    for (mlir::NamedAttribute attr :
+         global->getDiscardableAttrDictionary().getValue())
+      g->setDiscardableAttr(attr.getName(), attr.getValue());
 
     auto &gr = g.getInitializerRegion();
     rewriter.inlineRegionBefore(global.getRegion(), gr, gr.end());
@@ -3915,8 +3931,8 @@ struct GlobalOpConversion : public fir::FIROpConversion<fir::GlobalOp> {
         !mlir::isa<fir::BaseBoxType>(global.getType())) {
       g.setAddrSpace(
           static_cast<unsigned>(mlir::NVVM::NVVMMemorySpace::Global));
-      g->setAttr(mlir::NVVM::NVVMDialect::getManagedAttrName(),
-                 mlir::UnitAttr::get(global.getContext()));
+      g->setDiscardableAttr(mlir::NVVM::NVVMDialect::getManagedAttrName(),
+                            mlir::UnitAttr::get(global.getContext()));
     }
 
     rewriter.eraseOp(global);
@@ -4051,7 +4067,7 @@ struct LoadOpConversion : public fir::FIROpConversion<fir::LoadOp> {
       rewriter.replaceOp(load, newBoxStorage);
     } else {
       auto builderAttrs = splitBuilderAttributes<mlir::LLVM::LoadOp>(
-          rewriter, load->getAttrs());
+          rewriter, collectOperationAttrs(load));
       mlir::LLVM::LoadOp loadOp = mlir::LLVM::LoadOp::create(
           rewriter, load.getLoc(), mlir::TypeRange{llvmLoadTy},
           adaptor.getOperands(), builderAttrs.properties,

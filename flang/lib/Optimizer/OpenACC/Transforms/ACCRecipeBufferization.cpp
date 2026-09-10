@@ -78,7 +78,7 @@ static void bufferizeRegionArgsAndYields(mlir::Region &region,
         mlir::Value alloca =
             BufferizeInterface::placeInMemory(builder, loc, oldYieldArg);
         if (mlir::Operation *allocOp = alloca.getDefiningOp())
-          allocOp->setAttr(
+          allocOp->setDiscardableAttr(
               mlir::acc::getVarNameAttrName(),
               mlir::acc::VarNameAttr::get(allocOp->getContext(),
                                           mlir::acc::getVarNamePlaceholder()));

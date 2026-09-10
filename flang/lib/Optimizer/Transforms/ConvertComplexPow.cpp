@@ -40,9 +40,10 @@ static func::FuncOp getOrDeclare(fir::FirOpBuilder &builder, Location loc,
   if (auto func = builder.getNamedFunction(name))
     return func;
   auto func = builder.createFunction(loc, name, type);
-  func->setAttr(fir::getSymbolAttrName(), builder.getStringAttr(name));
-  func->setAttr(fir::FIROpsDialect::getFirRuntimeAttrName(),
-                builder.getUnitAttr());
+  func->setDiscardableAttr(fir::getSymbolAttrName(),
+                           builder.getStringAttr(name));
+  func->setDiscardableAttr(fir::FIROpsDialect::getFirRuntimeAttrName(),
+                           builder.getUnitAttr());
   return func;
 }
 

@@ -222,8 +222,7 @@ def cuf_KernelLaunchOp : cuf_Op<"kernel_launch", [CallOpInterface,
     }
 
     void setCalleeFromCallable(mlir::CallInterfaceCallable callee) {
-      (*this)->setAttr(getCalleeAttrName(),
-                       llvm::cast<mlir::SymbolRefAttr>(callee));
+      setCalleeAttr(llvm::cast<mlir::SymbolRefAttr>(callee));
     }
     mlir::FunctionType getFunctionType();
 
@@ -283,8 +282,8 @@ def cuf_KernelOp
   let extraClassDeclaration = [{
     /// Get Number of variadic operands
     unsigned getNumOperands(unsigned idx) {
-      auto segments = (*this)->getAttrOfType<mlir::DenseI32ArrayAttr>(
-        getOperandSegmentSizeAttr());
+      auto segments = (*this)->getInherentAttrOfType<mlir::DenseI32ArrayAttr>(
+          getOperandSegmentSizeAttr());
       return static_cast<unsigned>(segments[idx]);
     }
     // Get Number of reduction operands

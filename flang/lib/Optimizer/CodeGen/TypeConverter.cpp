@@ -30,8 +30,9 @@ namespace fir {
 
 static mlir::LowerToLLVMOptions MakeLowerOptions(mlir::ModuleOp module) {
   llvm::StringRef dataLayoutString;
-  auto dataLayoutAttr = module->template getAttrOfType<mlir::StringAttr>(
-      mlir::LLVM::LLVMDialect::getDataLayoutAttrName());
+  auto dataLayoutAttr =
+      module->template getDiscardableAttrOfType<mlir::StringAttr>(
+          mlir::LLVM::LLVMDialect::getDataLayoutAttrName());
   if (dataLayoutAttr)
     dataLayoutString = dataLayoutAttr.getValue();
 

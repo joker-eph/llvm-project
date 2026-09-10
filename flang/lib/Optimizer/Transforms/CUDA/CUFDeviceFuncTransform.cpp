@@ -140,20 +140,23 @@ class CUFDeviceFuncTransform
     clonedFuncOpEntry->erase();
 
     auto launchBoundsAttr =
-        funcOp.getOperation()->getAttrOfType<cuf::LaunchBoundsAttr>(
+        funcOp.getOperation()->getDiscardableAttrOfType<cuf::LaunchBoundsAttr>(
             cuf::getLaunchBoundsAttrName());
     if (launchBoundsAttr) {
       auto maxTPB = launchBoundsAttr.getMaxTPB().getInt();
       auto maxntid =
           builder.getDenseI32ArrayAttr({static_cast<int32_t>(maxTPB), 1, 1});
-      deviceFuncOp->setAttr(NVVM::NVVMDialect::getMaxntidAttrName(), maxntid);
+      deviceFuncOp->setDiscardableAttr(NVVM::NVVMDialect::getMaxntidAttrName(),
+                                       maxntid);
       // The minimum-blocks-per-multiprocessor operand is optional.
       if (launchBoundsAttr.getMinBPM())
-        deviceFuncOp->setAttr(NVVM::NVVMDialect::getMinctasmAttrName(),
-                              launchBoundsAttr.getMinBPM());
+        deviceFuncOp->setDiscardableAttr(
+            NVVM::NVVMDialect::getMinctasmAttrName(),
+            launchBoundsAttr.getMinBPM());
       if (computeCap >= 90 && launchBoundsAttr.getUpperBoundClusterSize())
-        deviceFuncOp->setAttr(NVVM::NVVMDialect::getClusterMaxBlocksAttrName(),
-                              launchBoundsAttr.getUpperBoundClusterSize());
+        deviceFuncOp->setDiscardableAttr(
+            NVVM::NVVMDialect::getClusterMaxBlocksAttrName(),
+            launchBoundsAttr.getUpperBoundClusterSize());
     }
 
     return deviceFuncOp;
@@ -172,7 +175,8 @@ class CUFDeviceFuncTransform
     auto emptyStub = func::FuncOp::create(modBuilder, loc, funcOp.getName(),
                                           funcOp.getFunctionType());
     emptyStub.setVisibility(funcOp.getVisibility());
-    emptyStub->setAttrs(funcOp->getAttrs());
+    emptyStub->copyProperties(funcOp->getPropertiesStorage());
+    emptyStub->setDiscardableAttrs(funcOp->getDiscardableAttrDictionary());
     auto entryBlock = emptyStub.addEntryBlock();
     modBuilder.setInsertionPointToEnd(entryBlock);
     // Add a return operation at the end of the stub with the location of the
@@ -185,8 +189,9 @@ class CUFDeviceFuncTransform
 
   static bool isDeviceFunc(mlir::func::FuncOp funcOp) {
     if (auto cudaProcAttr =
-            funcOp.getOperation()->getAttrOfType<cuf::ProcAttributeAttr>(
-                cuf::getProcAttrName()))
+            funcOp.getOperation()
+                ->getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
+                    cuf::getProcAttrName()))
       if (cudaProcAttr.getValue() == cuf::ProcAttribute::Device ||
           cudaProcAttr.getValue() == cuf::ProcAttribute::Global ||
           cudaProcAttr.getValue() == cuf::ProcAttribute::GridGlobal ||
@@ -290,16 +295,17 @@ class CUFDeviceFuncTransform
 
     for (auto funcOp : deviceFuncs) {
       auto cudaProcAttr =
-          funcOp.getOperation()->getAttrOfType<cuf::ProcAttributeAttr>(
-              cuf::getProcAttrName());
+          funcOp.getOperation()
+              ->getDiscardableAttrOfType<cuf::ProcAttributeAttr>(
+                  cuf::getProcAttrName());
       auto isGlobal = cudaProcAttr.getValue() == cuf::ProcAttribute::Global ||
                       cudaProcAttr.getValue() == cuf::ProcAttribute::GridGlobal;
       if (funcOp.isDeclaration()) {
         mlir::Operation *clonedFuncOp = funcOp->clone();
         if (isGlobal) {
-          clonedFuncOp->setAttr(gpu::GPUDialect::getKernelFuncAttrName(),
-                                builder.getUnitAttr());
-          clonedFuncOp->removeAttr(cuf::getProcAttrName());
+          clonedFuncOp->setDiscardableAttr(
+              gpu::GPUDialect::getKernelFuncAttrName(), builder.getUnitAttr());
+          clonedFuncOp->removeDiscardableAttr(cuf::getProcAttrName());
           if (auto funcOp = mlir::dyn_cast<func::FuncOp>(clonedFuncOp))
             funcOp.setNested();
         }

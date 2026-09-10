@@ -2763,9 +2763,10 @@ Address CIRGenFunction::emitLoadOfReference(LValue refLVal, mlir::Location loc,
   if (refLVal.isVolatile())
     cgm.errorNYI(loc, "load of volatile reference");
 
-  cir::LoadOp load =
-      cir::LoadOp::create(builder, loc, refLVal.getAddress().getElementType(),
-                          refLVal.getAddress().getPointer());
+  cir::LoadOp load = cir::LoadOp::create(
+      builder, loc, mlir::TypeRange{refLVal.getAddress().getElementType()},
+      mlir::ValueRange{refLVal.getAddress().getPointer()},
+      cir::LoadOp::Properties{});
 
   assert(!cir::MissingFeatures::opTBAA());
 

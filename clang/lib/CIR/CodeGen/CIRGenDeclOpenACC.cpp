@@ -413,14 +413,15 @@ void CIRGenModule::emitOpenACCRoutineDecl(
   // from the func to the routine.
   llvm::SmallVector<mlir::SymbolRefAttr> funcRoutines;
   if (auto routineInfo =
-          func.getOperation()->getAttrOfType<mlir::acc::RoutineInfoAttr>(
-              mlir::acc::getRoutineInfoAttrName()))
+          func.getOperation()
+              ->getDiscardableAttrOfType<mlir::acc::RoutineInfoAttr>(
+                  mlir::acc::getRoutineInfoAttrName()))
     funcRoutines.append(routineInfo.getAccRoutines().begin(),
                         routineInfo.getAccRoutines().end());
 
   funcRoutines.push_back(
       mlir::SymbolRefAttr::get(builder.getContext(), routineName));
-  func.getOperation()->setAttr(
+  func.getOperation()->setDiscardableAttr(
       mlir::acc::getRoutineInfoAttrName(),
       mlir::acc::RoutineInfoAttr::get(func.getContext(), funcRoutines));
 
