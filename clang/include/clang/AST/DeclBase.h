@@ -2098,11 +2098,15 @@ protected:
   /// LastDecl - The last declaration stored within this declaration
   /// context. FIXME: We could probably cache this value somewhere
   /// outside of the DeclContext, to reduce the size of DeclContext by
-  /// another pointer.
-  mutable Decl *LastDecl = nullptr;
+  /// another pointer. The integer stores the offset of this DeclContext from
+  /// its corresponding Decl in units of Decl alignment, after subtracting
+  /// sizeof(Decl).
+  mutable llvm::PointerIntPair<Decl *, 3, unsigned> LastDeclAndOffset;
 
-  /// The declaration corresponding to this context.
-  Decl *const CorrespondingDecl;
+  static unsigned getDeclContextOffset(const DeclContext *DC, const Decl *D);
+
+  Decl *getLastDecl() const { return LastDeclAndOffset.getPointer(); }
+  void setLastDecl(Decl *D) const { LastDeclAndOffset.setPointer(D); }
 
   /// Build up a chain of declarations.
   ///
@@ -2126,9 +2130,15 @@ public:
   const char *getDeclKindName() const;
 
   /// Return the declaration containing this context.
-  Decl *getAsDecl() { return CorrespondingDecl; }
+  Decl *getAsDecl() {
+    const auto Offset =
+        sizeof(Decl) + LastDeclAndOffset.getInt() * alignof(Decl);
+    return reinterpret_cast<Decl *>(reinterpret_cast<char *>(this) - Offset);
+  }
 
-  const Decl *getAsDecl() const { return CorrespondingDecl; }
+  const Decl *getAsDecl() const {
+    return const_cast<DeclContext *>(this)->getAsDecl();
+  }
 
   /// getParent - Returns the containing DeclContext.
   DeclContext *getParent() { return getAsDecl()->getDeclContext(); }
@@ -2749,7 +2759,7 @@ public:
   /// declarations lexically within this context.
   bool isDeclInLexicalTraversal(const Decl *D) const {
     return D && (D->NextInContextAndBits.getPointer() || D == FirstDecl ||
-                 D == LastDecl);
+                 D == getLastDecl());
   }
 
   void setUseQualifiedLookup(bool use = true) const {

@@ -1299,7 +1299,19 @@ Decl *DeclContext::getNonClosureAncestor() {
 // DeclContext Implementation
 //===----------------------------------------------------------------------===//
 
-DeclContext::DeclContext(Decl::Kind K, Decl *D) : CorrespondingDecl(D) {
+unsigned DeclContext::getDeclContextOffset(const DeclContext *DC,
+                                           const Decl *D) {
+  const auto Offset =
+      reinterpret_cast<uintptr_t>(DC) - reinterpret_cast<uintptr_t>(D);
+  assert(Offset >= sizeof(Decl));
+  assert((Offset - sizeof(Decl)) % alignof(Decl) == 0);
+  const auto EncodedOffset = (Offset - sizeof(Decl)) / alignof(Decl);
+  assert(EncodedOffset < 8);
+  return EncodedOffset;
+}
+
+DeclContext::DeclContext(Decl::Kind K, Decl *D)
+    : LastDeclAndOffset(nullptr, getDeclContextOffset(this, D)) {
   DeclContextBits.DeclKind = K;
   setHasExternalLexicalStorage(false);
   setHasExternalVisibleStorage(false);
@@ -1634,8 +1646,8 @@ DeclContext::LoadLexicalDeclsFromExternalStorage() const {
       BuildDeclChain(Decls, FieldsAlreadyLoaded);
   ExternalLast->NextInContextAndBits.setPointer(FirstDecl);
   FirstDecl = ExternalFirst;
-  if (!LastDecl)
-    LastDecl = ExternalLast;
+  if (!getLastDecl())
+    setLastDecl(ExternalLast);
   return true;
 }
 
@@ -1685,7 +1697,7 @@ bool DeclContext::decls_empty() const {
 
 bool DeclContext::containsDecl(Decl *D) const {
   return (D->getLexicalDeclContext() == this &&
-          (D->NextInContextAndBits.getPointer() || D == LastDecl));
+          (D->NextInContextAndBits.getPointer() || D == getLastDecl()));
 }
 
 bool DeclContext::containsDeclAndLoad(Decl *D) const {
@@ -1736,21 +1748,23 @@ static bool shouldBeHidden(NamedDecl *D) {
 void DeclContext::removeDecl(Decl *D) {
   assert(D->getLexicalDeclContext() == this &&
          "decl being removed from non-lexical context");
-  assert((D->NextInContextAndBits.getPointer() || D == LastDecl) &&
+  assert((D->NextInContextAndBits.getPointer() || D == getLastDecl()) &&
          "decl is not in decls list");
 
   // Remove D from the decl chain.  This is O(n) but hopefully rare.
   if (D == FirstDecl) {
-    if (D == LastDecl)
-      FirstDecl = LastDecl = nullptr;
-    else
+    if (D == getLastDecl()) {
+      FirstDecl = nullptr;
+      setLastDecl(nullptr);
+    } else
       FirstDecl = D->NextInContextAndBits.getPointer();
   } else {
     for (Decl *I = FirstDecl; true; I = I->NextInContextAndBits.getPointer()) {
       assert(I && "decl not found in linked list");
       if (I->NextInContextAndBits.getPointer() == D) {
         I->NextInContextAndBits.setPointer(D->NextInContextAndBits.getPointer());
-        if (D == LastDecl) LastDecl = I;
+        if (D == getLastDecl())
+          setLastDecl(I);
         break;
       }
     }
@@ -1791,14 +1805,15 @@ void DeclContext::removeDecl(Decl *D) {
 void DeclContext::addHiddenDecl(Decl *D) {
   assert(D->getLexicalDeclContext() == this &&
          "Decl inserted into wrong lexical context");
-  assert(!D->getNextDeclInContext() && D != LastDecl &&
+  assert(!D->getNextDeclInContext() && D != getLastDecl() &&
          "Decl already inserted into a DeclContext");
 
   if (FirstDecl) {
-    LastDecl->NextInContextAndBits.setPointer(D);
-    LastDecl = D;
+    getLastDecl()->NextInContextAndBits.setPointer(D);
+    setLastDecl(D);
   } else {
-    FirstDecl = LastDecl = D;
+    FirstDecl = D;
+    setLastDecl(D);
   }
 
   // Notify a C++ record declaration that we've added a member, so it can

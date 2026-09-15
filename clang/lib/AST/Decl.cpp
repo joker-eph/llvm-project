@@ -5389,8 +5389,10 @@ bool RecordDecl::isMsStruct(const ASTContext &C) const {
 }
 
 void RecordDecl::reorderDecls(const SmallVectorImpl<Decl *> &Decls) {
-  std::tie(FirstDecl, LastDecl) = DeclContext::BuildDeclChain(Decls, false);
-  LastDecl->NextInContextAndBits.setPointer(nullptr);
+  Decl *Last;
+  std::tie(FirstDecl, Last) = DeclContext::BuildDeclChain(Decls, false);
+  setLastDecl(Last);
+  Last->NextInContextAndBits.setPointer(nullptr);
   setIsRandomized(true);
 }
 
@@ -5421,8 +5423,8 @@ void RecordDecl::LoadFieldsFromExternalStorage() const {
                      /*FieldsAlreadyLoaded=*/false);
   ExternalLast->NextInContextAndBits.setPointer(FirstDecl);
   FirstDecl = ExternalFirst;
-  if (!LastDecl)
-    LastDecl = ExternalLast;
+  if (!getLastDecl())
+    setLastDecl(ExternalLast);
 }
 
 bool RecordDecl::mayInsertExtraPadding(bool EmitRemark) const {
