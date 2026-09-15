@@ -1305,7 +1305,8 @@ unsigned DeclContext::getDeclContextOffset(const DeclContext *DC,
       reinterpret_cast<uintptr_t>(DC) - reinterpret_cast<uintptr_t>(D);
   assert(Offset >= sizeof(Decl));
   assert((Offset - sizeof(Decl)) % alignof(Decl) == 0);
-  const auto EncodedOffset = (Offset - sizeof(Decl)) / alignof(Decl);
+  const auto EncodedOffset =
+      Offset / alignof(Decl) - sizeof(Decl) / alignof(Decl);
   assert(EncodedOffset < 8);
   return EncodedOffset;
 }
