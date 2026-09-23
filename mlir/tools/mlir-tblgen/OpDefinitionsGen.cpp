@@ -3851,13 +3851,14 @@ void OpEmitter::genVerifier() {
 
 void OpEmitter::genCustomVerifier() {
   if (def.getValueAsBit("hasVerifier")) {
-    auto *method = opClass.declareMethod("::llvm::LogicalResult", "verify");
+    auto *method = opClass.declareMethod(
+        "LLVM_ATTRIBUTE_MINSIZE ::llvm::LogicalResult", "verify");
     ERROR_IF_PRUNED(method, "verify", op);
   }
 
   if (def.getValueAsBit("hasRegionVerifier")) {
-    auto *method =
-        opClass.declareMethod("::llvm::LogicalResult", "verifyRegions");
+    auto *method = opClass.declareMethod(
+        "LLVM_ATTRIBUTE_MINSIZE ::llvm::LogicalResult", "verifyRegions");
     ERROR_IF_PRUNED(method, "verifyRegions", op);
   }
 }
