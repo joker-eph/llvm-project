@@ -748,7 +748,7 @@ public:
   /// This constructor is used by Dialect objects when they register the list
   /// of operations they contain.
   template <typename T>
-  static void insert(Dialect &dialect) {
+  LLVM_ATTRIBUTE_MINSIZE static void insert(Dialect &dialect) {
     static_assert(sizeof(Model<T>) == sizeof(Impl));
     static_assert(alignof(Model<T>) == alignof(Impl));
     std::unique_ptr<Impl> ownedModel(new (allocateModelStorage())
