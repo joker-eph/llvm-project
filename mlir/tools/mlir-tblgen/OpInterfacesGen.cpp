@@ -306,7 +306,10 @@ void InterfaceGenerator::emitModelDecl(const Interface &interface) {
 
     // Insert each of the virtual method overrides.
     for (auto &method : interface.getMethods()) {
-      emitCPPType(method.getReturnType(), os << "    static inline ");
+      os << "    static inline ";
+      if (isa<OpInterface>(interface) && StringRef(modelClass) == "Model")
+        os << "LLVM_ATTRIBUTE_MINSIZE ";
+      emitCPPType(method.getReturnType(), os);
       emitMethodNameAndArgs(method, method.getUniqueName(), os, valueType,
                             /*addThisArg=*/!method.isStatic(),
                             /*addConst=*/false);

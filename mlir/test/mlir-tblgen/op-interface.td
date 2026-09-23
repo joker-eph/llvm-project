@@ -165,6 +165,10 @@ def DeclareMethodsWithDefaultOp : Op<TestDialect, "declare_methods_op",
       [DeclareOpInterfaceMethods<TestOpInterface, ["default_foo"]>]>;
 
 // DECL-LABEL: TestOpInterfaceInterfaceTraits
+// DECL: class Model : public Concept
+// DECL: static inline LLVM_ATTRIBUTE_MINSIZE int foo(
+// DECL: class FallbackModel : public Concept
+// DECL: static inline int foo(
 // DECL: class TestOpInterface : public ::mlir::OpInterface<TestOpInterface, detail::TestOpInterfaceInterfaceTraits>
 
 // DECL: /// some function comment
