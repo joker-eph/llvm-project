@@ -1512,13 +1512,7 @@ void OpEmitter::genPropertiesSupport() {
     }
 )decl";
   const char *walkInherentAttrsMethodFmt = R"decl(
-    if (prop.{0}) {{
-      ::mlir::Attribute value = prop.{0};
-      ::mlir::Attribute originalValue = value;
-      visitor("{0}", value);
-      if (value != originalValue)
-        setInherentAttr(prop, "{0}", value);
-    }
+    ::mlir::detail::walkAttributeProperty(prop.{0}, "{0}", visitor);
 )decl";
   for (const auto &attrOrProp : attrOrProperties) {
     if (const auto *namedAttr =

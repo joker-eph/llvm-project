@@ -88,6 +88,22 @@ setAttributeProperty(AttrT &storage, Attribute attr, StringRef name,
               << "` in property conversion: " << attr;
   return failure();
 }
+
+/// Visit an existing attribute-backed property and retain a compatible
+/// replacement. A null property is not visited, matching the generated
+/// inherent-attribute walker.
+template <typename AttrT>
+LLVM_ATTRIBUTE_NOINLINE void walkAttributeProperty(
+    AttrT &storage, StringRef name,
+    llvm::function_ref<void(StringRef, Attribute &)> visitor) {
+  if (!storage)
+    return;
+  Attribute value = storage;
+  Attribute originalValue = value;
+  visitor(name, value);
+  if (value != originalValue)
+    storage = llvm::dyn_cast_or_null<AttrT>(value);
+}
 } // namespace detail
 
 //===----------------------------------------------------------------------===//
