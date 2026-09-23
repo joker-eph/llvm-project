@@ -1838,8 +1838,9 @@ void OperationFormat::genParser(Operator &op, OpClass &opClass) {
   paramList.emplace_back("::mlir::OpAsmParser &", "parser");
   paramList.emplace_back("::mlir::OperationState &", "result");
 
-  auto *method = opClass.addStaticMethod("::mlir::ParseResult", "parse",
-                                         std::move(paramList));
+  auto *method =
+      opClass.addStaticMethod("LLVM_ATTRIBUTE_MINSIZE ::mlir::ParseResult",
+                              "parse", std::move(paramList));
   auto &body = method->body();
 
   // Generate variables to store the operands and type within the format. This
