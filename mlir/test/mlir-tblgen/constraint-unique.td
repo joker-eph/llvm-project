@@ -116,7 +116,7 @@ def OpC : NS_Op<"op_c"> {
 // CHECK-NEXT:       << "failed to verify constraint: another region";
 
 /// Test that the uniqued constraints are being used.
-// CHECK-LABEL: OpA::verifyInvariantsImpl
+// CHECK-LABEL: LLVM_ATTRIBUTE_MINSIZE ::llvm::LogicalResult OpA::verifyInvariantsImpl
 // CHECK:         auto [[$B_ATTR:.*b]] = getProperties().b;
 // CHECK:         if (::mlir::failed([[$A_ATTR_CONSTRAINT]](*this, [[$B_ATTR]], "b")))
 // CHECK-NEXT:      return ::mlir::failure();

@@ -3797,8 +3797,8 @@ void OpEmitter::genPrinter() {
 }
 
 void OpEmitter::genVerifier() {
-  auto *implMethod =
-      opClass.addMethod("::llvm::LogicalResult", "verifyInvariantsImpl");
+  auto *implMethod = opClass.addMethod(
+      "LLVM_ATTRIBUTE_MINSIZE ::llvm::LogicalResult", "verifyInvariantsImpl");
   ERROR_IF_PRUNED(implMethod, "verifyInvariantsImpl", op);
   auto &implBody = implMethod->body();
   populateSubstitutions(emitHelper, verifyCtx);
