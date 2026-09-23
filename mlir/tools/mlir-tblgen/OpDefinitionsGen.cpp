@@ -1252,8 +1252,8 @@ void OpEmitter::genPropertiesSupport() {
   auto &setPropMethod =
       opClass
           .addStaticMethod(
-              "::llvm::LogicalResult", "setPropertiesFromAttr",
-              MethodParameter("Properties &", "prop"),
+              "LLVM_ATTRIBUTE_MINSIZE ::llvm::LogicalResult",
+              "setPropertiesFromAttr", MethodParameter("Properties &", "prop"),
               MethodParameter("::mlir::Attribute", "attr"),
               MethodParameter(
                   "::llvm::function_ref<::mlir::InFlightDiagnostic()>",
@@ -1261,32 +1261,36 @@ void OpEmitter::genPropertiesSupport() {
           ->body();
   auto &getPropMethod =
       opClass
-          .addStaticMethod("::mlir::Attribute", "getPropertiesAsAttr",
+          .addStaticMethod("LLVM_ATTRIBUTE_MINSIZE ::mlir::Attribute",
+                           "getPropertiesAsAttr",
                            MethodParameter("::mlir::MLIRContext *", "ctx"),
                            MethodParameter("const Properties &", "prop"))
           ->body();
   auto &hashMethod =
       opClass
-          .addStaticMethod("llvm::hash_code", "computePropertiesHash",
+          .addStaticMethod("LLVM_ATTRIBUTE_MINSIZE llvm::hash_code",
+                           "computePropertiesHash",
                            MethodParameter("const Properties &", "prop"))
           ->body();
   auto &getInherentAttrMethod =
       opClass
-          .addStaticMethod("std::optional<mlir::Attribute>", "getInherentAttr",
+          .addStaticMethod("LLVM_ATTRIBUTE_MINSIZE "
+                           "std::optional<mlir::Attribute>",
+                           "getInherentAttr",
                            MethodParameter("::mlir::MLIRContext *", "ctx"),
                            MethodParameter("const Properties &", "prop"),
                            MethodParameter("llvm::StringRef", "name"))
           ->body();
   auto &setInherentAttrMethod =
       opClass
-          .addStaticMethod("void", "setInherentAttr",
+          .addStaticMethod("LLVM_ATTRIBUTE_MINSIZE void", "setInherentAttr",
                            MethodParameter("Properties &", "prop"),
                            MethodParameter("llvm::StringRef", "name"),
                            MethodParameter("mlir::Attribute", "value"))
           ->body();
   auto &walkInherentAttrsMethod =
       opClass
-          .addStaticMethod("void", "walkInherentAttrs",
+          .addStaticMethod("LLVM_ATTRIBUTE_MINSIZE void", "walkInherentAttrs",
                            MethodParameter("::mlir::MLIRContext *", "ctx"),
                            MethodParameter("Properties &", "prop"),
                            MethodParameter("::llvm::function_ref<void("
@@ -1297,7 +1301,8 @@ void OpEmitter::genPropertiesSupport() {
   auto &verifyInherentAttrsMethod =
       opClass
           .addStaticMethod(
-              "::llvm::LogicalResult", "verifyInherentAttrs",
+              "LLVM_ATTRIBUTE_MINSIZE ::llvm::LogicalResult",
+              "verifyInherentAttrs",
               MethodParameter("::mlir::OperationName", "opName"),
               MethodParameter("::mlir::NamedAttrList &", "attrs"),
               MethodParameter(
