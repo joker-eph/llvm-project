@@ -624,8 +624,8 @@ public:
 
     /// Implementation for "Properties"
 
-    std::optional<Attribute> getInherentAttr(Operation *op,
-                                             StringRef name) final {
+    LLVM_ATTRIBUTE_MINSIZE std::optional<Attribute>
+    getInherentAttr(Operation *op, StringRef name) final {
       if constexpr (hasProperties) {
         assert(detail::isOperationOfType(op, TypeID::get<ConcreteOp>()) &&
                "operation type mismatch");
@@ -635,8 +635,8 @@ public:
       }
       return std::nullopt;
     }
-    void setInherentAttr(Operation *op, StringAttr name,
-                         Attribute value) final {
+    LLVM_ATTRIBUTE_MINSIZE void setInherentAttr(Operation *op, StringAttr name,
+                                                Attribute value) final {
       if constexpr (hasProperties) {
         assert(detail::isOperationOfType(op, TypeID::get<ConcreteOp>()) &&
                "operation type mismatch");
@@ -647,7 +647,8 @@ public:
       llvm_unreachable(
           "Can't call setInherentAttr on operation with empty properties");
     }
-    void walkInherentAttrs(Operation *op, InherentAttrVisitor visitor) final {
+    LLVM_ATTRIBUTE_MINSIZE void
+    walkInherentAttrs(Operation *op, InherentAttrVisitor visitor) final {
       if constexpr (hasProperties) {
         assert(detail::isOperationOfType(op, TypeID::get<ConcreteOp>()) &&
                "operation type mismatch");
@@ -724,7 +725,8 @@ public:
     void copyProperties(PropertyRef lhs, PropertyRef rhs) final {
       *lhs.as<Properties *>() = *rhs.as<Properties *>();
     }
-    llvm::hash_code hashProperties(PropertyRef prop) final {
+    LLVM_ATTRIBUTE_MINSIZE llvm::hash_code
+    hashProperties(PropertyRef prop) final {
       if constexpr (hasProperties)
         return ConcreteOp::computePropertiesHash(*prop.as<Properties *>());
 
