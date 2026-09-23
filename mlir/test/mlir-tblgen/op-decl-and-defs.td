@@ -164,6 +164,9 @@ def NS_AOp : NS_Op<"a_op", [IsolatedFromAbove, IsolatedFromAbove]> {
 // DEFS: ::mlir::detail::setAttributeProperty(
 // DEFS: ::mlir::Attribute AOp::getPropertiesAsAttr
 // DEFS: ::mlir::detail::appendAttributeProperty(attrs, "attr1", prop.attr1);
+// DEFS: void AOp::build({{.*}}uint32_t attr1,
+// DEFS-NEXT:   auto odsWrapped_attr1 = odsBuilder.getIntegerAttr(odsBuilder.getIntegerType(32), attr1);
+// DEFS-NEXT:   build(odsBuilder, odsState, r, s, a, b, odsWrapped_attr1, some_attr2, someRegionsCount);
 // DEFS: void AOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes, unsigned numRegions) {
 // DEFS:   buildPropertiesAndDiscardableAttributes(odsState, attributes);
 // DEFS: void AOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes, unsigned numRegions) {

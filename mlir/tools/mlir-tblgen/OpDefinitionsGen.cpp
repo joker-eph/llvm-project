@@ -2487,6 +2487,38 @@ void OpEmitter::genSeparateArgParamBuilder() {
       body << ");\n";
       return;
     }
+    if (attrType == AttrParamKind::UnwrappedValue) {
+      llvm::StringMap<std::string> wrappedAttrs;
+      FmtContext fctx;
+      fctx.withBuilder(odsBuilder);
+      for (const NamedAttribute &namedAttr : op.getAttributes()) {
+        const Attribute &attr = namedAttr.attr;
+        if (attr.isDerivedAttr() ||
+            inferredAttributes.contains(namedAttr.name) ||
+            !canUseUnwrappedRawValue(attr))
+          continue;
+        std::string wrappedName = ("odsWrapped_" + namedAttr.name).str();
+        wrappedAttrs[namedAttr.name] = wrappedName;
+        body << "  auto " << wrappedName << " = ";
+        if ((attr.isOptional() && !attr.hasDefaultValue()) ||
+            attr.getAttrDefName() == "UnitAttr")
+          body << namedAttr.name << " ? ";
+        body << constBuildAttrFromParam(attr, fctx, namedAttr.name);
+        if ((attr.isOptional() && !attr.hasDefaultValue()) ||
+            attr.getAttrDefName() == "UnitAttr")
+          body << " : " << attr.getStorageType() << "{}";
+        body << ";\n";
+      }
+      body << "  build(odsBuilder, odsState";
+      for (const MethodParameter &param : llvm::drop_begin(paramList, 2)) {
+        StringRef name = param.getName();
+        auto it = wrappedAttrs.find(name);
+        body << ", "
+             << (it == wrappedAttrs.end() ? name : StringRef(it->second));
+      }
+      body << ");\n";
+      return;
+    }
     genCodeForAddingArgAndRegionForBuilder(body, inferredAttributes,
                                            /*isRawValueAttr=*/attrType ==
                                                AttrParamKind::UnwrappedValue);
