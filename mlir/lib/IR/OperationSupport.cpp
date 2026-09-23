@@ -16,6 +16,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OpImplementation.h"
+#include "mlir/IR/Operation.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/SHA1.h"
 #include <numeric>
@@ -28,6 +29,10 @@ void mlir::detail::appendAttributeProperty(
     Attribute attr) {
   if (attr)
     attrs.emplace_back(name, attr);
+}
+
+bool mlir::detail::isOperationOfType(Operation *op, TypeID typeID) {
+  return op->getName().getTypeID() == typeID;
 }
 
 ParseResult mlir::detail::parseOptionalOperandInto(

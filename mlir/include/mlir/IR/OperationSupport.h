@@ -77,6 +77,9 @@ void splitPropertiesAndDiscardableAttributes(
     ArrayRef<StringRef> inherentNames,
     llvm::function_ref<LogicalResult(DictionaryAttr)> setProperties);
 
+/// Check the operation type before constructing its registered model wrapper.
+bool isOperationOfType(Operation *op, TypeID typeID);
+
 /// Assign a generated attribute-backed property after checking its type.
 /// Keep the conversion out of each operation's generated property setter.
 template <typename AttrT>
@@ -632,7 +635,9 @@ public:
     std::optional<Attribute> getInherentAttr(Operation *op,
                                              StringRef name) final {
       if constexpr (hasProperties) {
-        auto concreteOp = cast<ConcreteOp>(op);
+        assert(detail::isOperationOfType(op, TypeID::get<ConcreteOp>()) &&
+               "operation type mismatch");
+        ConcreteOp concreteOp(op);
         return ConcreteOp::getInherentAttr(concreteOp->getContext(),
                                            concreteOp.getProperties(), name);
       }
@@ -641,7 +646,9 @@ public:
     void setInherentAttr(Operation *op, StringAttr name,
                          Attribute value) final {
       if constexpr (hasProperties) {
-        auto concreteOp = cast<ConcreteOp>(op);
+        assert(detail::isOperationOfType(op, TypeID::get<ConcreteOp>()) &&
+               "operation type mismatch");
+        ConcreteOp concreteOp(op);
         return ConcreteOp::setInherentAttr(concreteOp.getProperties(), name,
                                            value);
       }
@@ -650,7 +657,9 @@ public:
     }
     void walkInherentAttrs(Operation *op, InherentAttrVisitor visitor) final {
       if constexpr (hasProperties) {
-        auto concreteOp = cast<ConcreteOp>(op);
+        assert(detail::isOperationOfType(op, TypeID::get<ConcreteOp>()) &&
+               "operation type mismatch");
+        ConcreteOp concreteOp(op);
         ConcreteOp::walkInherentAttrs(concreteOp->getContext(),
                                       concreteOp.getProperties(), visitor);
       }
@@ -707,7 +716,9 @@ public:
     }
     Attribute getPropertiesAsAttr(Operation *op) final {
       if constexpr (hasProperties) {
-        auto concreteOp = cast<ConcreteOp>(op);
+        assert(detail::isOperationOfType(op, TypeID::get<ConcreteOp>()) &&
+               "operation type mismatch");
+        ConcreteOp concreteOp(op);
         return ConcreteOp::getPropertiesAsAttr(concreteOp->getContext(),
                                                concreteOp.getProperties());
       }
