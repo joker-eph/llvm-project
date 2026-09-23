@@ -144,22 +144,16 @@ def AOp : NS_Op<"a_op", []> {
 // ---
 
 // DEF:      void AOp::build(
-// DEF:        odsState.getOrAddProperties<Properties>().aAttr = aAttr;
-// DEF:        odsState.getOrAddProperties<Properties>().bAttr = bAttr;
+// DEF:        auto &odsProperties = odsState.getOrAddProperties<Properties>();
+// DEF:        odsProperties.aAttr = aAttr;
+// DEF:        odsProperties.bAttr = bAttr;
 // DEF:        if (cAttr) {
-// DEF-NEXT:     odsState.getOrAddProperties<Properties>().cAttr = cAttr;
+// DEF-NEXT:     odsProperties.cAttr = cAttr;
 
-// DEF:        odsState.getOrAddProperties<Properties>().aAttr = some-const-builder-call(odsBuilder, aAttr);
-// DEF-NEXT:   odsState.getOrAddProperties<Properties>().bAttr = some-const-builder-call(odsBuilder, bAttr);
-// DEF-NEXT:   if (cAttr) {
-// DEF-NEXT:   odsState.getOrAddProperties<Properties>().cAttr = cAttr;
-// DEF-NEXT:   }
-// DEF-NOT:    if (dAttr)
-// DEF:        odsState.getOrAddProperties<Properties>().dAttr = some-const-builder-call(odsBuilder, dAttr);
-
-// DEF:      void AOp::build(
-// DEF:        some-return-type aAttr, some-return-type bAttr, /*optional*/some-attr-kind cAttr
-// DEF:        odsState.getOrAddProperties<Properties>().aAttr = some-const-builder-call(odsBuilder, aAttr);
+// DEF:        auto odsWrapped_aAttr = some-const-builder-call(odsBuilder, aAttr);
+// DEF-NEXT:   auto odsWrapped_bAttr = some-const-builder-call(odsBuilder, bAttr);
+// DEF-NEXT:   auto odsWrapped_dAttr = some-const-builder-call(odsBuilder, dAttr);
+// DEF-NEXT:   build(odsBuilder, odsState, resultTypes, odsWrapped_aAttr, odsWrapped_bAttr, cAttr, odsWrapped_dAttr);
 
 // DEF:      void AOp::build(
 // DEF:        ::llvm::ArrayRef<::mlir::NamedAttribute> attributes
@@ -272,14 +266,15 @@ def AgetOp : Op<Test2_Dialect, "a_get_op", []> {
 // ---
 
 // DEF:      void AgetOp::build(
-// DEF:        odsState.getOrAddProperties<Properties>().aAttr = aAttr;
-// DEF:        odsState.getOrAddProperties<Properties>().bAttr = bAttr;
+// DEF:        auto &odsProperties = odsState.getOrAddProperties<Properties>();
+// DEF:        odsProperties.aAttr = aAttr;
+// DEF:        odsProperties.bAttr = bAttr;
 // DEF:        if (cAttr) {
-// DEF-NEXT:     odsState.getOrAddProperties<Properties>().cAttr = cAttr;
+// DEF-NEXT:     odsProperties.cAttr = cAttr;
 
 // DEF:      void AgetOp::build(
 // DEF:        some-return-type aAttr, /*optional*/some-return-type bAttr, /*optional*/some-attr-kind cAttr
-// DEF:        odsState.getOrAddProperties<Properties>().aAttr = some-const-builder-call(odsBuilder, aAttr);
+// DEF:        auto odsWrapped_aAttr = some-const-builder-call(odsBuilder, aAttr);
 
 // DEF:      void AgetOp::build(
 // DEF:        ::llvm::ArrayRef<::mlir::NamedAttribute> attributes
@@ -407,8 +402,10 @@ def DOp : NS_Op<"d_op", []> {
 // DECL: static void build({{.*}}, uint32_t i32_attr, ::llvm::APFloat f64_attr, ::llvm::StringRef str_attr, bool bool_attr, ::SomeI32Enum enum_attr, uint32_t dv_i32_attr, ::llvm::APFloat dv_f64_attr, ::llvm::StringRef dv_str_attr = "abc", bool dv_bool_attr = true, ::SomeI32Enum dv_enum_attr = ::SomeI32Enum::case5)
 
 // DEF-LABEL: DOp definitions
-// DEF: odsState.getOrAddProperties<Properties>().str_attr = odsBuilder.getStringAttr(str_attr);
-// DEF: odsState.getOrAddProperties<Properties>().dv_str_attr = odsBuilder.getStringAttr(dv_str_attr);
+// DEF: odsProperties.str_attr = str_attr;
+// DEF: odsProperties.dv_str_attr = dv_str_attr;
+// DEF: auto odsWrapped_str_attr = odsBuilder.getStringAttr(str_attr);
+// DEF: auto odsWrapped_dv_str_attr = odsBuilder.getStringAttr(dv_str_attr);
 
 
 // Test default dictionary attribute.
