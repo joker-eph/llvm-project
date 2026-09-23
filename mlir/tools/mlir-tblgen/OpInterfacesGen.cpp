@@ -113,8 +113,10 @@ protected:
   StringRef valueTemplate;
   /// The name of the substituion variable for the value.
   StringRef substVar;
-  /// The format context to use for methods.
+  /// The format contexts to use for methods.
   tblgen::FmtContext nonStaticMethodFmt;
+  /// Bind the operation once in generated operation interface model methods.
+  tblgen::FmtContext opModelMethodFmt;
   tblgen::FmtContext traitMethodFmt;
   tblgen::FmtContext extraDeclsFmt;
 };
@@ -146,6 +148,9 @@ struct OpInterfaceGenerator : public InterfaceGenerator {
     nonStaticMethodFmt.addSubst("_this", "impl")
         .addSubst(substVar, castCode)
         .withSelf(castCode);
+    opModelMethodFmt.addSubst("_this", "impl")
+        .addSubst(substVar, "tablegen_concrete_op")
+        .withSelf("tablegen_concrete_op");
     traitMethodFmt.addSubst(substVar, "(*static_cast<ConcreteOp *>(this))");
     extraDeclsFmt.addSubst(substVar, "(*this)");
   }
@@ -360,12 +365,23 @@ void InterfaceGenerator::emitModelMethodsDef(const Interface &interface) {
                           /*addConst=*/false);
     os << " {\n  ";
 
+    std::optional<StringRef> body = method.getBody();
+    bool bindConcreteOp =
+        isa<OpInterface>(interface) && !method.isStatic() &&
+        (!body || body->contains("$_op") || body->contains("$_self"));
+    if (bindConcreteOp)
+      os << "assert(::mlir::detail::isOperationOfType(tablegen_opaque_val, "
+            "::mlir::TypeID::get<ConcreteOp>()) && \"operation type "
+            "mismatch\");\n  "
+            "ConcreteOp tablegen_concrete_op(tablegen_opaque_val);\n  ";
+
     // Check for a provided body to the function.
-    if (std::optional<StringRef> body = method.getBody()) {
+    if (body) {
       if (method.isStatic())
         os << body->trim();
       else
-        os << tblgen::tgfmt(body->trim(), &nonStaticMethodFmt);
+        os << tblgen::tgfmt(body->trim(), bindConcreteOp ? &opModelMethodFmt
+                                                         : &nonStaticMethodFmt);
       os << "\n}\n";
       continue;
     }
@@ -374,7 +390,9 @@ void InterfaceGenerator::emitModelMethodsDef(const Interface &interface) {
     if (method.isStatic())
       os << "return " << valueTemplate << "::";
     else
-      os << tblgen::tgfmt("return $_self.", &nonStaticMethodFmt);
+      os << tblgen::tgfmt("return $_self.", bindConcreteOp
+                                                ? &opModelMethodFmt
+                                                : &nonStaticMethodFmt);
 
     // Add the arguments to the call.
     os << method.getName() << '(';
