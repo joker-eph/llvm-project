@@ -1206,7 +1206,8 @@ static void emitAttrGetterWithReturnType(FmtContext &fctx,
                                          OpClassOrAdaptor &opClass,
                                          const Operator &op, StringRef name,
                                          Attribute attr) {
-  auto *method = opClass.addMethod(attr.getReturnType(), name);
+  auto *method =
+      opClass.addMethod("LLVM_ATTRIBUTE_MINSIZE " + attr.getReturnType(), name);
   ERROR_IF_PRUNED(method, name, op);
   auto &body = method->body();
   body << "  auto attr = " << name << "Attr();\n";
