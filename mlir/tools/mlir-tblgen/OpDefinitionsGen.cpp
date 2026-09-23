@@ -1644,7 +1644,7 @@ void OpEmitter::genPropertiesSupportForBytecode(
   auto &writePropertiesMethod =
       opClass
           .addMethod(
-              "void", "writeProperties",
+              "LLVM_ATTRIBUTE_MINSIZE void", "writeProperties",
               MethodParameter("::mlir::DialectBytecodeWriter &", "writer"))
           ->body();
 
