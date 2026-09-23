@@ -144,6 +144,13 @@ def BlockArgOpenMPOpInterface : OpInterface<"BlockArgOpenMPOpInterface"> {
 
   let cppNamespace = "::mlir::omp";
 
+  let extraClassDeclaration = [{
+    /// Populate pairs of clause operands and their entry block arguments.
+    void getBlockArgsPairs(
+        ::llvm::SmallVectorImpl<std::pair<::mlir::Value,
+                                      ::mlir::BlockArgument>> &pairs);
+  }];
+
   defvar clauses = [ BlockArgHasDeviceAddrClause, BlockArgHostEvalClause,
     BlockArgInReductionClause, BlockArgMapClause, BlockArgPrivateClause,
     BlockArgReductionClause, BlockArgTaskReductionClause,
@@ -162,21 +169,6 @@ def BlockArgOpenMPOpInterface : OpInterface<"BlockArgOpenMPOpInterface"> {
         "return " # !interleave(
           !foreach(clause, clauses, "$_op." # clause.numArgsMethod.name # "()"),
           " + ") # ";"
-      >,
-      InterfaceMethod<
-        "Populate a vector of pairs representing the matching between operands "
-        "and entry block arguments.", "void", "getBlockArgsPairs",
-        (ins "::llvm::SmallVectorImpl<std::pair<::mlir::Value, ::mlir::BlockArgument>> &" : $pairs),
-        [{
-          auto iface = ::llvm::cast<BlockArgOpenMPOpInterface>(*$_op);
-          pairs.reserve(pairs.size() + iface.numClauseBlockArgs());
-        }] # !interleave(!foreach(clause, clauses, [{
-        }] # "if (iface." # clause.numArgsMethod.name # "() > 0) {" # [{
-        }] # "  for (auto [var, arg] : ::llvm::zip_equal(" #
-                "iface." # clause.varsMethod.name # "()," #
-                "iface." # clause.blockArgsMethod.name # "()))" # [{
-            pairs.emplace_back(var, arg);
-        } }]), "\n")
       >
     ]
   );

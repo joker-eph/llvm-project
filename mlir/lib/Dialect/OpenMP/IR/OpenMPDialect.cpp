@@ -48,6 +48,34 @@
 using namespace mlir;
 using namespace mlir::omp;
 
+void BlockArgOpenMPOpInterface::getBlockArgsPairs(
+    llvm::SmallVectorImpl<std::pair<Value, BlockArgument>> &pairs) {
+  pairs.reserve(pairs.size() + numClauseBlockArgs());
+  auto appendPairs = [&](auto vars, auto args) {
+    for (auto [var, arg] : llvm::zip_equal(vars, args))
+      pairs.emplace_back(var, arg);
+  };
+
+  if (numHasDeviceAddrBlockArgs())
+    appendPairs(getHasDeviceAddrVars(), getHasDeviceAddrBlockArgs());
+  if (numHostEvalBlockArgs())
+    appendPairs(getHostEvalVars(), getHostEvalBlockArgs());
+  if (numInReductionBlockArgs())
+    appendPairs(getInReductionVars(), getInReductionBlockArgs());
+  if (numMapBlockArgs())
+    appendPairs(getMapVars(), getMapBlockArgs());
+  if (numPrivateBlockArgs())
+    appendPairs(getPrivateVars(), getPrivateBlockArgs());
+  if (numReductionBlockArgs())
+    appendPairs(getReductionVars(), getReductionBlockArgs());
+  if (numTaskReductionBlockArgs())
+    appendPairs(getTaskReductionVars(), getTaskReductionBlockArgs());
+  if (numUseDeviceAddrBlockArgs())
+    appendPairs(getUseDeviceAddrVars(), getUseDeviceAddrBlockArgs());
+  if (numUseDevicePtrBlockArgs())
+    appendPairs(getUseDevicePtrVars(), getUseDevicePtrBlockArgs());
+}
+
 static ArrayAttr makeArrayAttr(MLIRContext *context,
                                llvm::ArrayRef<Attribute> attrs) {
   return attrs.empty() ? nullptr : ArrayAttr::get(context, attrs);
