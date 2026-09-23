@@ -590,7 +590,7 @@ public:
   struct Model : public Impl {
     using Properties = std::remove_reference_t<
         decltype(std::declval<ConcreteOp>().getProperties())>;
-    Model(Dialect *dialect)
+    LLVM_ATTRIBUTE_MINSIZE Model(Dialect *dialect)
         : Impl(ConcreteOp::getOperationName(), dialect,
                TypeID::get<ConcreteOp>(), ConcreteOp::getInterfaceMap()) {
       propertiesTypeID = TypeID::get<Properties>();
