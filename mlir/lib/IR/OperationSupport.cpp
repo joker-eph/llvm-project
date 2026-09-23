@@ -16,11 +16,16 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OpImplementation.h"
+#include "mlir/IR/Operation.h"
 #include "llvm/Support/SHA1.h"
 #include <numeric>
 #include <optional>
 
 using namespace mlir;
+
+bool mlir::detail::isOperationOfType(Operation *op, TypeID typeID) {
+  return op->getName().getTypeID() == typeID;
+}
 
 ParseResult mlir::detail::parseOptionalOperandInto(
     OpAsmParser &parser,
