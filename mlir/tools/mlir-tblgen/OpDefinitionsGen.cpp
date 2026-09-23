@@ -1636,7 +1636,7 @@ void OpEmitter::genPropertiesSupportForBytecode(
   auto &readPropertiesMethod =
       opClass
           .addStaticMethod(
-              "::llvm::LogicalResult", "readProperties",
+              "LLVM_ATTRIBUTE_MINSIZE ::llvm::LogicalResult", "readProperties",
               MethodParameter("::mlir::DialectBytecodeReader &", "reader"),
               MethodParameter("::mlir::OperationState &", "state"))
           ->body();
