@@ -274,7 +274,7 @@ protected:
   /// This method is used by derived classes to add their operations to the set.
   ///
   template <typename... Args>
-  void addOperations() {
+  LLVM_ATTRIBUTE_MINSIZE void addOperations() {
     // This initializer_list argument pack expansion is essentially equal to
     // using a fold expression with a comma operator. Clang however, refuses
     // to compile a fold expression with a depth of more than 256 by default.
