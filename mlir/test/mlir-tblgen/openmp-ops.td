@@ -447,7 +447,7 @@ def OpZeroClauses : OpenMP_Op<"op_zero_clauses"> {
 }
 
 // DECL-LABEL: class OpZeroClauses : public ::mlir::Op<
-// DECL: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState);
+// DECL: static LLVM_ATTRIBUTE_MINSIZE void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState);
 
 // DOC-LABEL: omp::OpZeroClauses
 // DOC: _Operation with no clauses_

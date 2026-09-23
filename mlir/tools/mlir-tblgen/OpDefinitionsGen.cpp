@@ -2473,7 +2473,8 @@ void OpEmitter::genSeparateArgParamBuilder() {
     buildParamList(paramList, inferredAttributes, resultNames, paramKind,
                    attrType);
 
-    auto *m = opClass.addStaticMethod("void", "build", paramList);
+    auto *m = opClass.addStaticMethod("LLVM_ATTRIBUTE_MINSIZE void", "build",
+                                      paramList);
     // If the builder is redundant, skip generating the method.
     if (!m)
       return;
@@ -2694,7 +2695,8 @@ void OpEmitter::genUseOperandAsResultTypeCollectiveParamBuilder(
   if (op.getNumVariadicRegions())
     paramList.emplace_back("unsigned", "numRegions");
 
-  auto *m = opClass.addStaticMethod("void", "build", paramList);
+  auto *m = opClass.addStaticMethod("LLVM_ATTRIBUTE_MINSIZE void", "build",
+                                    paramList);
   // If the builder is redundant, skip generating the method
   if (!m)
     return;
@@ -2772,7 +2774,8 @@ void OpEmitter::genInferredTypeCollectiveParamBuilder(
   if (op.getNumVariadicRegions())
     paramList.emplace_back("unsigned", "numRegions");
 
-  auto *m = opClass.addStaticMethod("void", "build", paramList);
+  auto *m = opClass.addStaticMethod("LLVM_ATTRIBUTE_MINSIZE void", "build",
+                                    paramList);
   // If the builder is redundant, skip generating the method
   if (!m)
     return;
@@ -2837,7 +2840,8 @@ void OpEmitter::genUseOperandAsResultTypeSeparateParamBuilder() {
     buildParamList(paramList, inferredAttributes, resultNames,
                    TypeParamKind::None, attrType);
 
-    auto *m = opClass.addStaticMethod("void", "build", paramList);
+    auto *m = opClass.addStaticMethod("LLVM_ATTRIBUTE_MINSIZE void", "build",
+                                      paramList);
     // If the builder is redundant, skip generating the method
     if (!m)
       return;
@@ -2880,7 +2884,8 @@ void OpEmitter::genUseAttrAsResultTypeCollectiveParamBuilder(
                                  : "attributes";
   paramList.emplace_back("::llvm::ArrayRef<::mlir::NamedAttribute>",
                          attributesName, "{}");
-  auto *m = opClass.addStaticMethod("void", "build", paramList);
+  auto *m = opClass.addStaticMethod("LLVM_ATTRIBUTE_MINSIZE void", "build",
+                                    paramList);
   // If the builder is redundant, skip generating the method
   if (!m)
     return;
@@ -3050,7 +3055,8 @@ void OpEmitter::genCollectiveParamBuilder(CollectiveBuilderKind kind) {
   if (op.getNumVariadicRegions())
     paramList.emplace_back("unsigned", "numRegions");
 
-  auto *m = opClass.addStaticMethod("void", "build", paramList);
+  auto *m = opClass.addStaticMethod("LLVM_ATTRIBUTE_MINSIZE void", "build",
+                                    paramList);
   // If the builder is redundant, skip generating the method
   if (!m)
     return;

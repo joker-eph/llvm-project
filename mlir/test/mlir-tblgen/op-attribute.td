@@ -143,7 +143,7 @@ def AOp : NS_Op<"a_op", []> {
 // Test build methods
 // ---
 
-// DEF:      void AOp::build(
+// DEF:      LLVM_ATTRIBUTE_MINSIZE void AOp::build(
 // DEF:        auto &odsProperties = odsState.getOrAddProperties<Properties>();
 // DEF:        odsProperties.aAttr = aAttr;
 // DEF:        odsProperties.bAttr = bAttr;
@@ -155,11 +155,11 @@ def AOp : NS_Op<"a_op", []> {
 // DEF-NEXT:   auto odsWrapped_dAttr = some-const-builder-call(odsBuilder, dAttr);
 // DEF-NEXT:   build(odsBuilder, odsState, resultTypes, odsWrapped_aAttr, odsWrapped_bAttr, cAttr, odsWrapped_dAttr);
 
-// DEF:      void AOp::build(
+// DEF:      LLVM_ATTRIBUTE_MINSIZE void AOp::build(
 // DEF:        ::llvm::ArrayRef<::mlir::NamedAttribute> attributes
 // DEF:      buildPropertiesAndDiscardableAttributes(odsState, attributes);
 
-// DEF:      void AOp::build(
+// DEF:      LLVM_ATTRIBUTE_MINSIZE void AOp::build(
 // DEF-SAME:   const Properties &properties,
 // DEF-SAME:   ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes
 // DEF:      odsState.useProperties(const_cast<Properties&>(properties));
@@ -265,22 +265,22 @@ def AgetOp : Op<Test2_Dialect, "a_get_op", []> {
 // Test build methods
 // ---
 
-// DEF:      void AgetOp::build(
+// DEF:      LLVM_ATTRIBUTE_MINSIZE void AgetOp::build(
 // DEF:        auto &odsProperties = odsState.getOrAddProperties<Properties>();
 // DEF:        odsProperties.aAttr = aAttr;
 // DEF:        odsProperties.bAttr = bAttr;
 // DEF:        if (cAttr) {
 // DEF-NEXT:     odsProperties.cAttr = cAttr;
 
-// DEF:      void AgetOp::build(
+// DEF:      LLVM_ATTRIBUTE_MINSIZE void AgetOp::build(
 // DEF:        some-return-type aAttr, /*optional*/some-return-type bAttr, /*optional*/some-attr-kind cAttr
 // DEF:        auto odsWrapped_aAttr = some-const-builder-call(odsBuilder, aAttr);
 
-// DEF:      void AgetOp::build(
+// DEF:      LLVM_ATTRIBUTE_MINSIZE void AgetOp::build(
 // DEF:        ::llvm::ArrayRef<::mlir::NamedAttribute> attributes
 // DEF:      buildPropertiesAndDiscardableAttributes(odsState, attributes);
 
-// DEF:      void AgetOp::build(
+// DEF:      LLVM_ATTRIBUTE_MINSIZE void AgetOp::build(
 // DEF-SAME:   const Properties &properties
 // DEF-SAME:   ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes
 // DEF:      odsState.useProperties(const_cast<Properties&>(properties));
@@ -399,7 +399,7 @@ def DOp : NS_Op<"d_op", []> {
 }
 
 // DECL-LABEL: DOp declarations
-// DECL: static void build({{.*}}, uint32_t i32_attr, ::llvm::APFloat f64_attr, ::llvm::StringRef str_attr, bool bool_attr, ::SomeI32Enum enum_attr, uint32_t dv_i32_attr, ::llvm::APFloat dv_f64_attr, ::llvm::StringRef dv_str_attr = "abc", bool dv_bool_attr = true, ::SomeI32Enum dv_enum_attr = ::SomeI32Enum::case5)
+// DECL: static LLVM_ATTRIBUTE_MINSIZE void build({{.*}}, uint32_t i32_attr, ::llvm::APFloat f64_attr, ::llvm::StringRef str_attr, bool bool_attr, ::SomeI32Enum enum_attr, uint32_t dv_i32_attr, ::llvm::APFloat dv_f64_attr, ::llvm::StringRef dv_str_attr = "abc", bool dv_bool_attr = true, ::SomeI32Enum dv_enum_attr = ::SomeI32Enum::case5)
 
 // DEF-LABEL: DOp definitions
 // DEF: odsProperties.str_attr = str_attr;
@@ -464,7 +464,7 @@ def EOp : NS_Op<"e_op", []> {
 }
 
 // DECL-LABEL: EOp declarations
-// DECL: static void build({{.*}}, uint32_t i32_attr, uint32_t dv_i32_attr, ::llvm::APFloat f64_attr, ::llvm::APFloat dv_f64_attr, ::llvm::StringRef str_attr, ::llvm::StringRef dv_str_attr, bool bool_attr, bool dv_bool_attr, ::SomeI32Enum enum_attr, ::SomeI32Enum dv_enum_attr = ::SomeI32Enum::case5)
+// DECL: static LLVM_ATTRIBUTE_MINSIZE void build({{.*}}, uint32_t i32_attr, uint32_t dv_i32_attr, ::llvm::APFloat f64_attr, ::llvm::APFloat dv_f64_attr, ::llvm::StringRef str_attr, ::llvm::StringRef dv_str_attr, bool bool_attr, bool dv_bool_attr, ::SomeI32Enum enum_attr, ::SomeI32Enum dv_enum_attr = ::SomeI32Enum::case5)
 
 // Test proper namespacing for AttrDef
 // ---
@@ -500,7 +500,7 @@ def OpWithDefaultAndRegion : NS_Op<"default_with_region", []> {
 // We should not have a default attribute in this case.
 
 // DECL-LABEL: OpWithDefaultAndRegion declarations
-// DECL: static void build({{.*}}, bool dv_bool_attr, unsigned regionCount)
+// DECL: static LLVM_ATTRIBUTE_MINSIZE void build({{.*}}, bool dv_bool_attr, unsigned regionCount)
 
 def OpWithDefaultAndSuccessor : NS_Op<"default_with_succ", []> {
   let arguments = (ins
@@ -512,10 +512,10 @@ def OpWithDefaultAndSuccessor : NS_Op<"default_with_succ", []> {
 // We should not have a default attribute in this case.
 
 // DECL-LABEL: OpWithDefaultAndSuccessor declarations
-// DECL-DAG: static void build({{.*}}, bool dv_bool_attr, ::mlir::BlockRange succ)
+// DECL-DAG: static LLVM_ATTRIBUTE_MINSIZE void build({{.*}}, bool dv_bool_attr, ::mlir::BlockRange succ)
 
 // DEF-LABEL: MixOperandsAndAttrs definitions
-// DEF-DAG: void MixOperandsAndAttrs::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::FloatAttr attr, ::mlir::Value operand, ::mlir::FloatAttr otherAttr, ::mlir::Value otherArg)
+// DEF-DAG: LLVM_ATTRIBUTE_MINSIZE void MixOperandsAndAttrs::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::FloatAttr attr, ::mlir::Value operand, ::mlir::FloatAttr otherAttr, ::mlir::Value otherArg)
 // DEF-DAG: ::llvm::APFloat MixOperandsAndAttrs::getAttr()
 // DEF-DAG: ::llvm::APFloat MixOperandsAndAttrs::getOtherAttr()
 

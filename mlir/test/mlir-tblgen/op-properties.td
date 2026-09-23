@@ -66,7 +66,7 @@ def OpWithOptionalPropsAndAttrs :
 // -----
 
 // DECL-LABEL: class OpWithOptionalPropsAndAttrs :
-// DECL: static void build(
+// DECL: static LLVM_ATTRIBUTE_MINSIZE void build(
 // DECL-SAME: ::mlir::OpBuilder &odsBuilder,
 // DECL-SAME: ::mlir::OperationState &odsState,
 // DECL-SAME: /*optional*/std::optional<bool> mustSpecify,
@@ -103,7 +103,7 @@ def OpWithOptionalPropsAndAttrs :
 // DECL: setString(::llvm::StringRef newString)
 // DECL-NEXT: getProperties().setString(newString)
 
-// DECL: static void build(
+// DECL: static LLVM_ATTRIBUTE_MINSIZE void build(
 // DECL-SAME: ::mlir::OpBuilder &odsBuilder,
 // DECL-SAME: ::mlir::OperationState &odsState,
 // DECL-SAME: bool flag,
@@ -123,7 +123,7 @@ def OpWithOptionalPropsAndAttrs :
 // -----
 
 // DECL-LABEL: class OpWithSomeOptionalProperties :
-// DECL: static void build(
+// DECL: static LLVM_ATTRIBUTE_MINSIZE void build(
 // DECL-SAME: ::mlir::OpBuilder &odsBuilder,
 // DECL-SAME: ::mlir::OperationState &odsState,
 // DECL-SAME: /*optional*/std::optional<int64_t> mustSpecify,
