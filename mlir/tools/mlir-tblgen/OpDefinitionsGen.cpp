@@ -2423,10 +2423,12 @@ void OpEmitter::genInlineCreateBody(
         param.isOptional());
     nonBuilderStateArgsList.push_back(param.getName());
   }
-  auto *cWithLoc = opClass.addStaticMethod(opClass.getClassName(), "create",
-                                           createParamListOpBuilder);
+  auto *cWithLoc = opClass.addStaticMethod("LLVM_ATTRIBUTE_MINSIZE " +
+                                               opClass.getClassName(),
+                                           "create", createParamListOpBuilder);
   auto *cImplicitLoc = opClass.addStaticMethod(
-      opClass.getClassName(), "create", createParamListImplicitLocOpBuilder);
+      "LLVM_ATTRIBUTE_MINSIZE " + opClass.getClassName(), "create",
+      createParamListImplicitLocOpBuilder);
   if (deprecated) {
     if (cWithLoc)
       cWithLoc->setDeprecated(legacyBuilderDeprecation);

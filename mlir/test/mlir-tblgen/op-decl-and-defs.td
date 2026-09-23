@@ -116,36 +116,36 @@ def NS_AOp : NS_Op<"a_op", [IsolatedFromAbove, IsolatedFromAbove]> {
 // CHECK:   ::std::optional< ::llvm::APFloat > getSomeAttr2();
 // CHECK:   ::mlir::Attribute removeSomeAttr2Attr() {
 // CHECK:   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, Value val);
-// CHECK:   static AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, Value val);
-// CHECK:   static AOp create(::mlir::ImplicitLocOpBuilder &builder, Value val);
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, Value val);
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::ImplicitLocOpBuilder &builder, Value val);
 // CHECK:   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, int integer = 0);
-// CHECK:   static AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, int integer = 0);
-// CHECK:   static AOp create(::mlir::ImplicitLocOpBuilder &builder, int integer = 0);
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, int integer = 0);
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::ImplicitLocOpBuilder &builder, int integer = 0);
 // CHECK{LITERAL}:   [[deprecated("the deprecation message")]]
 // CHECK:   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, float something);
-// CHECK:   static AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, float something);
-// CHECK:   static AOp create(::mlir::ImplicitLocOpBuilder &builder, float something);
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, float something);
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::ImplicitLocOpBuilder &builder, float something);
 // CHECK:   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type r, ::mlir::TypeRange s, ::mlir::Value a, ::mlir::ValueRange b, ::mlir::IntegerAttr attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount)
-// CHECK:   static AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Type r, ::mlir::TypeRange s, ::mlir::Value a, ::mlir::ValueRange b, ::mlir::IntegerAttr attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount)
-// CHECK:   static AOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Type r, ::mlir::TypeRange s, ::mlir::Value a, ::mlir::ValueRange b, ::mlir::IntegerAttr attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount)
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Type r, ::mlir::TypeRange s, ::mlir::Value a, ::mlir::ValueRange b, ::mlir::IntegerAttr attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount)
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Type r, ::mlir::TypeRange s, ::mlir::Value a, ::mlir::ValueRange b, ::mlir::IntegerAttr attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount)
 // CHECK:   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::ValueRange b, ::mlir::IntegerAttr attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount);
-// CHECK:   static AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::ValueRange b, ::mlir::IntegerAttr attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount);
-// CHECK:   static AOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::ValueRange b, ::mlir::IntegerAttr attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount);
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::ValueRange b, ::mlir::IntegerAttr attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount);
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::ValueRange b, ::mlir::IntegerAttr attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount);
 // CHECK:   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type r, ::mlir::TypeRange s, ::mlir::Value a, ::mlir::ValueRange b, uint32_t attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount)
-// CHECK:   static AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Type r, ::mlir::TypeRange s, ::mlir::Value a, ::mlir::ValueRange b, uint32_t attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount)
-// CHECK:   static AOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Type r, ::mlir::TypeRange s, ::mlir::Value a, ::mlir::ValueRange b, uint32_t attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount)
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Type r, ::mlir::TypeRange s, ::mlir::Value a, ::mlir::ValueRange b, uint32_t attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount)
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Type r, ::mlir::TypeRange s, ::mlir::Value a, ::mlir::ValueRange b, uint32_t attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount)
 // CHECK:   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::ValueRange b, uint32_t attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount);
-// CHECK:   static AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::ValueRange b, uint32_t attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount);
-// CHECK:   static AOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::ValueRange b, uint32_t attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount);
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::ValueRange b, uint32_t attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount);
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::ValueRange b, uint32_t attr1, /*optional*/::mlir::FloatAttr some_attr2, unsigned someRegionsCount);
 // CHECK{LITERAL}:   [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
 // CHECK-NEXT:   static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes, unsigned numRegions)
 // CHECK{LITERAL}:   [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
-// CHECK-NEXT:   static AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes, unsigned numRegions)
+// CHECK-NEXT:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes, unsigned numRegions)
 // CHECK{LITERAL}:   [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
-// CHECK-NEXT:   static AOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes, unsigned numRegions)
+// CHECK-NEXT:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes, unsigned numRegions)
 // CHECK-NEXT:   static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes, unsigned numRegions)
-// CHECK-NEXT:   static AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes, unsigned numRegions)
-// CHECK-NEXT:   static AOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes, unsigned numRegions)
+// CHECK-NEXT:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes, unsigned numRegions)
+// CHECK-NEXT:   static LLVM_ATTRIBUTE_MINSIZE AOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes, unsigned numRegions)
 // CHECK:   static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
 // CHECK:   void print(::mlir::OpAsmPrinter &p);
 // CHECK:   ::llvm::LogicalResult verifyInvariants();
@@ -244,8 +244,8 @@ def NS_EOp : NS_Op<"op_with_optionals", []> {
 // CHECK:   ::mlir::MutableOperandRange getAMutable();
 // CHECK:   ::mlir::TypedValue<::mlir::FloatType> getB() {
 // CHECK:   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, /*optional*/::mlir::Type b, /*optional*/::mlir::Value a)
-// CHECK:   static EOp create(::mlir::OpBuilder &builder, ::mlir::Location location, /*optional*/::mlir::Type b, /*optional*/::mlir::Value a)
-// CHECK:   static EOp create(::mlir::ImplicitLocOpBuilder &builder, /*optional*/::mlir::Type b, /*optional*/::mlir::Value a)
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE EOp create(::mlir::OpBuilder &builder, ::mlir::Location location, /*optional*/::mlir::Type b, /*optional*/::mlir::Value a)
+// CHECK:   static LLVM_ATTRIBUTE_MINSIZE EOp create(::mlir::ImplicitLocOpBuilder &builder, /*optional*/::mlir::Type b, /*optional*/::mlir::Value a)
 
 // Check that all types match constraint results in generating builder.
 // ---
@@ -264,7 +264,7 @@ def NS_FOp : NS_Op<"op_with_all_types_constraint",
 // DEFS:   else
 // DEFS:     ::mlir::detail::reportFatalInferReturnTypesError(odsState);
 
-// DEFS: FOp FOp::create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Value a) {
+// DEFS: LLVM_ATTRIBUTE_MINSIZE FOp FOp::create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Value a) {
 // DEFS:   ::mlir::OperationState __state__(location, getOperationName());
 // DEFS:   build(builder, __state__, std::forward<decltype(a)>(a));
 // DEFS:   auto __res__ = builder.create(__state__);
@@ -272,7 +272,7 @@ def NS_FOp : NS_Op<"op_with_all_types_constraint",
 // DEFS:   return ::llvm::cast<FOp>(__res__);
 // DEFS: }
 
-// DEFS: FOp FOp::create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Value a) {
+// DEFS: LLVM_ATTRIBUTE_MINSIZE FOp FOp::create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Value a) {
 // DEFS:   return create(builder, builder.getLoc(), std::forward<decltype(a)>(a));
 // DEFS: }
 
@@ -286,21 +286,21 @@ def NS_FirstAttrDerivedOp : NS_Op<"first_attr_derived",
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
 // CHECK-NEXT: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
-// CHECK-NEXT: static FirstAttrDerivedOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE FirstAttrDerivedOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
-// CHECK-NEXT: static FirstAttrDerivedOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE FirstAttrDerivedOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK-NEXT: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK-NEXT: static FirstAttrDerivedOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK-NEXT: static FirstAttrDerivedOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE FirstAttrDerivedOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE FirstAttrDerivedOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
 // CHECK-NEXT: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
-// CHECK-NEXT: static FirstAttrDerivedOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE FirstAttrDerivedOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
-// CHECK-NEXT: static FirstAttrDerivedOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE FirstAttrDerivedOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK-NEXT: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK-NEXT: static FirstAttrDerivedOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK-NEXT: static FirstAttrDerivedOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE FirstAttrDerivedOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE FirstAttrDerivedOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
 
 def NS_GOp : NS_Op<"op_with_fixed_return_type", []> {
   let arguments = (ins AnyType:$a);
@@ -319,17 +319,17 @@ def NS_HCollectiveParamsOp : NS_Op<"op_collective_params", []> {
 
 // CHECK-LABEL: class HCollectiveParamsOp :
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type b, ::mlir::Value a);
-// CHECK: static HCollectiveParamsOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Type b, ::mlir::Value a);
-// CHECK: static HCollectiveParamsOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Type b, ::mlir::Value a);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Type b, ::mlir::Value a);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Type b, ::mlir::Value a);
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value a);
-// CHECK: static HCollectiveParamsOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::Value a);
-// CHECK: static HCollectiveParamsOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::Value a);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::Value a);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::Value a);
 // CHECK: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {})
-// CHECK: static HCollectiveParamsOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {})
-// CHECK: static HCollectiveParamsOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {})
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {})
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {})
 // CHECK: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {})
-// CHECK: static HCollectiveParamsOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {})
-// CHECK: static HCollectiveParamsOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {})
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {})
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {})
 
 // Check suppression of "separate arg, separate result" build method for an op
 // with single variadic arg and single variadic result (since it will be
@@ -341,12 +341,12 @@ def NS_HCollectiveParamsSuppress0Op : NS_Op<"op_collective_suppress0", []> {
 
 // CHECK-LABEL: class HCollectiveParamsSuppress0Op :
 // CHECK-NOT: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange b, ::mlir::ValueRange a);
-// CHECK-NOT: static HCollectiveParamsSuppress0Op create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange b, ::mlir::ValueRange a);
-// CHECK-NOT: static HCollectiveParamsSuppress0Op create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange b, ::mlir::ValueRange a);
+// CHECK-NOT: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsSuppress0Op create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange b, ::mlir::ValueRange a);
+// CHECK-NOT: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsSuppress0Op create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange b, ::mlir::ValueRange a);
 // CHECK-NOT: use the overload taking Properties and discardableAttributes instead
 // CHECK: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-// CHECK: static HCollectiveParamsSuppress0Op create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-// CHECK: static HCollectiveParamsSuppress0Op create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsSuppress0Op create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsSuppress0Op create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 
 // Check suppression of "separate arg, collective result" build method for an op
 // with single variadic arg and non variadic result (since it will be
@@ -358,11 +358,11 @@ def NS_HCollectiveParamsSuppress1Op : NS_Op<"op_collective_suppress1", []> {
 
 // CHECK-LABEL: class HCollectiveParamsSuppress1Op :
 // CHECK-NOT: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange b, ::mlir::ValueRange a);
-// CHECK-NOT: static HCollectiveParamsSuppress1Op create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange b, ::mlir::ValueRange a);
-// CHECK-NOT: static HCollectiveParamsSuppress1Op create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange b, ::mlir::ValueRange a);
+// CHECK-NOT: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsSuppress1Op create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange b, ::mlir::ValueRange a);
+// CHECK-NOT: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsSuppress1Op create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange b, ::mlir::ValueRange a);
 // CHECK: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-// CHECK: static HCollectiveParamsSuppress1Op create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-// CHECK: static HCollectiveParamsSuppress1Op create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsSuppress1Op create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsSuppress1Op create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 
 // Check suppression of "separate arg, collective result" build method for an op
 // with single variadic arg and > 1 variadic result (since it will be
@@ -375,14 +375,14 @@ def NS_HCollectiveParamsSuppress2Op : NS_Op<"op_collective_suppress2", [SameVari
 }
 // CHECK-LABEL: class HCollectiveParamsSuppress2Op :
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange b, ::mlir::TypeRange c, ::mlir::ValueRange a);
-// CHECK: static HCollectiveParamsSuppress2Op create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange b, ::mlir::TypeRange c, ::mlir::ValueRange a);
-// CHECK: static HCollectiveParamsSuppress2Op create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange b, ::mlir::TypeRange c, ::mlir::ValueRange a);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsSuppress2Op create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange b, ::mlir::TypeRange c, ::mlir::ValueRange a);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsSuppress2Op create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange b, ::mlir::TypeRange c, ::mlir::ValueRange a);
 // CHECK-NOT: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange b, ::mlir::ValueRange a);
-// CHECK-NOT: static HCollectiveParamsSuppress2Op create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange b, ::mlir::ValueRange a);
-// CHECK-NOT: static HCollectiveParamsSuppress2Op create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange b, ::mlir::ValueRange a);
+// CHECK-NOT: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsSuppress2Op create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange b, ::mlir::ValueRange a);
+// CHECK-NOT: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsSuppress2Op create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange b, ::mlir::ValueRange a);
 // CHECK: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-// CHECK: static HCollectiveParamsSuppress2Op create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-// CHECK: static HCollectiveParamsSuppress2Op create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsSuppress2Op create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE HCollectiveParamsSuppress2Op create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 
 // Check default value of `attributes` for the `genUseOperandAsResultTypeCollectiveParamBuilder` builder
 def NS_IOp : NS_Op<"op_with_same_operands_and_result_types_trait", [SameOperandsAndResultType]> {
@@ -391,32 +391,32 @@ def NS_IOp : NS_Op<"op_with_same_operands_and_result_types_trait", [SameOperands
 }
 // CHECK-LABEL: class IOp :
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b);
-// CHECK: static IOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b);
-// CHECK: static IOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE IOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE IOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b);
 
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value a, ::mlir::Value b);
-// CHECK: static IOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Value a, ::mlir::Value b);
-// CHECK: static IOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Value a, ::mlir::Value b);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE IOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Value a, ::mlir::Value b);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE IOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Value a, ::mlir::Value b);
 
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b);
-// CHECK: static IOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b);
-// CHECK: static IOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE IOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE IOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b);
 
 // CHECK: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-// CHECK: static IOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-// CHECK: static IOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE IOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE IOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-// CHECK: static IOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-// CHECK: static IOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE IOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE IOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 
 // CHECK: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK: static IOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK: static IOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE IOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE IOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
 
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK: static IOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK: static IOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE IOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE IOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
 
 // Check default value of `attributes` for the `genInferredTypeCollectiveParamBuilder` builder
 def NS_JOp : NS_Op<"op_with_InferTypeOpInterface_interface", [DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
@@ -425,32 +425,32 @@ def NS_JOp : NS_Op<"op_with_InferTypeOpInterface_interface", [DeclareOpInterface
 }
 // CHECK-LABEL: class JOp :
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b);
-// CHECK: static JOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b);
-// CHECK: static JOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE JOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE JOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b);
 
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value a, ::mlir::Value b);
-// CHECK: static JOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Value a, ::mlir::Value b);
-// CHECK: static JOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Value a, ::mlir::Value b);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE JOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Value a, ::mlir::Value b);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE JOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Value a, ::mlir::Value b);
 
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b);
-// CHECK: static JOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b);
-// CHECK: static JOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE JOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE JOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b);
 
 // CHECK: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-// CHECK: static JOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-// CHECK: static JOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE JOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE JOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-// CHECK: static JOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-// CHECK: static JOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE JOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE JOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 
 // CHECK: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK: static JOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK: static JOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE JOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE JOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
 
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK: static JOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK: static JOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE JOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE JOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
 
 // Test usage of TraitList getting flattened during emission.
 def NS_KOp : NS_Op<"k_op", [IsolatedFromAbove,
@@ -480,47 +480,47 @@ def NS_LOp : NS_Op<"op_with_same_operands_and_result_types_unwrapped_attr", [Sam
 }
 // CHECK-LABEL: class LOp :
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
-// CHECK: static LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
-// CHECK: static LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
 
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
-// CHECK: static LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
-// CHECK: static LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
 
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
-// CHECK: static LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
-// CHECK: static LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b, ::mlir::IntegerAttr attr1);
 
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
-// CHECK: static LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
-// CHECK: static LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Type r, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
 
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
-// CHECK: static LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
-// CHECK: static LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
 
 // CHECK: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
-// CHECK: static LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
-// CHECK: static LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
+// CHECK: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::Value a, ::mlir::Value b, uint32_t attr1);
 
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
 // CHECK-NEXT: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
-// CHECK-NEXT: static LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
-// CHECK-NEXT: static LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
 // CHECK-NEXT: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
-// CHECK-NEXT: static LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
-// CHECK-NEXT: static LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK-NEXT: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK-NEXT: static LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK-NEXT: static LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
 // CHECK-NEXT: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK-NEXT: static LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK-NEXT: static LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE LOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
 
 def NS_MOp : NS_Op<"op_with_single_result_and_fold_adaptor_fold", []> {
   let results = (outs AnyType:$res);
@@ -616,18 +616,18 @@ def _TypeInferredPropOp : NS_Op<"type_inferred_prop_op_with_properties", [
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
 // CHECK-NEXT: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
-// CHECK-NEXT: static _TypeInferredPropOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE _TypeInferredPropOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
-// CHECK-NEXT: static _TypeInferredPropOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE _TypeInferredPropOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
 // CHECK-NEXT: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
-// CHECK-NEXT: static _TypeInferredPropOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE _TypeInferredPropOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK{LITERAL}: [[deprecated("use the overload taking Properties and discardableAttributes instead")]]
-// CHECK-NEXT: static _TypeInferredPropOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE _TypeInferredPropOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
 // CHECK-NEXT: static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK-NEXT: static _TypeInferredPropOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK-NEXT: static _TypeInferredPropOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE _TypeInferredPropOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE _TypeInferredPropOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
 // CHECK-NEXT: static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK-NEXT: static _TypeInferredPropOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
-// CHECK-NEXT: static _TypeInferredPropOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE _TypeInferredPropOp create(::mlir::OpBuilder &builder, ::mlir::Location location, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
+// CHECK-NEXT: static LLVM_ATTRIBUTE_MINSIZE _TypeInferredPropOp create(::mlir::ImplicitLocOpBuilder &builder, ::mlir::ValueRange operands, const Properties &properties, ::llvm::ArrayRef<::mlir::NamedAttribute> discardableAttributes = {});
