@@ -1,5 +1,6 @@
 // RUN: mlir-tblgen -gen-op-defs -I %S/../../include %s | FileCheck %s
 // RUN: mlir-tblgen -gen-op-defs -I %S/../../include %s | FileCheck %s --check-prefix=PROP-ENUM
+// RUN: mlir-tblgen -gen-op-defs -I %S/../../include %s | FileCheck %s --check-prefix=GROUPED
 
 include "mlir/IR/OpBase.td"
 include "mlir/IR/EnumAttr.td"
@@ -490,6 +491,19 @@ def SeparatedOilistDispatch : TestFormat_Op<[{
 def SharedOilistDispatch : TestFormat_Op<[{
   oilist(`foo` | `bar`) attr-dict
 }]>;
+
+// GROUPED-LABEL: GroupedOptionalAttrPrint::print
+// GROUPED: const ::mlir::detail::OptionalKeywordAttribute _odsOptionalAttrs[] = {
+// GROUPED: {"first", getFirstAttr()},
+// GROUPED: {"second", getSecondAttr()},
+// GROUPED: ::mlir::detail::printOptionalKeywordAttributes(_odsPrinter, _odsOptionalAttrs);
+def GroupedOptionalAttrPrint : TestFormat_Op<[{
+  oilist(`entry` (`first` `(` $first^ `)`)?
+                 (`second` `(` $second^ `)`)?) attr-dict
+}]> {
+  let arguments = (ins OptionalAttr<DenseI64ArrayAttr>:$first,
+                       OptionalAttr<DenseI64ArrayAttr>:$second);
+}
 
 // CHECK-LABEL: SuccessorRef::parse
 // CHECK:   auto odsResult = parseCustom(parser, successorSuccessor);

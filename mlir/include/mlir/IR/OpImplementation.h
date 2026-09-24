@@ -1862,6 +1862,15 @@ private:
   Group groups[N];
 };
 
+/// A keyword and an optional attribute printed immediately after an oilist
+/// clause. The attribute is printed without its type inside parentheses.
+struct OptionalKeywordAttribute {
+  StringRef keyword;
+  DenseI64ArrayAttr attribute;
+};
+void printOptionalKeywordAttributes(
+    OpAsmPrinter &printer, ArrayRef<OptionalKeywordAttribute> attributes);
+
 /// Parse the first matching keyword in an order-independent clause list.
 /// Returns its index, or -1 without consuming input when no keyword matches.
 int parseOptionalOilistKeyword(OpAsmParser &parser,

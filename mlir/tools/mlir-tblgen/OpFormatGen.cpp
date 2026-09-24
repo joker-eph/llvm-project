@@ -3091,6 +3091,41 @@ static void genEnumAttrPrinter(const NamedAttribute *var, const Operator &op,
           "  }\n";
 }
 
+/// Recognize an optional attribute printed as `keyword` `(` $attr^ `)`.
+/// Only match the form whose generated printer uses printStrippedAttrOrType.
+struct OptionalKeywordAttrPrinter {
+  StringRef keyword;
+  const NamedAttribute *attribute;
+};
+static std::optional<OptionalKeywordAttrPrinter>
+matchOptionalKeywordAttrPrinter(FormatElement *element) {
+  auto *optional = dyn_cast<OptionalElement>(element);
+  if (!optional || optional->isInverted() ||
+      !optional->getElseElements().empty())
+    return std::nullopt;
+  auto *variable = dyn_cast<AttributeVariable>(optional->getAnchor());
+  if (!variable)
+    return std::nullopt;
+  const NamedAttribute *named = variable->getVar();
+  Attribute attr = named->attr;
+  if (!attr.isOptional() || attr.hasDefaultValue() ||
+      variable->shouldFormatAsEnum() || canFormatEnumAttr(named) ||
+      shouldFormatSymbolNameAttr(named) || variable->getTypeBuilder() ||
+      variable->shouldBeQualified() ||
+      attr.getStorageType() != "::mlir::DenseI64ArrayAttr")
+    return std::nullopt;
+  ArrayRef<FormatElement *> thenElements = optional->getThenElements();
+  if (thenElements.size() != 4 || thenElements[2] != variable)
+    return std::nullopt;
+  auto *keyword = dyn_cast<LiteralElement>(thenElements[0]);
+  auto *open = dyn_cast<LiteralElement>(thenElements[1]);
+  auto *close = dyn_cast<LiteralElement>(thenElements[3]);
+  if (!keyword || !open || open->getSpelling() != "(" || !close ||
+      close->getSpelling() != ")")
+    return std::nullopt;
+  return OptionalKeywordAttrPrinter{keyword->getSpelling(), named};
+}
+
 /// Generate the check for the anchor of an optional group.
 static void genOptionalGroupPrinterAnchor(FormatElement *anchor,
                                           const Operator &op,
@@ -3287,9 +3322,38 @@ void OperationFormat::genElementPrinter(FormatElement *element,
       genLiteralPrinter(lelement->getSpelling(), body, shouldEmitSpace,
                         lastWasPunctuation);
       if (oilist->getUnitVariableParsingElement(pelement) == nullptr) {
-        for (FormatElement *element : pelement)
-          genElementPrinter(element, body, op, shouldEmitSpace,
+        for (size_t i = 0; i < pelement.size();) {
+          SmallVector<OptionalKeywordAttrPrinter> attrs;
+          bool emitSpace = shouldEmitSpace;
+          bool punctuation = lastWasPunctuation;
+          for (size_t j = i; j < pelement.size(); ++j) {
+            auto attr = matchOptionalKeywordAttrPrinter(pelement[j]);
+            if (!attr || !emitSpace ||
+                !shouldEmitSpaceBefore(attr->keyword, punctuation))
+              break;
+            attrs.push_back(*attr);
+            // The matched group ends with `)`, which leaves a space before
+            // the next keyword and marks the last token as punctuation.
+            emitSpace = punctuation = true;
+          }
+          if (attrs.size() >= 2) {
+            body << "  {\n"
+                    "    const ::mlir::detail::OptionalKeywordAttribute "
+                    "_odsOptionalAttrs[] = {\n";
+            for (const auto &attr : attrs)
+              body << "      {\"" << attr.keyword << "\", "
+                   << op.getGetterName(attr.attribute->name) << "Attr()},\n";
+            body << "    };\n"
+                    "    ::mlir::detail::printOptionalKeywordAttributes("
+                    "_odsPrinter, _odsOptionalAttrs);\n"
+                    "  }\n";
+            shouldEmitSpace = lastWasPunctuation = true;
+            i += attrs.size();
+            continue;
+          }
+          genElementPrinter(pelement[i++], body, op, shouldEmitSpace,
                             lastWasPunctuation);
+        }
       }
       body << "  }\n";
     }

@@ -4307,6 +4307,17 @@ raw_ostream &mlir::operator<<(raw_ostream &os, Block &block) {
 //===--------------------------------------------------------------------===//
 namespace mlir {
 
+void detail::printOptionalKeywordAttributes(
+    OpAsmPrinter &printer, ArrayRef<detail::OptionalKeywordAttribute> attrs) {
+  for (auto [keyword, attr] : attrs) {
+    if (!attr)
+      continue;
+    printer << " " << keyword << "(";
+    printer.printStrippedAttrOrType(attr);
+    printer << ")";
+  }
+}
+
 void printDimensionList(OpAsmPrinter &printer, Operation *op,
                         ArrayRef<int64_t> dimensions) {
   if (dimensions.empty())
