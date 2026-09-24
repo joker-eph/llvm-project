@@ -1683,7 +1683,7 @@ struct AllRegionPrintArgs {
 } // namespace
 
 static void printClauseWithRegionArgs(
-    OpAsmPrinter &p, MLIRContext *ctx, StringRef clauseName,
+    OpAsmPrinter &p, MLIRContext *, StringRef clauseName,
     ValueRange argsSubrange, ValueRange operands, TypeRange types,
     ArrayAttr symbols = nullptr, DenseI64ArrayAttr mapIndices = nullptr,
     DenseBoolArrayAttr byref = nullptr,
@@ -1696,36 +1696,25 @@ static void printClauseWithRegionArgs(
   if (modifier)
     p << "mod: " << stringifyReductionModifier(modifier.getValue()) << ", ";
 
-  if (!symbols) {
-    llvm::SmallVector<Attribute> values(operands.size(), nullptr);
-    symbols = ArrayAttr::get(ctx, values);
+  assert(argsSubrange.size() == operands.size());
+  assert(!symbols || symbols.size() == operands.size());
+  assert(!mapIndices || mapIndices.asArrayRef().size() == operands.size());
+  assert(!byref || byref.asArrayRef().size() == operands.size());
+
+  ArrayRef<int64_t> maps =
+      mapIndices ? mapIndices.asArrayRef() : ArrayRef<int64_t>();
+  ArrayRef<bool> byrefValues = byref ? byref.asArrayRef() : ArrayRef<bool>();
+  for (size_t i = 0; i < operands.size(); ++i) {
+    if (i)
+      p << ", ";
+    if (byref && byrefValues[i])
+      p << "byref ";
+    if (symbols && symbols[i])
+      p << symbols[i] << " ";
+    p << operands[i] << " -> " << argsSubrange[i];
+    if (mapIndices && maps[i] != -1)
+      p << " [map_idx=" << maps[i] << "]";
   }
-
-  if (!mapIndices) {
-    llvm::SmallVector<int64_t> values(operands.size(), -1);
-    mapIndices = DenseI64ArrayAttr::get(ctx, values);
-  }
-
-  if (!byref) {
-    mlir::SmallVector<bool> values(operands.size(), false);
-    byref = DenseBoolArrayAttr::get(ctx, values);
-  }
-
-  llvm::interleaveComma(llvm::zip_equal(operands, argsSubrange, symbols,
-                                        mapIndices.asArrayRef(),
-                                        byref.asArrayRef()),
-                        p, [&p](auto t) {
-                          auto [op, arg, sym, map, isByRef] = t;
-                          if (isByRef)
-                            p << "byref ";
-                          if (sym)
-                            p << sym << " ";
-
-                          p << op << " -> " << arg;
-
-                          if (map != -1)
-                            p << " [map_idx=" << map << "]";
-                        });
   p << " : ";
   llvm::interleaveComma(types, p);
   p << ") ";
