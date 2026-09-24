@@ -192,6 +192,49 @@ public:
         : name(name), typeID(typeID), dialect(dialect),
           interfaceMap(std::move(interfaceMap)) {}
 
+    /// Typed property callbacks for a registered operation. The virtual
+    /// entry points are shared by all registered operation types.
+    struct PropertyFns {
+      std::optional<Attribute> (*getInherentAttr)(Operation *, StringRef);
+      void (*setInherentAttr)(Operation *, StringAttr, Attribute);
+      void (*walkInherentAttrs)(Operation *, InherentAttrVisitor);
+      LogicalResult (*verifyInherentAttrs)(OperationName, NamedAttrList &,
+                                           function_ref<InFlightDiagnostic()>);
+      int propertyByteSize;
+      void (*initProperties)(OperationName, PropertyRef, PropertyRef);
+      void (*deleteProperties)(PropertyRef);
+      void (*populateDefaultProperties)(OperationName, PropertyRef);
+      LogicalResult (*setPropertiesFromAttr)(
+          OperationName, PropertyRef, Attribute,
+          function_ref<InFlightDiagnostic()>);
+      Attribute (*getPropertiesAsAttr)(Operation *);
+      void (*copyProperties)(PropertyRef, PropertyRef);
+      bool (*compareProperties)(PropertyRef, PropertyRef);
+      llvm::hash_code (*hashProperties)(PropertyRef);
+    };
+
+    std::optional<Attribute> getInherentAttr(Operation *op,
+                                             StringRef name) override;
+    void setInherentAttr(Operation *op, StringAttr name,
+                         Attribute value) override;
+    void walkInherentAttrs(Operation *op, InherentAttrVisitor visitor) override;
+    LogicalResult
+    verifyInherentAttrs(OperationName opName, NamedAttrList &attributes,
+                        function_ref<InFlightDiagnostic()> emitError) override;
+    int getOpPropertyByteSize() override;
+    void initProperties(OperationName opName, PropertyRef storage,
+                        PropertyRef init) override;
+    void deleteProperties(PropertyRef properties) override;
+    void populateDefaultProperties(OperationName opName,
+                                   PropertyRef properties) override;
+    LogicalResult setPropertiesFromAttr(
+        OperationName opName, PropertyRef properties, Attribute attr,
+        function_ref<InFlightDiagnostic()> emitError) override;
+    Attribute getPropertiesAsAttr(Operation *op) override;
+    void copyProperties(PropertyRef lhs, PropertyRef rhs) override;
+    bool compareProperties(PropertyRef lhs, PropertyRef rhs) override;
+    llvm::hash_code hashProperties(PropertyRef properties) override;
+
     /// Returns true if this is a registered operation.
     bool isRegistered() const { return typeID != TypeID::get<void>(); }
     detail::InterfaceMap &getInterfaceMap() { return interfaceMap; }
@@ -228,6 +271,8 @@ public:
     /// The TypeID of the Properties struct for this operation.
     TypeID propertiesTypeID;
 
+    /// The typed property callbacks for a registered operation.
+    const PropertyFns *propertyFns = nullptr;
     friend class RegisteredOperationName;
   };
 
@@ -591,6 +636,7 @@ public:
         : Impl(ConcreteOp::getOperationName(), dialect,
                TypeID::get<ConcreteOp>(), ConcreteOp::getInterfaceMap()) {
       propertiesTypeID = TypeID::get<Properties>();
+      propertyFns = &getPropertyFns();
     }
     LogicalResult foldHook(Operation *op, ArrayRef<Attribute> attrs,
                            SmallVectorImpl<OpFoldResult> &results) final {
@@ -619,10 +665,28 @@ public:
       return ConcreteOp::getVerifyRegionInvariantsFn()(op);
     }
 
+    static const PropertyFns &getPropertyFns() {
+      static constexpr PropertyFns fns = {
+          &modelGetInherentAttr,
+          &modelSetInherentAttr,
+          &modelWalkInherentAttrs,
+          &modelVerifyInherentAttrs,
+          hasProperties ? static_cast<int>(sizeof(Properties)) : 0,
+          &modelInitProperties,
+          &modelDeleteProperties,
+          &modelPopulateDefaultProperties,
+          &modelSetPropertiesFromAttr,
+          &modelGetPropertiesAsAttr,
+          &modelCopyProperties,
+          &modelCompareProperties,
+          &modelHashProperties};
+      return fns;
+    }
+
     /// Implementation for "Properties"
 
-    std::optional<Attribute> getInherentAttr(Operation *op,
-                                             StringRef name) final {
+    LLVM_ATTRIBUTE_MINSIZE static std::optional<Attribute>
+    modelGetInherentAttr(Operation *op, StringRef name) {
       if constexpr (hasProperties) {
         auto concreteOp = cast<ConcreteOp>(op);
         return ConcreteOp::getInherentAttr(concreteOp->getContext(),
@@ -630,8 +694,8 @@ public:
       }
       return std::nullopt;
     }
-    void setInherentAttr(Operation *op, StringAttr name,
-                         Attribute value) final {
+    LLVM_ATTRIBUTE_MINSIZE static void
+    modelSetInherentAttr(Operation *op, StringAttr name, Attribute value) {
       if constexpr (hasProperties) {
         auto concreteOp = cast<ConcreteOp>(op);
         return ConcreteOp::setInherentAttr(concreteOp.getProperties(), name,
@@ -640,16 +704,17 @@ public:
       llvm_unreachable(
           "Can't call setInherentAttr on operation with empty properties");
     }
-    void walkInherentAttrs(Operation *op, InherentAttrVisitor visitor) final {
+    LLVM_ATTRIBUTE_MINSIZE static void
+    modelWalkInherentAttrs(Operation *op, InherentAttrVisitor visitor) {
       if constexpr (hasProperties) {
         auto concreteOp = cast<ConcreteOp>(op);
         ConcreteOp::walkInherentAttrs(concreteOp->getContext(),
                                       concreteOp.getProperties(), visitor);
       }
     }
-    LogicalResult
-    verifyInherentAttrs(OperationName opName, NamedAttrList &attributes,
-                        function_ref<InFlightDiagnostic()> emitError) final {
+    static LogicalResult
+    modelVerifyInherentAttrs(OperationName opName, NamedAttrList &attributes,
+                             function_ref<InFlightDiagnostic()> emitError) {
       if constexpr (hasProperties)
         return ConcreteOp::verifyInherentAttrs(opName, attributes, emitError);
       return success();
@@ -659,13 +724,8 @@ public:
         typename ConcreteOp::template InferredProperties<ConcreteOp>,
         EmptyProperties>;
 
-    int getOpPropertyByteSize() final {
-      if constexpr (hasProperties)
-        return sizeof(Properties);
-      return 0;
-    }
-    void initProperties(OperationName opName, PropertyRef storage,
-                        PropertyRef init) final {
+    static void modelInitProperties(OperationName opName, PropertyRef storage,
+                                    PropertyRef init) {
       using Properties =
           typename ConcreteOp::template InferredProperties<ConcreteOp>;
       if (init)
@@ -676,20 +736,20 @@ public:
         ConcreteOp::populateDefaultProperties(opName,
                                               *storage.as<Properties *>());
     }
-    void deleteProperties(PropertyRef prop) final {
+    static void modelDeleteProperties(PropertyRef prop) {
       prop.as<Properties *>()->~Properties();
     }
-    void populateDefaultProperties(OperationName opName,
-                                   PropertyRef properties) final {
+    static void modelPopulateDefaultProperties(OperationName opName,
+                                               PropertyRef properties) {
       if constexpr (hasProperties)
         ConcreteOp::populateDefaultProperties(opName,
                                               *properties.as<Properties *>());
     }
 
-    LogicalResult
-    setPropertiesFromAttr(OperationName opName, PropertyRef properties,
-                          Attribute attr,
-                          function_ref<InFlightDiagnostic()> emitError) final {
+    static LogicalResult
+    modelSetPropertiesFromAttr(OperationName opName, PropertyRef properties,
+                               Attribute attr,
+                               function_ref<InFlightDiagnostic()> emitError) {
       if constexpr (hasProperties) {
         auto p = properties.as<Properties *>();
         return ConcreteOp::setPropertiesFromAttr(*p, attr, emitError);
@@ -697,7 +757,7 @@ public:
       emitError() << "this operation has empty properties";
       return failure();
     }
-    Attribute getPropertiesAsAttr(Operation *op) final {
+    static Attribute modelGetPropertiesAsAttr(Operation *op) {
       if constexpr (hasProperties) {
         auto concreteOp = cast<ConcreteOp>(op);
         return ConcreteOp::getPropertiesAsAttr(concreteOp->getContext(),
@@ -705,15 +765,16 @@ public:
       }
       return {};
     }
-    bool compareProperties(PropertyRef lhs, PropertyRef rhs) final {
+    static bool modelCompareProperties(PropertyRef lhs, PropertyRef rhs) {
       if constexpr (hasProperties)
         return *lhs.as<Properties *>() == *rhs.as<Properties *>();
       return true;
     }
-    void copyProperties(PropertyRef lhs, PropertyRef rhs) final {
+    static void modelCopyProperties(PropertyRef lhs, PropertyRef rhs) {
       *lhs.as<Properties *>() = *rhs.as<Properties *>();
     }
-    llvm::hash_code hashProperties(PropertyRef prop) final {
+    LLVM_ATTRIBUTE_MINSIZE static llvm::hash_code
+    modelHashProperties(PropertyRef prop) {
       if constexpr (hasProperties)
         return ConcreteOp::computePropertiesHash(*prop.as<Properties *>());
 
