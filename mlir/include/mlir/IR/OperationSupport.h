@@ -69,6 +69,14 @@ namespace detail {
 void appendAttributeProperty(llvm::SmallVectorImpl<NamedAttribute> &attrs,
                              StringRef name, Attribute attr);
 
+/// Route legacy builder attributes to either the operation's properties or
+/// its discardable attribute dictionary. The callback handles conversion and
+/// diagnostics for the operation-specific properties.
+void splitPropertiesAndDiscardableAttributes(
+    OperationState &state, ArrayRef<NamedAttribute> attributes,
+    ArrayRef<StringRef> inherentNames,
+    llvm::function_ref<LogicalResult(DictionaryAttr)> setProperties);
+
 /// Check the operation type before constructing its registered model wrapper.
 bool isOperationOfType(Operation *op, TypeID typeID);
 
