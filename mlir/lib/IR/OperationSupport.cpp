@@ -19,6 +19,7 @@
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/ValueRange.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/SHA1.h"
 #include <numeric>
 #include <optional>
@@ -35,6 +36,12 @@ unsigned mlir::detail::lookupInherentAttrName(StringRef name,
 
 bool mlir::detail::isOperationOfType(Operation *op, TypeID typeID) {
   return op->getName().getTypeID() == typeID;
+}
+
+void mlir::detail::assertGeneratedOpInterfaceType(Operation *op,
+                                                  TypeID typeID) {
+  if (op->getName().getTypeID() != typeID)
+    llvm::report_fatal_error("operation type mismatch");
 }
 
 LogicalResult

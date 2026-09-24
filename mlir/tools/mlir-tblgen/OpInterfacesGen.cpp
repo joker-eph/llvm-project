@@ -423,9 +423,10 @@ void InterfaceGenerator::emitModelMethodsDef(const Interface &interface) {
         isa<OpInterface>(interface) && !method.isStatic() &&
         (!body || body->contains("$_op") || body->contains("$_self"));
     if (bindConcreteOp)
-      os << "assert(::mlir::detail::isOperationOfType(tablegen_opaque_val, "
-            "::mlir::TypeID::get<ConcreteOp>()) && \"operation type "
-            "mismatch\");\n  "
+      os << "#ifndef NDEBUG\n"
+            "  ::mlir::detail::assertGeneratedOpInterfaceType("
+            "tablegen_opaque_val, ::mlir::TypeID::get<ConcreteOp>());\n"
+            "#endif\n  "
             "ConcreteOp tablegen_concrete_op(tablegen_opaque_val);\n  ";
 
     // Check for a provided body to the function.
