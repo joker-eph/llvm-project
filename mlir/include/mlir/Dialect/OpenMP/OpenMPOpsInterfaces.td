@@ -304,31 +304,39 @@ def ComposableOpInterface : OpInterface<"ComposableOpInterface"> {
   let cppNamespace = "::mlir::omp";
 
   let methods = [
-    InterfaceMethod<
+    SharedOpInterfaceMethod<
       /*description=*/[{
         Check whether the operation is representing a leaf of a composite OpenMP
         construct.
       }],
       /*retTy=*/"bool",
       /*methodName=*/"isComposite",
-      (ins ), [{}], [{
+      (ins ), [{
+        return $_raw_op->hasDiscardableAttr("omp.composite");
+      }], [{
         return $_op->hasDiscardableAttr("omp.composite");
       }]
     >,
-    InterfaceMethod<
+    SharedOpInterfaceMethod<
       /*description=*/[{
         Mark the operation as part of an OpenMP composite construct.
       }],
       /*retTy=*/"void",
       /*methodName=*/"setComposite",
-      (ins "bool":$val), [{}], [{
+      (ins "bool":$val), [{
+        if (val)
+          $_raw_op->setDiscardableAttr("omp.composite",
+                                      mlir::UnitAttr::get($_raw_op->getContext()));
+        else
+          $_raw_op->removeDiscardableAttr("omp.composite");
+      }], [{
         if (val)
           $_op->setDiscardableAttr("omp.composite", mlir::UnitAttr::get($_op->getContext()));
         else
           $_op->removeDiscardableAttr("omp.composite");
       }]
     >,
-    InterfaceMethod<
+    SharedOpInterfaceMethod<
       /*description=*/[{
         Check whether the operation is representing a non-innermost child leaf
         of a combined OpenMP construct or an equivalent immediate nesting of
@@ -336,18 +344,26 @@ def ComposableOpInterface : OpInterface<"ComposableOpInterface"> {
       }],
       /*retTy=*/"bool",
       /*methodName=*/"isCombined",
-      (ins ), [{}], [{
+      (ins ), [{
+        return $_raw_op->hasDiscardableAttr("omp.combined");
+      }], [{
         return $_op->hasDiscardableAttr("omp.combined");
       }]
     >,
-    InterfaceMethod<
+    SharedOpInterfaceMethod<
       /*description=*/[{
         Mark the operation as a non-innermost child leaf of an OpenMP combined
         construct or an equivalent immediate nesting of constructs.
       }],
       /*retTy=*/"void",
       /*methodName=*/"setCombined",
-      (ins "bool":$val), [{}], [{
+      (ins "bool":$val), [{
+        if (val)
+          $_raw_op->setDiscardableAttr("omp.combined",
+                                      mlir::UnitAttr::get($_raw_op->getContext()));
+        else
+          $_raw_op->removeDiscardableAttr("omp.combined");
+      }], [{
         if (val)
           $_op->setDiscardableAttr("omp.combined", mlir::UnitAttr::get($_op->getContext()));
         else

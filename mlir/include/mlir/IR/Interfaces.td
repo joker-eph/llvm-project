@@ -84,8 +84,10 @@ class InterfaceMethod<string desc, string retTy, string methodName,
 }
 
 class SharedOpInterfaceMethod<string desc, string retTy, string methodName,
-                              dag args = (ins), code methodBody = [{}]>
-    : InterfaceMethod<desc, retTy, methodName, args, methodBody> {
+                              dag args = (ins), code methodBody = [{}],
+                              code defaultImplementation = [{}]>
+    : InterfaceMethod<desc, retTy, methodName, args, methodBody,
+                      defaultImplementation> {
   let sharedBody = 1;
 }
 

@@ -130,6 +130,9 @@ def TestOpInterface : OpInterface<"TestOpInterface"> {
       /*args=*/(ins "int":$input),
       /*body=*/[{
         return $_raw_op->getNumOperands() + input;
+      }],
+      /*defaultBody=*/[{
+        return $_op.getOperation()->getNumOperands() + input;
       }]
     >,
     InterfaceMethod<
@@ -190,6 +193,10 @@ def DeclareMethodsWithDefaultOp : Op<TestDialect, "declare_methods_op",
 // DECL:      bool sharedMethodDeclaration() {
 // DECL-NEXT:   return (*static_cast<ConcreteOp *>(this)).someOtherMethod();
 // DECL-NEXT: }
+
+// DECL-LABEL: struct TestOpInterfaceTrait :
+// DECL: int shared_body_foo(int input) {
+// DECL-NEXT: return (*static_cast<ConcreteOp *>(this)).getOperation()->getNumOperands() + input;
 
 // DECL-LABEL: struct TestOpInterfaceVerifyTrait : public
 // DECL: verifyTrait
