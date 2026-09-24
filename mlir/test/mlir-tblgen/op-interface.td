@@ -119,7 +119,9 @@ def TestOpInterface : OpInterface<"TestOpInterface"> {
       /*retTy=*/"int",
       /*methodName=*/"body_foo",
       /*args=*/(ins "int":$input),
-      /*body=*/[{ return 0; }]
+      /*body=*/[{
+        return $_op->getNumOperands() + $_self->getNumOperands();
+      }]
     >,
     InterfaceMethod<
       /*desc=*/[{shared operation body}],
@@ -211,6 +213,17 @@ def DeclareMethodsWithDefaultOp : Op<TestDialect, "declare_methods_op",
 // Method implementations come last, after all class definitions.
 // DECL: template<typename ConcreteOp>
 // DECL: int detail::TestOpInterfaceInterfaceTraits::Model<ConcreteOp>::foo
+// DECL: #ifndef NDEBUG
+// DECL-NEXT: ::mlir::detail::assertGeneratedOpInterfaceType(tablegen_opaque_val, ::mlir::TypeID::get<ConcreteOp>());
+// DECL-NEXT: #endif
+// DECL-NEXT: ConcreteOp tablegen_concrete_op(tablegen_opaque_val);
+// DECL-NEXT: return tablegen_concrete_op.foo(input);
+// DECL: int detail::TestOpInterfaceInterfaceTraits::Model<ConcreteOp>::body_foo
+// DECL: #ifndef NDEBUG
+// DECL-NEXT: ::mlir::detail::assertGeneratedOpInterfaceType(tablegen_opaque_val, ::mlir::TypeID::get<ConcreteOp>());
+// DECL-NEXT: #endif
+// DECL-NEXT: ConcreteOp tablegen_concrete_op(tablegen_opaque_val);
+// DECL-NEXT: return tablegen_concrete_op->getNumOperands() + tablegen_concrete_op->getNumOperands();
 // DECL: inline int detail::TestOpInterfaceInterfaceTraits::Concept::shared_shared_body_foo
 // DECL-NEXT:   return tablegen_opaque_val->getNumOperands() + input;
 // DECL: int detail::TestOpInterfaceInterfaceTraits::Model<ConcreteOp>::mixed_body_foo

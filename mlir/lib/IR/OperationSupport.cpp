@@ -17,11 +17,18 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OpImplementation.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/SHA1.h"
 #include <numeric>
 #include <optional>
 
 using namespace mlir;
+
+void mlir::detail::assertGeneratedOpInterfaceType(Operation *op,
+                                                  TypeID typeID) {
+  if (op->getName().getTypeID() != typeID)
+    llvm::report_fatal_error("operation type mismatch");
+}
 
 void mlir::detail::appendAttributeProperty(
     llvm::SmallVectorImpl<NamedAttribute> &attrs, StringRef name,

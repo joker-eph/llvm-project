@@ -77,6 +77,10 @@ void splitPropertiesAndDiscardableAttributes(
     ArrayRef<StringRef> inherentNames,
     llvm::function_ref<LogicalResult(DictionaryAttr)> setProperties);
 
+/// Check the operation type in generated interface models when assertions are
+/// enabled in the translation unit containing the model.
+void assertGeneratedOpInterfaceType(Operation *op, TypeID typeID);
+
 /// Assign a generated attribute-backed property after checking its type.
 /// Keep the conversion out of each operation's generated property setter.
 template <typename AttrT>

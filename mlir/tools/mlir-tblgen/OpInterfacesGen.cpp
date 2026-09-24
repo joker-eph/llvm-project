@@ -412,12 +412,27 @@ void InterfaceGenerator::emitModelMethodsDef(const Interface &interface) {
                           /*addConst=*/false);
     os << " {\n  ";
 
+    std::optional<StringRef> body = method.getBody();
+    bool bindConcreteOp =
+        isa<OpInterface>(interface) && !method.isStatic() &&
+        (!body || body->contains("$_op") || body->contains("$_self"));
+    tblgen::FmtContext modelMethodFmt = nonStaticMethodFmt;
+    if (bindConcreteOp) {
+      os << "#ifndef NDEBUG\n"
+            "  ::mlir::detail::assertGeneratedOpInterfaceType("
+            "tablegen_opaque_val, ::mlir::TypeID::get<ConcreteOp>());\n"
+            "#endif\n  "
+            "ConcreteOp tablegen_concrete_op(tablegen_opaque_val);\n  ";
+      modelMethodFmt.addSubst(substVar, "tablegen_concrete_op")
+          .withSelf("tablegen_concrete_op");
+    }
+
     // Check for a provided body to the function.
-    if (std::optional<StringRef> body = method.getBody()) {
+    if (body) {
       if (method.isStatic())
         os << body->trim();
       else
-        os << tblgen::tgfmt(body->trim(), &nonStaticMethodFmt);
+        os << tblgen::tgfmt(body->trim(), &modelMethodFmt);
       os << "\n}\n";
       continue;
     }
@@ -426,7 +441,7 @@ void InterfaceGenerator::emitModelMethodsDef(const Interface &interface) {
     if (method.isStatic())
       os << "return " << valueTemplate << "::";
     else
-      os << tblgen::tgfmt("return $_self.", &nonStaticMethodFmt);
+      os << tblgen::tgfmt("return $_self.", &modelMethodFmt);
 
     // Add the arguments to the call.
     os << method.getName() << '(';
