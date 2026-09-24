@@ -1432,7 +1432,7 @@ static ParseResult parseClauseWithRegionArgs(
 static ParseResult parseBlockArgClause(
     OpAsmParser &parser,
     llvm::SmallVectorImpl<OpAsmParser::Argument> &entryBlockArgs,
-    StringRef keyword, std::optional<MapParseArgs> mapArgs) {
+    StringRef keyword, const std::optional<MapParseArgs> &mapArgs) {
   if (succeeded(parser.parseOptionalKeyword(keyword))) {
     if (!mapArgs)
       return failure();
@@ -1447,7 +1447,7 @@ static ParseResult parseBlockArgClause(
 static ParseResult parseBlockArgClause(
     OpAsmParser &parser,
     llvm::SmallVectorImpl<OpAsmParser::Argument> &entryBlockArgs,
-    StringRef keyword, std::optional<PrivateParseArgs> privateArgs) {
+    StringRef keyword, const std::optional<PrivateParseArgs> &privateArgs) {
   if (succeeded(parser.parseOptionalKeyword(keyword))) {
     if (!privateArgs)
       return failure();
@@ -1464,7 +1464,7 @@ static ParseResult parseBlockArgClause(
 static ParseResult parseBlockArgClause(
     OpAsmParser &parser,
     llvm::SmallVectorImpl<OpAsmParser::Argument> &entryBlockArgs,
-    StringRef keyword, std::optional<ReductionParseArgs> reductionArgs) {
+    StringRef keyword, const std::optional<ReductionParseArgs> &reductionArgs) {
   if (succeeded(parser.parseOptionalKeyword(keyword))) {
     if (!reductionArgs)
       return failure();
@@ -1478,7 +1478,7 @@ static ParseResult parseBlockArgClause(
 }
 
 static ParseResult parseBlockArgRegion(OpAsmParser &parser, Region &region,
-                                       AllRegionParseArgs args) {
+                                       const AllRegionParseArgs &args) {
   llvm::SmallVector<OpAsmParser::Argument> entryBlockArgs;
 
   if (failed(parseBlockArgClause(parser, entryBlockArgs, "has_device_addr",
