@@ -192,6 +192,15 @@ void mlir::detail::appendAttributeProperty(
     attrs.emplace_back(name, attr);
 }
 
+void mlir::detail::appendAttributeProperties(
+    llvm::SmallVectorImpl<NamedAttribute> &attrs, ArrayRef<const char *> names,
+    ArrayRef<Attribute> values) {
+  assert(names.size() == values.size());
+  for (size_t i = 0, e = names.size(); i != e; ++i)
+    if (values[i])
+      attrs.emplace_back(names[i], values[i]);
+}
+
 void mlir::detail::splitPropertiesAndDiscardableAttributes(
     OperationState &state, ArrayRef<NamedAttribute> attributes,
     ArrayRef<StringRef> inherentNames,

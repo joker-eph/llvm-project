@@ -1429,9 +1429,34 @@ void OpEmitter::genPropertiesSupport() {
       attrs.push_back(odsBuilder.getNamedAttr("{0}", attr));
     }
 )decl";
+  SmallVector<StringRef> pendingAttrs;
+  auto flushPendingAttrs = [&] {
+    if (pendingAttrs.empty())
+      return;
+    if (pendingAttrs.size() == 1) {
+      getPropMethod << formatv(
+          "    ::mlir::detail::appendAttributeProperty(attrs, \"{0}\", "
+          "prop.{0});\n",
+          pendingAttrs.front());
+    } else {
+      getPropMethod << "    {\n      static const char *const names[] = {";
+      llvm::interleaveComma(pendingAttrs, getPropMethod, [&](StringRef name) {
+        getPropMethod << '"' << name << '"';
+      });
+      getPropMethod << "};\n      ::mlir::Attribute values[] = {";
+      llvm::interleaveComma(pendingAttrs, getPropMethod, [&](StringRef name) {
+        getPropMethod << "prop." << name;
+      });
+      getPropMethod << "};\n"
+                       "      ::mlir::detail::appendAttributeProperties(attrs, "
+                       "names, values);\n    }\n";
+    }
+    pendingAttrs.clear();
+  };
   for (const auto &attrOrProp : attrOrProperties) {
     if (const auto *namedProperty =
             llvm::dyn_cast_if_present<const NamedProperty *>(attrOrProp)) {
+      flushPendingAttrs();
       StringRef name = namedProperty->name;
       auto &prop = namedProperty->prop;
       FmtContext fctx;
@@ -1444,12 +1469,9 @@ void OpEmitter::genPropertiesSupport() {
     }
     const auto *namedAttr =
         llvm::dyn_cast_if_present<const AttributeMetadata *>(attrOrProp);
-    StringRef name = namedAttr->attrName;
-    getPropMethod << formatv(
-        "    ::mlir::detail::appendAttributeProperty(attrs, \"{0}\", "
-        "prop.{0});\n",
-        name);
+    pendingAttrs.push_back(namedAttr->attrName);
   }
+  flushPendingAttrs();
   getPropMethod << R"decl(
   if (!attrs.empty())
     return odsBuilder.getDictionaryAttr(attrs);

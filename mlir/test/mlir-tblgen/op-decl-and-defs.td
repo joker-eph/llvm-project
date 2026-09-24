@@ -163,7 +163,9 @@ def NS_AOp : NS_Op<"a_op", [IsolatedFromAbove, IsolatedFromAbove]> {
 // DEFS: ::llvm::LogicalResult AOp::setPropertiesFromAttr
 // DEFS: ::mlir::detail::setAttributeProperty(
 // DEFS: ::mlir::Attribute AOp::getPropertiesAsAttr
-// DEFS: ::mlir::detail::appendAttributeProperty(attrs, "attr1", prop.attr1);
+// DEFS: static const char *const names[] = {"attr1", "some_attr2"};
+// DEFS: ::mlir::Attribute values[] = {prop.attr1, prop.some_attr2};
+// DEFS: ::mlir::detail::appendAttributeProperties(attrs, names, values);
 // DEFS: AOp::getInherentAttr
 // DEFS: switch (odsGetInherentAttrIndex(name))
 // DEFS: case 0: return prop.attr1;

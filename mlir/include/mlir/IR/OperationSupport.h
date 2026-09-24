@@ -72,6 +72,11 @@ unsigned lookupInherentAttrName(StringRef name, ArrayRef<const char *> names);
 void appendAttributeProperty(llvm::SmallVectorImpl<NamedAttribute> &attrs,
                              StringRef name, Attribute attr);
 
+/// Append present attribute-backed properties in their generated field order.
+void appendAttributeProperties(llvm::SmallVectorImpl<NamedAttribute> &attrs,
+                               ArrayRef<const char *> names,
+                               ArrayRef<Attribute> values);
+
 /// Route legacy builder attributes to either the operation's properties or
 /// its discardable attribute dictionary. The callback handles conversion and
 /// diagnostics for the operation-specific properties.
