@@ -478,9 +478,15 @@ def SeparatedOilistDispatch : TestFormat_Op<[{
 // CHECK: ::mlir::detail::parseOptionalOilistKeyword(parser, oilistKeywords)
 // CHECK: switch (oilistIndex)
 // CHECK: case 0:
+// CHECK: auto parseClause = [&]() LLVM_ATTRIBUTE_NOINLINE LLVM_ATTRIBUTE_MINSIZE -> ::mlir::ParseResult {
 // CHECK: fooClause = true;
+// CHECK: return ::mlir::success();
+// CHECK: if (::mlir::failed(parseClause()))
 // CHECK: case 1:
+// CHECK: auto parseClause = [&]() LLVM_ATTRIBUTE_NOINLINE LLVM_ATTRIBUTE_MINSIZE -> ::mlir::ParseResult {
 // CHECK: barClause = true;
+// CHECK: return ::mlir::success();
+// CHECK: if (::mlir::failed(parseClause()))
 def SharedOilistDispatch : TestFormat_Op<[{
   oilist(`foo` | `bar`) attr-dict
 }]>;

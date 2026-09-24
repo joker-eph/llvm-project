@@ -2008,7 +2008,9 @@ void OperationFormat::genElementParser(FormatElement *element, MethodBody &body,
         LiteralElement *literal = std::get<0>(clause);
         ArrayRef<FormatElement *> parsingElements = std::get<1>(clause);
         StringRef name = literal->getSpelling();
-        body << "    case " << index << ": {\n";
+        body << "    case " << index << ": {\n"
+             << "      auto parseClause = [&]() LLVM_ATTRIBUTE_NOINLINE "
+                "LLVM_ATTRIBUTE_MINSIZE -> ::mlir::ParseResult {\n";
         body << formatv(oilistParserCode, name);
         if (AttributeLikeVariable *unit =
                 oilist->getUnitVariableParsingElement(parsingElements)) {
@@ -2021,7 +2023,11 @@ void OperationFormat::genElementParser(FormatElement *element, MethodBody &body,
           for (FormatElement *child : parsingElements)
             genElementParser(child, body, attrTypeCtx);
         }
-        body << "      break;\n"
+        body << "        return ::mlir::success();\n"
+             << "      };\n"
+             << "      if (::mlir::failed(parseClause()))\n"
+             << "        return ::mlir::failure();\n"
+             << "      break;\n"
              << "    }\n";
       }
       body << "    }\n"
