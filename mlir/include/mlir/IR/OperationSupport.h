@@ -65,6 +65,9 @@ template <typename ValueRangeT>
 class ValueTypeRange;
 
 namespace detail {
+/// Return the index of an inherent attribute name, or names.size() if absent.
+unsigned lookupInherentAttrName(StringRef name, ArrayRef<const char *> names);
+
 /// Append a present attribute-backed property to a dictionary's attributes.
 void appendAttributeProperty(llvm::SmallVectorImpl<NamedAttribute> &attrs,
                              StringRef name, Attribute attr);

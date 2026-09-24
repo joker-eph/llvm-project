@@ -25,6 +25,14 @@
 
 using namespace mlir;
 
+unsigned mlir::detail::lookupInherentAttrName(StringRef name,
+                                              ArrayRef<const char *> names) {
+  for (unsigned index = 0; index < names.size(); ++index)
+    if (name == names[index])
+      return index;
+  return names.size();
+}
+
 bool mlir::detail::isOperationOfType(Operation *op, TypeID typeID) {
   return op->getName().getTypeID() == typeID;
 }

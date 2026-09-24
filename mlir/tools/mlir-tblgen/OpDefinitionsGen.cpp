@@ -1501,16 +1501,40 @@ void OpEmitter::genPropertiesSupport() {
       });
   hashMethod << ");\n";
 
-  const char *getInherentAttrMethodFmt = R"decl(
-    if (name == "{0}")
-      return prop.{0};
-)decl";
-  const char *setInherentAttrMethodFmt = R"decl(
-    if (name == "{0}") {{
-       prop.{0} = ::llvm::dyn_cast_or_null<std::remove_reference_t<decltype(prop.{0})>>(value);
-       return;
+  SmallVector<StringRef> inherentAttrNames;
+  for (const auto &attrOrProp : attrOrProperties)
+    if (const auto *namedAttr =
+            llvm::dyn_cast_if_present<const AttributeMetadata *>(attrOrProp))
+      inherentAttrNames.push_back(namedAttr->attrName);
+
+  if (!inherentAttrNames.empty()) {
+    auto &lookupMethod =
+        opClass
+            .addStaticMethod("unsigned", "odsGetInherentAttrIndex",
+                             MethodParameter("::llvm::StringRef", "name"))
+            ->body();
+    lookupMethod << "  static const char *const names[] = {";
+    for (StringRef name : inherentAttrNames)
+      lookupMethod << '"' << name << "\",";
+    lookupMethod << "};\n"
+                    "  return ::mlir::detail::lookupInherentAttrName(name, "
+                    "names);\n";
+
+    getInherentAttrMethod << "  switch (odsGetInherentAttrIndex(name)) {\n";
+    setInherentAttrMethod << "  switch (odsGetInherentAttrIndex(name)) {\n";
+    for (auto [index, name] : llvm::enumerate(inherentAttrNames)) {
+      getInherentAttrMethod
+          << formatv("  case {0}: return prop.{1};\n", index, name);
+      setInherentAttrMethod
+          << formatv("  case {0}: prop.{1} = "
+                     "::llvm::dyn_cast_or_null<std::remove_reference_t<"
+                     "decltype(prop.{1})>>(value); return;\n",
+                     index, name);
     }
-)decl";
+    getInherentAttrMethod << "  default: break;\n  }\n";
+    setInherentAttrMethod << "  default: break;\n  }\n";
+  }
+
   const char *walkInherentAttrsMethodFmt = R"decl(
     ::mlir::detail::walkAttributeProperty(prop.{0}, "{0}", visitor);
 )decl";
@@ -1518,8 +1542,6 @@ void OpEmitter::genPropertiesSupport() {
     if (const auto *namedAttr =
             llvm::dyn_cast_if_present<const AttributeMetadata *>(attrOrProp)) {
       StringRef name = namedAttr->attrName;
-      getInherentAttrMethod << formatv(getInherentAttrMethodFmt, name);
-      setInherentAttrMethod << formatv(setInherentAttrMethodFmt, name);
       walkInherentAttrsMethod << formatv(walkInherentAttrsMethodFmt, name);
       continue;
     }
