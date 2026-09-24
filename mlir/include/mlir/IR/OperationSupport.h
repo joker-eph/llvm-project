@@ -233,6 +233,27 @@ public:
       LogicalResult (*verifyRegions)(Operation *);
     };
 
+    /// Typed property callbacks for a registered operation. The virtual
+    /// entry points are shared by all registered operation types.
+    struct PropertyFns {
+      std::optional<Attribute> (*getInherentAttr)(Operation *, StringRef);
+      void (*setInherentAttr)(Operation *, StringAttr, Attribute);
+      void (*walkInherentAttrs)(Operation *, InherentAttrVisitor);
+      LogicalResult (*verifyInherentAttrs)(OperationName, NamedAttrList &,
+                                           function_ref<InFlightDiagnostic()>);
+      int propertyByteSize;
+      void (*initProperties)(OperationName, PropertyRef, PropertyRef);
+      void (*deleteProperties)(PropertyRef);
+      void (*populateDefaultProperties)(OperationName, PropertyRef);
+      LogicalResult (*setPropertiesFromAttr)(
+          OperationName, PropertyRef, Attribute,
+          function_ref<InFlightDiagnostic()>);
+      Attribute (*getPropertiesAsAttr)(Operation *);
+      void (*copyProperties)(PropertyRef, PropertyRef);
+      bool (*compareProperties)(PropertyRef, PropertyRef);
+      llvm::hash_code (*hashProperties)(PropertyRef);
+    };
+
     LogicalResult foldHook(Operation *op, ArrayRef<Attribute> attrs,
                            SmallVectorImpl<OpFoldResult> &results) override;
     void getCanonicalizationPatterns(RewritePatternSet &set,
@@ -245,6 +266,27 @@ public:
                        StringRef name) override;
     LogicalResult verifyInvariants(Operation *op) override;
     LogicalResult verifyRegionInvariants(Operation *op) override;
+    std::optional<Attribute> getInherentAttr(Operation *op,
+                                             StringRef name) override;
+    void setInherentAttr(Operation *op, StringAttr name,
+                         Attribute value) override;
+    void walkInherentAttrs(Operation *op, InherentAttrVisitor visitor) override;
+    LogicalResult
+    verifyInherentAttrs(OperationName opName, NamedAttrList &attributes,
+                        function_ref<InFlightDiagnostic()> emitError) override;
+    int getOpPropertyByteSize() override;
+    void initProperties(OperationName opName, PropertyRef storage,
+                        PropertyRef init) override;
+    void deleteProperties(PropertyRef properties) override;
+    void populateDefaultProperties(OperationName opName,
+                                   PropertyRef properties) override;
+    LogicalResult setPropertiesFromAttr(
+        OperationName opName, PropertyRef properties, Attribute attr,
+        function_ref<InFlightDiagnostic()> emitError) override;
+    Attribute getPropertiesAsAttr(Operation *op) override;
+    void copyProperties(PropertyRef lhs, PropertyRef rhs) override;
+    bool compareProperties(PropertyRef lhs, PropertyRef rhs) override;
+    llvm::hash_code hashProperties(PropertyRef properties) override;
 
     /// Returns true if this is a registered operation.
     bool isRegistered() const { return typeID != TypeID::get<void>(); }
@@ -285,6 +327,7 @@ public:
     /// The forwarding callbacks for a registered operation. Unregistered
     /// operations override these hooks and leave this pointer null.
     const HookFns *hookFns = nullptr;
+    const PropertyFns *propertyFns = nullptr;
 
     friend class RegisteredOperationName;
   };
@@ -650,6 +693,7 @@ public:
                TypeID::get<ConcreteOp>(), ConcreteOp::getInterfaceMap()) {
       propertiesTypeID = TypeID::get<Properties>();
       hookFns = &getHookFns();
+      propertyFns = &getPropertyFns();
     }
     static const HookFns &getHookFns() {
       static const HookFns hooks = {ConcreteOp::getFoldHookFn(),
@@ -663,10 +707,28 @@ public:
       return hooks;
     }
 
+    static const PropertyFns &getPropertyFns() {
+      static constexpr PropertyFns fns = {
+          &modelGetInherentAttr,
+          &modelSetInherentAttr,
+          &modelWalkInherentAttrs,
+          &modelVerifyInherentAttrs,
+          hasProperties ? static_cast<int>(sizeof(Properties)) : 0,
+          &modelInitProperties,
+          &modelDeleteProperties,
+          &modelPopulateDefaultProperties,
+          &modelSetPropertiesFromAttr,
+          &modelGetPropertiesAsAttr,
+          &modelCopyProperties,
+          &modelCompareProperties,
+          &modelHashProperties};
+      return fns;
+    }
+
     /// Implementation for "Properties"
 
-    LLVM_ATTRIBUTE_MINSIZE std::optional<Attribute>
-    getInherentAttr(Operation *op, StringRef name) final {
+    LLVM_ATTRIBUTE_MINSIZE static std::optional<Attribute>
+    modelGetInherentAttr(Operation *op, StringRef name) {
       if constexpr (hasProperties) {
         assert(detail::isOperationOfType(op, TypeID::get<ConcreteOp>()) &&
                "operation type mismatch");
@@ -676,8 +738,8 @@ public:
       }
       return std::nullopt;
     }
-    LLVM_ATTRIBUTE_MINSIZE void setInherentAttr(Operation *op, StringAttr name,
-                                                Attribute value) final {
+    LLVM_ATTRIBUTE_MINSIZE static void
+    modelSetInherentAttr(Operation *op, StringAttr name, Attribute value) {
       if constexpr (hasProperties) {
         assert(detail::isOperationOfType(op, TypeID::get<ConcreteOp>()) &&
                "operation type mismatch");
@@ -688,8 +750,8 @@ public:
       llvm_unreachable(
           "Can't call setInherentAttr on operation with empty properties");
     }
-    LLVM_ATTRIBUTE_MINSIZE void
-    walkInherentAttrs(Operation *op, InherentAttrVisitor visitor) final {
+    LLVM_ATTRIBUTE_MINSIZE static void
+    modelWalkInherentAttrs(Operation *op, InherentAttrVisitor visitor) {
       if constexpr (hasProperties) {
         assert(detail::isOperationOfType(op, TypeID::get<ConcreteOp>()) &&
                "operation type mismatch");
@@ -698,9 +760,9 @@ public:
                                       concreteOp.getProperties(), visitor);
       }
     }
-    LogicalResult
-    verifyInherentAttrs(OperationName opName, NamedAttrList &attributes,
-                        function_ref<InFlightDiagnostic()> emitError) final {
+    static LogicalResult
+    modelVerifyInherentAttrs(OperationName opName, NamedAttrList &attributes,
+                             function_ref<InFlightDiagnostic()> emitError) {
       if constexpr (hasProperties)
         return ConcreteOp::verifyInherentAttrs(opName, attributes, emitError);
       return success();
@@ -710,13 +772,8 @@ public:
         typename ConcreteOp::template InferredProperties<ConcreteOp>,
         EmptyProperties>;
 
-    int getOpPropertyByteSize() final {
-      if constexpr (hasProperties)
-        return sizeof(Properties);
-      return 0;
-    }
-    void initProperties(OperationName opName, PropertyRef storage,
-                        PropertyRef init) final {
+    static void modelInitProperties(OperationName opName, PropertyRef storage,
+                                    PropertyRef init) {
       using Properties =
           typename ConcreteOp::template InferredProperties<ConcreteOp>;
       if (init)
@@ -727,20 +784,20 @@ public:
         ConcreteOp::populateDefaultProperties(opName,
                                               *storage.as<Properties *>());
     }
-    void deleteProperties(PropertyRef prop) final {
+    static void modelDeleteProperties(PropertyRef prop) {
       prop.as<Properties *>()->~Properties();
     }
-    void populateDefaultProperties(OperationName opName,
-                                   PropertyRef properties) final {
+    static void modelPopulateDefaultProperties(OperationName opName,
+                                               PropertyRef properties) {
       if constexpr (hasProperties)
         ConcreteOp::populateDefaultProperties(opName,
                                               *properties.as<Properties *>());
     }
 
-    LogicalResult
-    setPropertiesFromAttr(OperationName opName, PropertyRef properties,
-                          Attribute attr,
-                          function_ref<InFlightDiagnostic()> emitError) final {
+    static LogicalResult
+    modelSetPropertiesFromAttr(OperationName opName, PropertyRef properties,
+                               Attribute attr,
+                               function_ref<InFlightDiagnostic()> emitError) {
       if constexpr (hasProperties) {
         auto p = properties.as<Properties *>();
         return ConcreteOp::setPropertiesFromAttr(*p, attr, emitError);
@@ -748,7 +805,7 @@ public:
       emitError() << "this operation has empty properties";
       return failure();
     }
-    Attribute getPropertiesAsAttr(Operation *op) final {
+    static Attribute modelGetPropertiesAsAttr(Operation *op) {
       if constexpr (hasProperties) {
         assert(detail::isOperationOfType(op, TypeID::get<ConcreteOp>()) &&
                "operation type mismatch");
@@ -758,16 +815,16 @@ public:
       }
       return {};
     }
-    bool compareProperties(PropertyRef lhs, PropertyRef rhs) final {
+    static bool modelCompareProperties(PropertyRef lhs, PropertyRef rhs) {
       if constexpr (hasProperties)
         return *lhs.as<Properties *>() == *rhs.as<Properties *>();
       return true;
     }
-    void copyProperties(PropertyRef lhs, PropertyRef rhs) final {
+    static void modelCopyProperties(PropertyRef lhs, PropertyRef rhs) {
       *lhs.as<Properties *>() = *rhs.as<Properties *>();
     }
-    LLVM_ATTRIBUTE_MINSIZE llvm::hash_code
-    hashProperties(PropertyRef prop) final {
+    LLVM_ATTRIBUTE_MINSIZE static llvm::hash_code
+    modelHashProperties(PropertyRef prop) {
       if constexpr (hasProperties)
         return ConcreteOp::computePropertiesHash(*prop.as<Properties *>());
 
@@ -792,8 +849,12 @@ public:
   LLVM_ATTRIBUTE_MINSIZE static void insert(Dialect &dialect) {
     static_assert(sizeof(Model<T>) == sizeof(Impl));
     static_assert(alignof(Model<T>) == alignof(Impl));
-    std::unique_ptr<Impl> ownedModel(new (allocateModelStorage())
-                                         Model<T>(&dialect));
+    std::unique_ptr<Impl> ownedModel(new (allocateModelStorage()) Impl(
+        T::getOperationName(), &dialect, TypeID::get<T>(),
+        T::getInterfaceMap()));
+    ownedModel->propertiesTypeID = TypeID::get<typename Model<T>::Properties>();
+    ownedModel->hookFns = &Model<T>::getHookFns();
+    ownedModel->propertyFns = &Model<T>::getPropertyFns();
     insert(std::move(ownedModel), T::getAttributeNames());
   }
   /// The use of this method is in general discouraged in favor of

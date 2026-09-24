@@ -71,6 +71,69 @@ LogicalResult OperationName::Impl::verifyRegionInvariants(Operation *op) {
   return hookFns->verifyRegions(op);
 }
 
+std::optional<Attribute> OperationName::Impl::getInherentAttr(Operation *op,
+                                                              StringRef name) {
+  return propertyFns->getInherentAttr(op, name);
+}
+
+void OperationName::Impl::setInherentAttr(Operation *op, StringAttr name,
+                                          Attribute value) {
+  propertyFns->setInherentAttr(op, name, value);
+}
+
+void OperationName::Impl::walkInherentAttrs(Operation *op,
+                                            InherentAttrVisitor visitor) {
+  propertyFns->walkInherentAttrs(op, visitor);
+}
+
+LogicalResult OperationName::Impl::verifyInherentAttrs(
+    OperationName opName, NamedAttrList &attributes,
+    function_ref<InFlightDiagnostic()> emitError) {
+  return propertyFns->verifyInherentAttrs(opName, attributes, emitError);
+}
+
+int OperationName::Impl::getOpPropertyByteSize() {
+  return propertyFns->propertyByteSize;
+}
+
+void OperationName::Impl::initProperties(OperationName opName,
+                                         PropertyRef storage,
+                                         PropertyRef init) {
+  propertyFns->initProperties(opName, storage, init);
+}
+
+void OperationName::Impl::deleteProperties(PropertyRef properties) {
+  propertyFns->deleteProperties(properties);
+}
+
+void OperationName::Impl::populateDefaultProperties(OperationName opName,
+                                                    PropertyRef properties) {
+  propertyFns->populateDefaultProperties(opName, properties);
+}
+
+LogicalResult OperationName::Impl::setPropertiesFromAttr(
+    OperationName opName, PropertyRef properties, Attribute attr,
+    function_ref<InFlightDiagnostic()> emitError) {
+  return propertyFns->setPropertiesFromAttr(opName, properties, attr,
+                                            emitError);
+}
+
+Attribute OperationName::Impl::getPropertiesAsAttr(Operation *op) {
+  return propertyFns->getPropertiesAsAttr(op);
+}
+
+void OperationName::Impl::copyProperties(PropertyRef lhs, PropertyRef rhs) {
+  propertyFns->copyProperties(lhs, rhs);
+}
+
+bool OperationName::Impl::compareProperties(PropertyRef lhs, PropertyRef rhs) {
+  return propertyFns->compareProperties(lhs, rhs);
+}
+
+llvm::hash_code OperationName::Impl::hashProperties(PropertyRef properties) {
+  return propertyFns->hashProperties(properties);
+}
+
 ParseResult mlir::detail::parseOptionalOperandInto(
     OpAsmParser &parser,
     SmallVectorImpl<OpAsmParser::UnresolvedOperand> &operands) {
