@@ -76,6 +76,17 @@ class InterfaceMethod<string desc, string retTy, string methodName,
 
   // An optional default implementation of the method.
   code defaultBody = defaultImplementation;
+
+  // Generate the model callback once per interface instead of once per
+  // concrete operation. The body must use $_raw_op for the Operation* and
+  // must not depend on the concrete operation type.
+  bit sharedBody = 0;
+}
+
+class SharedOpInterfaceMethod<string desc, string retTy, string methodName,
+                              dag args = (ins), code methodBody = [{}]>
+    : InterfaceMethod<desc, retTy, methodName, args, methodBody> {
+  let sharedBody = 1;
 }
 
 // This class represents a single static interface method.

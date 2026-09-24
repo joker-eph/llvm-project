@@ -56,6 +56,9 @@ public:
   // Return the body for this method if it has one.
   std::optional<StringRef> getBody() const;
 
+  // Return whether the model callback body is shared by all concrete ops.
+  bool hasSharedBody() const;
+
   // Return the default implementation for this method if it has one.
   std::optional<StringRef> getDefaultImplementation() const;
 

@@ -117,6 +117,8 @@ protected:
   tblgen::FmtContext nonStaticMethodFmt;
   /// Bind the operation once in generated operation interface model methods.
   tblgen::FmtContext opModelMethodFmt;
+  /// Refer to the raw operation in model methods shared by all concrete ops.
+  tblgen::FmtContext sharedOpMethodFmt;
   tblgen::FmtContext traitMethodFmt;
   tblgen::FmtContext extraDeclsFmt;
 };
@@ -151,6 +153,8 @@ struct OpInterfaceGenerator : public InterfaceGenerator {
     opModelMethodFmt.addSubst("_this", "impl")
         .addSubst(substVar, "tablegen_concrete_op")
         .withSelf("tablegen_concrete_op");
+    sharedOpMethodFmt.addSubst("_this", "impl")
+        .addSubst("_raw_op", "tablegen_opaque_val");
     traitMethodFmt.addSubst(substVar, "(*static_cast<ConcreteOp *>(this))");
     extraDeclsFmt.addSubst(substVar, "(*this)");
   }
@@ -258,6 +262,24 @@ void InterfaceGenerator::emitConceptDecl(const Interface &interface) {
     os << ");\n";
   }
 
+  // A shared body has no dependence on the concrete operation type.
+  for (auto &method : interface.getMethods()) {
+    if (!method.hasSharedBody())
+      continue;
+    std::optional<StringRef> body = method.getBody();
+    if (!isa<OpInterface>(interface) || method.isStatic() || !body ||
+        body->contains("$_op") || body->contains("$_self"))
+      PrintFatalError(interface.getDef().getLoc(),
+                      "shared operation interface method must have a body "
+                      "using $_raw_op instead of $_op or $_self");
+    os << "    static ";
+    emitCPPType(method.getReturnType(), os);
+    emitMethodNameAndArgs(method, ("shared_" + method.getUniqueName()).str(),
+                          os, valueType, /*addThisArg=*/true,
+                          /*addConst=*/false);
+    os << ";\n";
+  }
+
   // Insert a field containing a concept for each of the base interfaces.
   auto baseInterfaces = interface.getBaseInterfaces();
   if (!baseInterfaces.empty()) {
@@ -300,12 +322,18 @@ void InterfaceGenerator::emitModelDecl(const Interface &interface) {
     // shared source name. Do not collapse these to getName().
     os << "    " << modelClass << "() : Concept{";
     llvm::interleaveComma(
-        interface.getMethods(), os,
-        [&](const InterfaceMethod &method) { os << method.getUniqueName(); });
+        interface.getMethods(), os, [&](const InterfaceMethod &method) {
+          if (StringRef(modelClass) == "Model" && method.hasSharedBody())
+            os << "Concept::shared_" << method.getUniqueName();
+          else
+            os << method.getUniqueName();
+        });
     os << "} {}\n\n";
 
     // Insert each of the virtual method overrides.
     for (auto &method : interface.getMethods()) {
+      if (StringRef(modelClass) == "Model" && method.hasSharedBody())
+        continue;
       os << "    static inline ";
       if (isa<OpInterface>(interface) && StringRef(modelClass) == "Model")
         os << "LLVM_ATTRIBUTE_MINSIZE ";
@@ -359,6 +387,23 @@ void InterfaceGenerator::emitModelDecl(const Interface &interface) {
 void InterfaceGenerator::emitModelMethodsDef(const Interface &interface) {
   llvm::NamespaceEmitter ns(os, interface.getCppNamespace());
   for (auto &method : interface.getMethods()) {
+    if (method.hasSharedBody()) {
+      std::optional<StringRef> body = method.getBody();
+      if (!isa<OpInterface>(interface) || method.isStatic() || !body ||
+          body->contains("$_op") || body->contains("$_self"))
+        PrintFatalError(interface.getDef().getLoc(),
+                        "shared operation interface method must have a body "
+                        "using $_raw_op instead of $_op or $_self");
+      os << "inline ";
+      emitCPPType(method.getReturnType(), os);
+      os << "detail::" << interface.getName() << "InterfaceTraits::Concept::";
+      emitMethodNameAndArgs(method, ("shared_" + method.getUniqueName()).str(),
+                            os, valueType, /*addThisArg=*/true,
+                            /*addConst=*/false);
+      os << " {\n  " << tblgen::tgfmt(body->trim(), &sharedOpMethodFmt)
+         << "\n}\n";
+      continue;
+    }
     os << "template<typename " << valueTemplate << ">\n";
     emitCPPType(method.getReturnType(), os);
     os << "detail::" << interface.getName() << "InterfaceTraits::Model<"

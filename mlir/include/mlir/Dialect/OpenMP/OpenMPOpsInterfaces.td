@@ -88,11 +88,11 @@ class BlockArgOpenMPClause<string clauseNameSnake, string clauseNameCamel,
   // auto iface = cast<BlockArgOpenMPOpInterface>(op);
   // unsigned firstMapIndex = iface.getMapBlockArgsStart();
   // ```
-  InterfaceMethod startMethod = InterfaceMethod<
+  InterfaceMethod startMethod = SharedOpInterfaceMethod<
     "Get start index of block arguments defined by `" # clauseNameSnake # "`.",
     "unsigned", "get" # clauseNameCamel # "BlockArgsStart", (ins),
     !if(!initialized(previousClause), [{
-        auto iface = ::llvm::cast<BlockArgOpenMPOpInterface>(*$_op);
+        auto iface = ::llvm::cast<BlockArgOpenMPOpInterface>(*$_raw_op);
       }] # "return iface." # previousClause.startMethod.name # "() + iface."
         # previousClause.numArgsMethod.name # "();",
         "return 0;"
@@ -107,12 +107,12 @@ class BlockArgOpenMPClause<string clauseNameSnake, string clauseNameCamel,
   // auto iface = cast<BlockArgOpenMPOpInterface>(op);
   // ArrayRef<BlockArgument> reductionArgs = iface.getReductionBlockArgs();
   // ```
-  InterfaceMethod blockArgsMethod = InterfaceMethod<
+  InterfaceMethod blockArgsMethod = SharedOpInterfaceMethod<
     "Get block arguments defined by `" # clauseNameSnake # "`.",
     "::llvm::MutableArrayRef<::mlir::BlockArgument>",
     "get" # clauseNameCamel # "BlockArgs", (ins), [{
-      auto iface = ::llvm::cast<BlockArgOpenMPOpInterface>(*$_op);
-      return $_op->getRegion(0).getArguments().slice(
+      auto iface = ::llvm::cast<BlockArgOpenMPOpInterface>(*$_raw_op);
+      return $_raw_op->getRegion(0).getArguments().slice(
     }] # "iface." # startMethod.name # "(), iface." # numArgsMethod.name # "());"
   >;
 }
@@ -163,11 +163,14 @@ def BlockArgOpenMPOpInterface : OpInterface<"BlockArgOpenMPOpInterface"> {
     !foreach(clause, clauses, clause.startMethod),
     !foreach(clause, clauses, clause.blockArgsMethod),
     [
-      InterfaceMethod<
+      SharedOpInterfaceMethod<
         "Get the total number of clause-defined entry block arguments",
         "unsigned", "numClauseBlockArgs", (ins),
-        "return " # !interleave(
-          !foreach(clause, clauses, "$_op." # clause.numArgsMethod.name # "()"),
+        [{
+          auto iface = ::llvm::cast<BlockArgOpenMPOpInterface>(*$_raw_op);
+          return
+        }] # !interleave(
+          !foreach(clause, clauses, "iface." # clause.numArgsMethod.name # "()"),
           " + ") # ";"
       >
     ]

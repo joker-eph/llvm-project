@@ -77,6 +77,10 @@ std::optional<StringRef> InterfaceMethod::getBody() const {
   return value.empty() ? std::optional<StringRef>() : value;
 }
 
+bool InterfaceMethod::hasSharedBody() const {
+  return def->getValueAsBit("sharedBody");
+}
+
 // Return the default implementation for this method if it has one.
 std::optional<StringRef> InterfaceMethod::getDefaultImplementation() const {
   // Trim leading and trailing spaces from the default implementation.

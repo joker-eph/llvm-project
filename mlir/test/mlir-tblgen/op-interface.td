@@ -123,6 +123,15 @@ def TestOpInterface : OpInterface<"TestOpInterface"> {
         return $_op->getNumOperands() + $_op->getNumOperands();
       }]
     >,
+    SharedOpInterfaceMethod<
+      /*desc=*/[{shared operation body}],
+      /*retTy=*/"int",
+      /*methodName=*/"shared_body_foo",
+      /*args=*/(ins "int":$input),
+      /*body=*/[{
+        return $_raw_op->getNumOperands() + input;
+      }]
+    >,
     InterfaceMethod<
       /*desc=*/[{some function comment}],
       /*retTy=*/"int",
@@ -165,7 +174,9 @@ def DeclareMethodsWithDefaultOp : Op<TestDialect, "declare_methods_op",
       [DeclareOpInterfaceMethods<TestOpInterface, ["default_foo"]>]>;
 
 // DECL-LABEL: TestOpInterfaceInterfaceTraits
+// DECL: static int shared_shared_body_foo(const Concept *impl, ::mlir::Operation *tablegen_opaque_val, int input);
 // DECL: class Model : public Concept
+// DECL: Model() : Concept{foo, body_foo, Concept::shared_shared_body_foo, default_foo}
 // DECL: static inline LLVM_ATTRIBUTE_MINSIZE int foo(
 // DECL: class FallbackModel : public Concept
 // DECL: static inline int foo(
@@ -196,6 +207,9 @@ def DeclareMethodsWithDefaultOp : Op<TestDialect, "declare_methods_op",
 // DECL: assert(::mlir::detail::isOperationOfType(tablegen_opaque_val, ::mlir::TypeID::get<ConcreteOp>()) && "operation type mismatch");
 // DECL-NEXT: ConcreteOp tablegen_concrete_op(tablegen_opaque_val);
 // DECL-NEXT: return tablegen_concrete_op->getNumOperands() + tablegen_concrete_op->getNumOperands();
+// DECL: inline int detail::TestOpInterfaceInterfaceTraits::Concept::shared_shared_body_foo
+// DECL-NEXT:   return tablegen_opaque_val->getNumOperands() + input;
+// DECL: int detail::TestOpInterfaceInterfaceTraits::FallbackModel<ConcreteOp>::shared_body_foo
 
 // OP_DECL-LABEL: class DeclareMethodsOp : public
 // OP_DECL: int foo(int input);
