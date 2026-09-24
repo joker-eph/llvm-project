@@ -1,6 +1,7 @@
 // RUN: mlir-tblgen -gen-op-defs -I %S/../../include %s | FileCheck %s
 // RUN: mlir-tblgen -gen-op-defs -I %S/../../include %s | FileCheck %s --check-prefix=PROP-ENUM
 // RUN: mlir-tblgen -gen-op-defs -I %S/../../include %s | FileCheck %s --check-prefix=GROUPED
+// RUN: mlir-tblgen -gen-op-defs -I %S/../../include %s | FileCheck %s --check-prefix=WIDE
 
 include "mlir/IR/OpBase.td"
 include "mlir/IR/EnumAttr.td"
@@ -476,20 +477,97 @@ def SeparatedOilistDispatch : TestFormat_Op<[{
 
 // CHECK-LABEL: SharedOilistDispatch::parse
 // CHECK: static constexpr ::llvm::StringRef oilistKeywords[] = {"foo", "bar"};
-// CHECK: ::mlir::detail::parseOptionalOilistKeyword(parser, oilistKeywords)
+// CHECK: uint64_t seenOilistClauses = 0;
+// CHECK: ::mlir::detail::parseUniqueOilistKeyword(parser, oilistKeywords, seenOilistClauses, oilistIndex)
 // CHECK: switch (oilistIndex)
 // CHECK: case 0:
 // CHECK: auto parseClause = [&]() LLVM_ATTRIBUTE_NOINLINE LLVM_ATTRIBUTE_MINSIZE -> ::mlir::ParseResult {
-// CHECK: fooClause = true;
+// CHECK-NOT: fooClause
 // CHECK: return ::mlir::success();
 // CHECK: if (::mlir::failed(parseClause()))
 // CHECK: case 1:
 // CHECK: auto parseClause = [&]() LLVM_ATTRIBUTE_NOINLINE LLVM_ATTRIBUTE_MINSIZE -> ::mlir::ParseResult {
-// CHECK: barClause = true;
+// CHECK-NOT: barClause
 // CHECK: return ::mlir::success();
 // CHECK: if (::mlir::failed(parseClause()))
 def SharedOilistDispatch : TestFormat_Op<[{
   oilist(`foo` | `bar`) attr-dict
+}]>;
+
+
+// WIDE-LABEL: WideSharedOilistDispatch::parse
+// WIDE: static constexpr ::llvm::StringRef oilistKeywords[] = {
+// WIDE: bool k00Clause = false;
+// WIDE: bool k64Clause = false;
+// WIDE: ::mlir::detail::parseOptionalOilistKeyword(parser, oilistKeywords)
+// WIDE-NOT: parseUniqueOilistKeyword
+// WIDE: switch (oilistIndex)
+def WideSharedOilistDispatch : TestFormat_Op<[{
+  oilist(`k00`
+      | `k01`
+      | `k02`
+      | `k03`
+      | `k04`
+      | `k05`
+      | `k06`
+      | `k07`
+      | `k08`
+      | `k09`
+      | `k10`
+      | `k11`
+      | `k12`
+      | `k13`
+      | `k14`
+      | `k15`
+      | `k16`
+      | `k17`
+      | `k18`
+      | `k19`
+      | `k20`
+      | `k21`
+      | `k22`
+      | `k23`
+      | `k24`
+      | `k25`
+      | `k26`
+      | `k27`
+      | `k28`
+      | `k29`
+      | `k30`
+      | `k31`
+      | `k32`
+      | `k33`
+      | `k34`
+      | `k35`
+      | `k36`
+      | `k37`
+      | `k38`
+      | `k39`
+      | `k40`
+      | `k41`
+      | `k42`
+      | `k43`
+      | `k44`
+      | `k45`
+      | `k46`
+      | `k47`
+      | `k48`
+      | `k49`
+      | `k50`
+      | `k51`
+      | `k52`
+      | `k53`
+      | `k54`
+      | `k55`
+      | `k56`
+      | `k57`
+      | `k58`
+      | `k59`
+      | `k60`
+      | `k61`
+      | `k62`
+      | `k63`
+      | `k64`) attr-dict
 }]>;
 
 // GROUPED-LABEL: GroupedOptionalAttrPrint::print

@@ -62,6 +62,23 @@ int mlir::detail::parseOptionalOilistKeyword(OpAsmParser &parser,
   return -1;
 }
 
+LLVM_ATTRIBUTE_NOINLINE LLVM_ATTRIBUTE_MINSIZE ParseResult
+mlir::detail::parseUniqueOilistKeyword(OpAsmParser &parser,
+                                       ArrayRef<StringRef> keywords,
+                                       uint64_t &seen, int &index) {
+  index = parseOptionalOilistKeyword(parser, keywords);
+  if (index < 0)
+    return success();
+  uint64_t bit = uint64_t(1) << index;
+  if (seen & bit)
+    return parser.emitError(parser.getNameLoc())
+           << "`" << keywords[index]
+           << "` clause can appear at most once in the expansion of the "
+              "oilist directive";
+  seen |= bit;
+  return success();
+}
+
 LogicalResult
 OperationName::Impl::foldHook(Operation *op, ArrayRef<Attribute> attrs,
                               SmallVectorImpl<OpFoldResult> &results) {

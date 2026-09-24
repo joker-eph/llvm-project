@@ -1987,6 +1987,8 @@ void OperationFormat::genElementParser(FormatElement *element, MethodBody &body,
           return spelling.front() == '_' || isalpha(spelling.front());
         });
     if (useSharedDispatch) {
+      // Keep the existing per-clause checks for lists wider than the mask.
+      bool useSeenMask = llvm::size(oilist->getLiteralElements()) <= 64;
       body << "  {\n";
       body.indent();
       body << "  static constexpr ::llvm::StringRef oilistKeywords[] = {";
@@ -1995,13 +1997,23 @@ void OperationFormat::genElementParser(FormatElement *element, MethodBody &body,
                               body << '"' << literal->getSpelling() << '"';
                             });
       body << "};\n";
-      for (LiteralElement *literal : oilist->getLiteralElements())
-        body << "  bool " << literal->getSpelling() << "Clause = false;\n";
-      body << "  while (true) {\n"
-           << "    int oilistIndex = "
-              "::mlir::detail::parseOptionalOilistKeyword(parser, "
-              "oilistKeywords);\n"
-           << "    if (oilistIndex < 0)\n"
+      if (useSeenMask) {
+        body << "  uint64_t seenOilistClauses = 0;\n"
+             << "  while (true) {\n"
+             << "    int oilistIndex;\n"
+             << "    if (::mlir::failed("
+                "::mlir::detail::parseUniqueOilistKeyword("
+                "parser, oilistKeywords, seenOilistClauses, oilistIndex)))\n"
+             << "      return ::mlir::failure();\n";
+      } else {
+        for (LiteralElement *literal : oilist->getLiteralElements())
+          body << "  bool " << literal->getSpelling() << "Clause = false;\n";
+        body << "  while (true) {\n"
+             << "    int oilistIndex = "
+                "::mlir::detail::parseOptionalOilistKeyword(parser, "
+                "oilistKeywords);\n";
+      }
+      body << "    if (oilistIndex < 0)\n"
            << "      break;\n"
            << "    switch (oilistIndex) {\n";
       for (auto [index, clause] : llvm::enumerate(oilist->getClauses())) {
@@ -2011,7 +2023,8 @@ void OperationFormat::genElementParser(FormatElement *element, MethodBody &body,
         body << "    case " << index << ": {\n"
              << "      auto parseClause = [&]() LLVM_ATTRIBUTE_NOINLINE "
                 "LLVM_ATTRIBUTE_MINSIZE -> ::mlir::ParseResult {\n";
-        body << formatv(oilistParserCode, name);
+        if (!useSeenMask)
+          body << formatv(oilistParserCode, name);
         if (AttributeLikeVariable *unit =
                 oilist->getUnitVariableParsingElement(parsingElements)) {
           if (isa<PropertyVariable>(unit))

@@ -1876,6 +1876,12 @@ void printOptionalKeywordAttributes(
 int parseOptionalOilistKeyword(OpAsmParser &parser,
                                ArrayRef<StringRef> keywords);
 
+/// Parse a clause keyword and reject a repeated clause. A set bit at the
+/// keyword index records a prior occurrence. Supports up to 64 keywords.
+ParseResult parseUniqueOilistKeyword(OpAsmParser &parser,
+                                     ArrayRef<StringRef> keywords,
+                                     uint64_t &seen, int &index);
+
 /// Parse an optional operand or type into a generated parser's storage.
 ParseResult parseOptionalOperandInto(
     OpAsmParser &parser,
