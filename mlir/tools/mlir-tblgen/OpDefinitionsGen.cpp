@@ -1526,9 +1526,8 @@ void OpEmitter::genPropertiesSupport() {
       getInherentAttrMethod
           << formatv("  case {0}: return prop.{1};\n", index, name);
       setInherentAttrMethod
-          << formatv("  case {0}: prop.{1} = "
-                     "::llvm::dyn_cast_or_null<std::remove_reference_t<"
-                     "decltype(prop.{1})>>(value); return;\n",
+          << formatv("  case {0}: ::mlir::detail::assignAttributeProperty("
+                     "prop.{1}, value); return;\n",
                      index, name);
     }
     getInherentAttrMethod << "  default: break;\n  }\n";

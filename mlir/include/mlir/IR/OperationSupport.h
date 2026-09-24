@@ -104,6 +104,14 @@ setAttributeProperty(AttrT &storage, Attribute attr, StringRef name,
   return failure();
 }
 
+/// Assign a generated inherent attribute after checking its type. Unlike
+/// setAttributeProperty, a null value clears the property.
+template <typename AttrT>
+LLVM_ATTRIBUTE_NOINLINE void assignAttributeProperty(AttrT &storage,
+                                                     Attribute value) {
+  storage = llvm::dyn_cast_or_null<AttrT>(value);
+}
+
 /// Visit an existing attribute-backed property and retain a compatible
 /// replacement. A null property is not visited, matching the generated
 /// inherent-attribute walker.

@@ -169,7 +169,7 @@ def NS_AOp : NS_Op<"a_op", [IsolatedFromAbove, IsolatedFromAbove]> {
 // DEFS: case 0: return prop.attr1;
 // DEFS: AOp::setInherentAttr
 // DEFS: switch (odsGetInherentAttrIndex(name))
-// DEFS: case 0: prop.attr1 =
+// DEFS: case 0: ::mlir::detail::assignAttributeProperty(prop.attr1, value); return;
 // DEFS: void AOp::walkInherentAttrs
 // DEFS: ::mlir::detail::walkAttributeProperty(prop.attr1, "attr1", visitor);
 // DEFS: ::mlir::detail::walkAttributeProperty(prop.some_attr2, "some_attr2", visitor);
