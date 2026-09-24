@@ -596,6 +596,19 @@ MutableOperandRange::MutableOperandRange(
 MutableOperandRange::MutableOperandRange(Operation *owner)
     : MutableOperandRange(owner, /*start=*/0, owner->getNumOperands()) {}
 
+MutableOperandRange MutableOperandRange::getWithOperandSegment(
+    Operation *owner, ArrayRef<int32_t> sizes, unsigned index,
+    StringAttr segmentAttrName) {
+  assert(index < sizes.size() && "invalid operand segment index");
+  unsigned start = 0;
+  for (unsigned i = 0; i < index; ++i)
+    start += sizes[i];
+  OperandSegment segment{
+      index,
+      {segmentAttrName, DenseI32ArrayAttr::get(owner->getContext(), sizes)}};
+  return MutableOperandRange(owner, start, sizes[index], segment);
+}
+
 /// Construct a new mutable range for the given OpOperand.
 MutableOperandRange::MutableOperandRange(OpOperand &opOperand)
     : MutableOperandRange(opOperand.getOwner(),

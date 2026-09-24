@@ -130,6 +130,14 @@ public:
                       ArrayRef<OperandSegment> operandSegments = {});
   MutableOperandRange(Operation *owner);
 
+  /// Construct a range for an operand segment described by `sizes`. The
+  /// corresponding segment attribute is rebuilt when creating the range so
+  /// that resizing the range can update the operation's properties.
+  static MutableOperandRange getWithOperandSegment(Operation *owner,
+                                                   ArrayRef<int32_t> sizes,
+                                                   unsigned index,
+                                                   StringAttr segmentAttrName);
+
   /// Construct a new mutable range for the given OpOperand.
   MutableOperandRange(OpOperand &opOperand);
 

@@ -207,6 +207,11 @@ def NS_AttrSizedOperandOp : NS_Op<"attr_sized_operands",
 // CHECK:  RangeT getB() {
 // CHECK:  ValueT getC() {
 // CHECK:  RangeT getD() {
+// DEFS-LABEL: ::mlir::MutableOperandRange AttrSizedOperandOp::getAMutable() {
+// DEFS-NEXT:   auto mutableRange = ::mlir::MutableOperandRange::getWithOperandSegment(getOperation(), getProperties().operandSegmentSizes, 0u, getOperandSegmentSizesAttrName());
+// DEFS-NEXT:   return mutableRange;
+// DEFS-LABEL: ::mlir::MutableOperandRange AttrSizedOperandOp::getBMutable() {
+// DEFS-NEXT:   auto mutableRange = ::mlir::MutableOperandRange::getWithOperandSegment(getOperation(), getProperties().operandSegmentSizes, 1u, getOperandSegmentSizesAttrName());
 // DEFS-LABEL: LLVM_ATTRIBUTE_MINSIZE void AttrSizedOperandOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes,
 // DEFS-NEXT:   auto &odsProperties = odsState.getOrAddProperties<Properties>();
 // DEFS:   ::llvm::copy({{.*}}, odsProperties.operandSegmentSizes.begin());

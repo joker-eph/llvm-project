@@ -2200,7 +2200,8 @@ void OpEmitter::genNamedOperandSetters() {
                                                   : Method::Properties::Inline);
     ERROR_IF_PRUNED(m, name, op);
     auto &body = m->body();
-    body << "  auto range = getODSOperandIndexAndLength(" << i << ");\n";
+    if (!isVariadicOperand || !attrSizedOperands)
+      body << "  auto range = getODSOperandIndexAndLength(" << i << ");\n";
 
     if (!isVariadicOperand) {
       // In case of a single operand, return a single OpOperand.
@@ -2208,16 +2209,16 @@ void OpEmitter::genNamedOperandSetters() {
       continue;
     }
 
-    body << "  auto mutableRange = "
-            "::mlir::MutableOperandRange(getOperation(), "
-            "range.first, range.second";
-    if (attrSizedOperands)
-      body << formatv(", ::mlir::MutableOperandRange::OperandSegment({0}u, "
-                      "{{getOperandSegmentSizesAttrName(), "
-                      "::mlir::DenseI32ArrayAttr::get(getContext(), "
-                      "getProperties().operandSegmentSizes)})",
-                      i);
-    body << ");\n";
+    if (attrSizedOperands) {
+      body << "  auto mutableRange = "
+              "::mlir::MutableOperandRange::getWithOperandSegment("
+              "getOperation(), getProperties().operandSegmentSizes, "
+           << i << "u, getOperandSegmentSizesAttrName());\n";
+    } else {
+      body << "  auto mutableRange = "
+              "::mlir::MutableOperandRange(getOperation(), "
+              "range.first, range.second);\n";
+    }
 
     // If this operand is a nested variadic, we split the range into a
     // MutableOperandRangeRange that provides a range over all of the
