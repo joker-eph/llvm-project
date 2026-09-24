@@ -73,6 +73,17 @@ void ensureRegionTerminator(
 
 } // namespace impl
 
+namespace detail {
+/// Check a generated operand or result group with an ODS type constraint.
+/// The index is shared across groups so diagnostics retain their absolute
+/// operand or result number.
+using ODSValueTypeConstraintFn = LogicalResult (*)(Operation *, Type, StringRef,
+                                                   unsigned);
+LogicalResult verifyODSValueRangeTypes(Operation *op, ValueRange values,
+                                       StringRef valueKind, unsigned &index,
+                                       ODSValueTypeConstraintFn constraint);
+} // namespace detail
+
 /// Structure used by default as a "marker" when no "Properties" are set on an
 /// Operation.
 struct EmptyProperties {

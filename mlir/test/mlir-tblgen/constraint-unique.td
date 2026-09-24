@@ -121,12 +121,12 @@ def OpC : NS_Op<"op_c"> {
 // CHECK:         if (::mlir::failed([[$A_ATTR_CONSTRAINT]](*this, [[$B_ATTR]], "b")))
 // CHECK-NEXT:      return ::mlir::failure();
 // CHECK:         auto [[$A_VALUE_GROUP:.*]] = getODSOperands(0);
-// CHECK:         for (auto [[$A_VALUE:.*]] : [[$A_VALUE_GROUP]])
-// CHECK-NEXT:      if (::mlir::failed([[$A_TYPE_CONSTRAINT]](*this, [[$A_VALUE]].getType(), "operand", index++)))
+// CHECK:         ::mlir::detail::verifyODSValueRangeTypes(
+// CHECK-NEXT:            *this, [[$A_VALUE_GROUP]], "operand", index, &[[$A_TYPE_CONSTRAINT]])))
 // CHECK-NEXT:        return ::mlir::failure();
 // CHECK:         auto [[$RET_VALUE_GROUP:.*]] = getODSResults(0);
-// CHECK:         for (auto [[$RET_VALUE:.*]] : [[$RET_VALUE_GROUP]])
-// CHECK-NEXT:      if (::mlir::failed([[$A_TYPE_CONSTRAINT]](*this, [[$RET_VALUE]].getType(), "result", index++)))
+// CHECK:         ::mlir::detail::verifyODSValueRangeTypes(
+// CHECK-NEXT:            *this, [[$RET_VALUE_GROUP]], "result", index, &[[$A_TYPE_CONSTRAINT]])))
 // CHECK-NEXT:        return ::mlir::failure();
 // CHECK:         for (auto &region : ::llvm::MutableArrayRef((*this)->getRegion(0)))
 // CHECK-NEXT:      if (::mlir::failed([[$A_REGION_CONSTRAINT]](*this, region, "d", index++)))
@@ -141,12 +141,12 @@ def OpC : NS_Op<"op_c"> {
 // CHECK:         if (::mlir::failed([[$O_ATTR_CONSTRAINT]](*this, [[$B_ATTR]], "b")))
 // CHECK-NEXT:      return ::mlir::failure();
 // CHECK:         auto [[$A_VALUE_GROUP:.*]] = getODSOperands(0);
-// CHECK:         for (auto [[$A_VALUE:.*]] : [[$A_VALUE_GROUP]])
-// CHECK-NEXT:      if (::mlir::failed([[$O_TYPE_CONSTRAINT]](*this, [[$A_VALUE]].getType(), "operand", index++)))
+// CHECK:         ::mlir::detail::verifyODSValueRangeTypes(
+// CHECK-NEXT:            *this, [[$A_VALUE_GROUP]], "operand", index, &[[$O_TYPE_CONSTRAINT]])))
 // CHECK-NEXT:        return ::mlir::failure();
 // CHECK:         auto [[$RET_VALUE_GROUP:.*]] = getODSResults(0);
-// CHECK:         for (auto [[$RET_VALUE:.*]] : [[$RET_VALUE_GROUP]])
-// CHECK-NEXT:      if (::mlir::failed([[$O_TYPE_CONSTRAINT]](*this, [[$RET_VALUE]].getType(), "result", index++)))
+// CHECK:         ::mlir::detail::verifyODSValueRangeTypes(
+// CHECK-NEXT:            *this, [[$RET_VALUE_GROUP]], "result", index, &[[$O_TYPE_CONSTRAINT]])))
 // CHECK-NEXT:        return ::mlir::failure();
 // CHECK:         for (auto &region : ::llvm::MutableArrayRef((*this)->getRegion(0)))
 // CHECK-NEXT:      if (::mlir::failed([[$O_REGION_CONSTRAINT]](*this, region, "d", index++)))

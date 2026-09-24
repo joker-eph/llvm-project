@@ -3867,10 +3867,9 @@ void OpEmitter::genOperandResultVerifier(MethodBody &body,
   // {1}: Type constraint function.
   // {2}: "operand" or "result"
   const char *const verifyValues = R"(
-    for (auto v : valueGroup{0}) {
-      if (::mlir::failed({1}(*this, v.getType(), "{2}", index++)))
-        return ::mlir::failure();
-    }
+    if (::mlir::failed(::mlir::detail::verifyODSValueRangeTypes(
+            *this, valueGroup{0}, "{2}", index, &{1})))
+      return ::mlir::failure();
 )";
 
   const auto canSkip = [](const NamedTypeConstraint &value) {

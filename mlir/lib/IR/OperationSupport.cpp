@@ -17,6 +17,7 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Operation.h"
+#include "mlir/IR/ValueRange.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/SHA1.h"
 #include <numeric>
@@ -26,6 +27,16 @@ using namespace mlir;
 
 bool mlir::detail::isOperationOfType(Operation *op, TypeID typeID) {
   return op->getName().getTypeID() == typeID;
+}
+
+LogicalResult
+mlir::detail::verifyODSValueRangeTypes(Operation *op, ValueRange values,
+                                       StringRef valueKind, unsigned &index,
+                                       ODSValueTypeConstraintFn constraint) {
+  for (Value value : values)
+    if (failed(constraint(op, value.getType(), valueKind, index++)))
+      return failure();
+  return success();
 }
 
 int mlir::detail::parseOptionalOilistKeyword(OpAsmParser &parser,
