@@ -222,7 +222,7 @@ private:
 
   /// Insert the given interface model into the map.
   template <typename InterfaceModel>
-  void insertModel() {
+  LLVM_ATTRIBUTE_MINSIZE void insertModel() {
     // FIXME(#59975): Uncomment this when SPIRV no longer awkwardly reimplements
     // interfaces in a way that isn't clean/compatible.
     // static_assert(std::is_trivially_destructible_v<InterfaceModel>,
