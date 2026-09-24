@@ -466,6 +466,25 @@ def RegionRef : TestFormat_Op<[{
   let regions = (region AnyRegion:$body);
 }
 
+// CHECK-LABEL: SeparatedOilistDispatch::parse
+// CHECK-NOT: parseOptionalOilistKeyword
+// CHECK: if (succeeded(parser.parseOptionalKeyword("foo")))
+def SeparatedOilistDispatch : TestFormat_Op<[{
+  oilist<`,`>(`foo` | `bar`) attr-dict
+}]>;
+
+// CHECK-LABEL: SharedOilistDispatch::parse
+// CHECK: static constexpr ::llvm::StringRef oilistKeywords[] = {"foo", "bar"};
+// CHECK: ::mlir::detail::parseOptionalOilistKeyword(parser, oilistKeywords)
+// CHECK: switch (oilistIndex)
+// CHECK: case 0:
+// CHECK: fooClause = true;
+// CHECK: case 1:
+// CHECK: barClause = true;
+def SharedOilistDispatch : TestFormat_Op<[{
+  oilist(`foo` | `bar`) attr-dict
+}]>;
+
 // CHECK-LABEL: SuccessorRef::parse
 // CHECK:   auto odsResult = parseCustom(parser, successorSuccessor);
 // CHECK-LABEL: SuccessorRef::print

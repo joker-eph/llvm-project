@@ -1977,6 +1977,58 @@ void OperationFormat::genElementParser(FormatElement *element, MethodBody &body,
 
     /// OIList Directive
   } else if (OIListElement *oilist = dyn_cast<OIListElement>(element)) {
+    // A shared dispatcher keeps the repeated keyword probing out of the
+    // generated parser. Separator handling retains its existing path.
+    bool useSharedDispatch =
+        !oilist->getSeparator() &&
+        llvm::size(oilist->getLiteralElements()) > 1 &&
+        llvm::all_of(oilist->getLiteralElements(), [](LiteralElement *literal) {
+          StringRef spelling = literal->getSpelling();
+          return spelling.front() == '_' || isalpha(spelling.front());
+        });
+    if (useSharedDispatch) {
+      body << "  {\n";
+      body.indent();
+      body << "  static constexpr ::llvm::StringRef oilistKeywords[] = {";
+      llvm::interleaveComma(oilist->getLiteralElements(), body,
+                            [&](LiteralElement *literal) {
+                              body << '"' << literal->getSpelling() << '"';
+                            });
+      body << "};\n";
+      for (LiteralElement *literal : oilist->getLiteralElements())
+        body << "  bool " << literal->getSpelling() << "Clause = false;\n";
+      body << "  while (true) {\n"
+           << "    int oilistIndex = "
+              "::mlir::detail::parseOptionalOilistKeyword(parser, "
+              "oilistKeywords);\n"
+           << "    if (oilistIndex < 0)\n"
+           << "      break;\n"
+           << "    switch (oilistIndex) {\n";
+      for (auto [index, clause] : llvm::enumerate(oilist->getClauses())) {
+        LiteralElement *literal = std::get<0>(clause);
+        ArrayRef<FormatElement *> parsingElements = std::get<1>(clause);
+        StringRef name = literal->getSpelling();
+        body << "    case " << index << ": {\n";
+        body << formatv(oilistParserCode, name);
+        if (AttributeLikeVariable *unit =
+                oilist->getUnitVariableParsingElement(parsingElements)) {
+          if (isa<PropertyVariable>(unit))
+            body << formatv("    {0}.{1} = true;", propAccess, unit->getName());
+          else
+            body << formatv("    {0}.{1} = parser.getBuilder().getUnitAttr();",
+                            propAccess, unit->getName());
+        } else {
+          for (FormatElement *child : parsingElements)
+            genElementParser(child, body, attrTypeCtx);
+        }
+        body << "      break;\n"
+             << "    }\n";
+      }
+      body << "    }\n"
+           << "  }\n";
+      body.unindent() << "  }\n";
+      return;
+    }
     if (oilist->getSeparator()) {
       body << "  {\n";
       body.indent();

@@ -1862,6 +1862,11 @@ private:
   Group groups[N];
 };
 
+/// Parse the first matching keyword in an order-independent clause list.
+/// Returns its index, or -1 without consuming input when no keyword matches.
+int parseOptionalOilistKeyword(OpAsmParser &parser,
+                               ArrayRef<StringRef> keywords);
+
 /// Parse an optional operand or type into a generated parser's storage.
 ParseResult parseOptionalOperandInto(
     OpAsmParser &parser,

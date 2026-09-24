@@ -28,6 +28,14 @@ bool mlir::detail::isOperationOfType(Operation *op, TypeID typeID) {
   return op->getName().getTypeID() == typeID;
 }
 
+int mlir::detail::parseOptionalOilistKeyword(OpAsmParser &parser,
+                                             ArrayRef<StringRef> keywords) {
+  for (auto [index, keyword] : llvm::enumerate(keywords))
+    if (succeeded(parser.parseOptionalKeyword(keyword)))
+      return index;
+  return -1;
+}
+
 LogicalResult
 OperationName::Impl::foldHook(Operation *op, ArrayRef<Attribute> attrs,
                               SmallVectorImpl<OpFoldResult> &results) {
