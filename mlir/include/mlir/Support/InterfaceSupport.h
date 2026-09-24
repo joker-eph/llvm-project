@@ -18,6 +18,8 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/TypeName.h"
 
+#include <type_traits>
+
 namespace mlir {
 namespace detail {
 //===----------------------------------------------------------------------===//
@@ -157,6 +159,13 @@ class InterfaceMap {
   template <typename T>
   using detect_initialize_method = llvm::is_detected<has_initialize_method, T>;
 
+  template <typename T, typename = void>
+  struct IsConstexprGeneratedModel : std::false_type {};
+  template <typename T>
+  struct IsConstexprGeneratedModel<T, std::void_t<typename T::GeneratedModel>>
+      : std::bool_constant<std::is_same_v<T, typename T::GeneratedModel> &&
+                           std::is_trivially_copy_constructible_v<T>> {};
+
 public:
   InterfaceMap() = default;
   InterfaceMap(InterfaceMap &&) = default;
@@ -229,8 +238,13 @@ private:
     //               "interface models must be trivially destructible");
 
     // Build the interface model, optionally initializing if necessary.
-    InterfaceModel *model =
-        new (malloc(sizeof(InterfaceModel))) InterfaceModel();
+    InterfaceModel *model;
+    if constexpr (IsConstexprGeneratedModel<InterfaceModel>::value) {
+      static constexpr InterfaceModel prototype;
+      model = new (malloc(sizeof(InterfaceModel))) InterfaceModel(prototype);
+    } else {
+      model = new (malloc(sizeof(InterfaceModel))) InterfaceModel();
+    }
     if constexpr (detect_initialize_method<InterfaceModel>::value)
       model->initializeInterfaceConcept(*this);
 
