@@ -54,6 +54,8 @@ DEFINE_C_API_STRUCT(MlirContext, void);
 DEFINE_C_API_STRUCT(MlirDialect, void);
 DEFINE_C_API_STRUCT(MlirDialectRegistry, void);
 DEFINE_C_API_STRUCT(MlirOperation, void);
+/// Owns a standalone property value. Destroy with mlirPropertyDestroy.
+DEFINE_C_API_STRUCT(MlirProperty, void);
 DEFINE_C_API_STRUCT(MlirOpOperand, void);
 DEFINE_C_API_STRUCT(MlirOpPrintingFlags, void);
 DEFINE_C_API_STRUCT(MlirBlock, void);
@@ -79,6 +81,17 @@ struct MlirNamedAttribute {
   MlirAttribute attribute;
 };
 typedef struct MlirNamedAttribute MlirNamedAttribute;
+
+/// A borrowed operation field. Its operation must remain alive.
+typedef struct MlirOperationPropertyRef {
+  MlirOperation operation;
+  intptr_t index;
+} MlirOperationPropertyRef;
+
+typedef struct MlirNamedProperty {
+  MlirStringRef name;
+  MlirProperty property;
+} MlirNamedProperty;
 
 //===----------------------------------------------------------------------===//
 // Context API.
@@ -623,6 +636,61 @@ mlirBytecodeWriterConfigDesiredEmitVersion(MlirBytecodeWriterConfig flags,
 /// return a null operation and emit diagnostics:
 ///   - Result type inference is enabled and cannot be performed.
 MLIR_CAPI_EXPORTED MlirOperation mlirOperationCreate(MlirOperationState *state);
+
+/// Creates an operation after copying declared property values into its typed
+/// storage, before result-type inference. State attributes are discardable.
+/// Returns null if any property or attribute violates the operation schema.
+MLIR_CAPI_EXPORTED MlirOperation mlirOperationCreateWithProperties(
+    MlirOperationState *state, intptr_t nProperties,
+    const MlirNamedProperty *properties);
+
+/// Standalone properties. Returned values are owned and must be destroyed.
+MLIR_CAPI_EXPORTED MlirProperty mlirPropertyParse(MlirContext context,
+                                                  MlirStringRef text);
+MLIR_CAPI_EXPORTED MlirProperty mlirPropertyParseWithKind(
+    MlirContext context, MlirStringRef qualifiedKind, MlirStringRef payload);
+MLIR_CAPI_EXPORTED MlirProperty mlirPropertyFromAttribute(MlirAttribute attr);
+MLIR_CAPI_EXPORTED MlirAttribute mlirPropertyAsAttribute(MlirProperty property);
+MLIR_CAPI_EXPORTED MlirProperty mlirPropertyCopy(MlirProperty property);
+MLIR_CAPI_EXPORTED void mlirPropertyDestroy(MlirProperty property);
+MLIR_CAPI_EXPORTED bool mlirPropertyIsNull(MlirProperty property);
+MLIR_CAPI_EXPORTED bool mlirPropertyEqual(MlirProperty lhs, MlirProperty rhs);
+MLIR_CAPI_EXPORTED MlirContext mlirPropertyGetContext(MlirProperty property);
+MLIR_CAPI_EXPORTED MlirTypeID mlirPropertyGetTypeID(MlirProperty property);
+MLIR_CAPI_EXPORTED MlirStringRef mlirPropertyGetName(MlirProperty property);
+MLIR_CAPI_EXPORTED void mlirPropertyPrint(MlirProperty property,
+                                          MlirStringCallback callback,
+                                          void *userData);
+MLIR_CAPI_EXPORTED MlirProperty mlirBoolPropertyGet(MlirContext context,
+                                                    bool value);
+MLIR_CAPI_EXPORTED bool mlirPropertyGetBool(MlirProperty property, bool *value);
+MLIR_CAPI_EXPORTED MlirProperty mlirI64PropertyGet(MlirContext context,
+                                                   int64_t value);
+MLIR_CAPI_EXPORTED bool mlirPropertyGetI64(MlirProperty property,
+                                           int64_t *value);
+MLIR_CAPI_EXPORTED MlirProperty mlirStringPropertyGet(MlirContext context,
+                                                      MlirStringRef value);
+/// The returned string borrows from `property`.
+MLIR_CAPI_EXPORTED bool mlirPropertyGetString(MlirProperty property,
+                                              MlirStringRef *value);
+
+/// Declared operation fields. Reads produce owned snapshots; references are
+/// borrowed and must not outlive the operation.
+MLIR_CAPI_EXPORTED intptr_t mlirOperationGetNumPropertyFields(MlirOperation op);
+MLIR_CAPI_EXPORTED MlirOperationPropertyRef
+mlirOperationGetPropertyField(MlirOperation op, intptr_t index);
+MLIR_CAPI_EXPORTED MlirOperationPropertyRef
+mlirOperationGetPropertyFieldByName(MlirOperation op, MlirStringRef name);
+MLIR_CAPI_EXPORTED bool
+mlirOperationPropertyRefIsNull(MlirOperationPropertyRef ref);
+MLIR_CAPI_EXPORTED MlirStringRef
+mlirOperationPropertyRefGetName(MlirOperationPropertyRef ref);
+MLIR_CAPI_EXPORTED MlirProperty
+mlirOperationPropertyRefCopy(MlirOperationPropertyRef ref);
+MLIR_CAPI_EXPORTED MlirLogicalResult mlirOperationPropertyRefAssign(
+    MlirOperationPropertyRef ref, MlirProperty value);
+MLIR_CAPI_EXPORTED MlirLogicalResult
+mlirOperationPropertyRefReset(MlirOperationPropertyRef ref);
 
 /// Parses an operation, giving ownership to the caller. If parsing fails a null
 /// operation will be returned, and an error diagnostic emitted.

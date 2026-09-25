@@ -37,6 +37,71 @@ static void registerAllUpstreamDialects(MlirContext ctx) {
   mlirDialectRegistryDestroy(registry);
 }
 
+struct PropertyPrintBuffer {
+  char data[128];
+  size_t size;
+};
+
+static void appendPropertyText(MlirStringRef text, void *userData) {
+  struct PropertyPrintBuffer *buffer = userData;
+  assert(buffer->size + text.length < sizeof(buffer->data));
+  memcpy(buffer->data + buffer->size, text.data, text.length);
+  buffer->size += text.length;
+  buffer->data[buffer->size] = '\0';
+}
+
+static int testProperties(MlirContext ctx) {
+  MlirProperty native = mlirPropertyParse(
+      ctx, mlirStringRefCreateFromCString("&builtin.i64<42>"));
+  MlirProperty known = mlirPropertyParseWithKind(
+      ctx, mlirStringRefCreateFromCString("builtin.i64"),
+      mlirStringRefCreateFromCString("42"));
+  if (mlirPropertyIsNull(native) || mlirPropertyIsNull(known) ||
+      !mlirPropertyEqual(native, known) ||
+      !mlirTypeIDEqual(mlirPropertyGetTypeID(native),
+                       mlirPropertyGetTypeID(known)) ||
+      !mlirContextEqual(mlirPropertyGetContext(native), ctx) ||
+      !mlirStringRefEqual(mlirPropertyGetName(native),
+                          mlirStringRefCreateFromCString("i64")))
+    return 1;
+  struct PropertyPrintBuffer printBuffer = {{0}, 0};
+  mlirPropertyPrint(native, appendPropertyText, &printBuffer);
+  if (strcmp(printBuffer.data, "&builtin.i64<42>"))
+    return 1;
+  MlirProperty clone = mlirPropertyCopy(native);
+  int64_t numeric = 0;
+  MlirProperty built = mlirI64PropertyGet(ctx, 42);
+  MlirProperty flag = mlirBoolPropertyGet(ctx, true);
+  bool flagValue = false;
+  MlirProperty text =
+      mlirStringPropertyGet(ctx, mlirStringRefCreateFromCString("hello"));
+  MlirStringRef textValue;
+  if (!mlirPropertyGetBool(flag, &flagValue) || !flagValue ||
+      !mlirPropertyGetString(text, &textValue) ||
+      !mlirStringRefEqual(textValue, mlirStringRefCreateFromCString("hello")))
+    return 1;
+  if (!mlirPropertyEqual(native, built) ||
+      !mlirPropertyGetI64(built, &numeric) || numeric != 42)
+    return 1;
+  if (!mlirPropertyEqual(native, clone) ||
+      !mlirAttributeIsNull(mlirPropertyAsAttribute(native)))
+    return 1;
+  MlirAttribute attr = mlirIntegerAttrGet(mlirIntegerTypeGet(ctx, 64), 42);
+  MlirProperty wrapped = mlirPropertyFromAttribute(attr);
+  if (mlirAttributeIsNull(mlirPropertyAsAttribute(wrapped)) ||
+      mlirPropertyEqual(native, wrapped))
+    return 1;
+  mlirPropertyDestroy(wrapped);
+  mlirPropertyDestroy(text);
+  mlirPropertyDestroy(flag);
+  mlirPropertyDestroy(built);
+  mlirPropertyDestroy(clone);
+  mlirPropertyDestroy(known);
+  mlirPropertyDestroy(native);
+  fprintf(stderr, "property C API: ok\n");
+  return 0;
+}
+
 struct ResourceDeleteUserData {
   const char *name;
 };
@@ -3505,7 +3570,10 @@ int main(void) {
     return 22;
   if (testOperationIsAncestor(ctx))
     return 23;
+  if (testProperties(ctx))
+    return 24;
 
+  // CHECK: property C API: ok
   // CHECK: DESTROY MAIN CONTEXT
   // CHECK: reportResourceDelete: resource_i64_blob
   fprintf(stderr, "DESTROY MAIN CONTEXT\n");

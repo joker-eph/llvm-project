@@ -18,6 +18,11 @@ extern "C" {
 
 MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(PythonTest, python_test);
 
+/// Dispatch the shared read-only test interface on native and attribute-backed
+/// property values. Returns false when the value does not implement it.
+MLIR_CAPI_EXPORTED bool mlirPythonTestPropertyGetNumber(MlirProperty property,
+                                                        int64_t *number);
+
 MLIR_CAPI_EXPORTED bool
 mlirAttributeIsAPythonTestTestAttribute(MlirAttribute attr);
 

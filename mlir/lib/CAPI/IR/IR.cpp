@@ -18,6 +18,7 @@
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BuiltinProperties.h"
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/Location.h"
@@ -611,7 +612,19 @@ static LogicalResult inferOperationTypes(OperationState &state) {
   return failure();
 }
 
-MlirOperation mlirOperationCreate(MlirOperationState *state) {
+static Property unwrapProperty(MlirProperty property) {
+  return property.ptr ? static_cast<OwningProperty *>(property.ptr)->get()
+                      : Property();
+}
+
+static MlirProperty wrapProperty(OwningProperty property) {
+  return {new OwningProperty(std::move(property))};
+}
+
+static MlirOperation createOperation(MlirOperationState *state,
+                                     intptr_t nProperties,
+                                     const MlirNamedProperty *properties,
+                                     bool explicitProperties) {
   assert(state);
   OperationState cppState(unwrap(state->location), unwrap(state->name));
   SmallVector<Type, 4> resultStorage;
@@ -623,10 +636,28 @@ MlirOperation mlirOperationCreate(MlirOperationState *state) {
   cppState.addSuccessors(
       unwrapList(state->nSuccessors, state->successors, successorStorage));
 
+  bool invalidProperties = false;
   cppState.attributes.reserve(state->nAttributes);
-  for (intptr_t i = 0; i < state->nAttributes; ++i)
+  for (intptr_t i = 0; i < state->nAttributes; ++i) {
+    if (explicitProperties) {
+      StringAttr attrName = unwrap(state->attributes[i].name);
+      if (llvm::is_contained(cppState.name.getAttributeNames(), attrName) ||
+          llvm::any_of(cppState.name.getPropertyFields(),
+                       [&](const PropertyFieldDescriptor &field) {
+                         return field.name == attrName.getValue();
+                       }))
+        invalidProperties = true;
+    }
     cppState.addAttribute(unwrap(state->attributes[i].name),
                           unwrap(state->attributes[i].attribute));
+  }
+
+  if (explicitProperties)
+    for (intptr_t i = 0; i < nProperties; ++i)
+      if (failed(cppState.setNamedProperty(
+              unwrap(properties[i].name),
+              unwrapProperty(properties[i].property))))
+        invalidProperties = true;
 
   for (intptr_t i = 0; i < state->nRegions; ++i)
     cppState.addRegion(std::unique_ptr<Region>(unwrap(state->regions[i])));
@@ -637,6 +668,9 @@ MlirOperation mlirOperationCreate(MlirOperationState *state) {
   free(state->regions);
   free(state->attributes);
 
+  if (invalidProperties)
+    return {nullptr};
+
   // Infer result types.
   if (state->enableResultTypeInference) {
     assert(cppState.types.empty() &&
@@ -646,6 +680,187 @@ MlirOperation mlirOperationCreate(MlirOperationState *state) {
   }
 
   return wrap(Operation::create(cppState));
+}
+
+MlirOperation mlirOperationCreate(MlirOperationState *state) {
+  return createOperation(state, 0, nullptr, false);
+}
+
+MlirOperation
+mlirOperationCreateWithProperties(MlirOperationState *state,
+                                  intptr_t nProperties,
+                                  const MlirNamedProperty *properties) {
+  return createOperation(state, nProperties, properties, true);
+}
+
+MlirProperty mlirPropertyParse(MlirContext context, MlirStringRef text) {
+  FailureOr<OwningProperty> value =
+      parseProperty(unwrap(text), unwrap(context));
+  return succeeded(value) ? wrapProperty(std::move(*value))
+                          : MlirProperty{nullptr};
+}
+
+MlirProperty mlirPropertyParseWithKind(MlirContext context,
+                                       MlirStringRef qualifiedKind,
+                                       MlirStringRef payload) {
+  const AbstractProperty *kind =
+      AbstractProperty::lookup(unwrap(qualifiedKind), unwrap(context));
+  if (!kind)
+    return {nullptr};
+  FailureOr<OwningProperty> value = parseProperty(unwrap(payload), *kind);
+  return succeeded(value) ? wrapProperty(std::move(*value))
+                          : MlirProperty{nullptr};
+}
+
+MlirProperty mlirPropertyFromAttribute(MlirAttribute attr) {
+  return wrapProperty(OwningProperty(unwrap(attr)));
+}
+
+MlirAttribute mlirPropertyAsAttribute(MlirProperty property) {
+  return wrap(unwrapProperty(property).getAttribute());
+}
+
+MlirProperty mlirPropertyCopy(MlirProperty property) {
+  return property.ptr
+             ? wrapProperty(OwningProperty::copy(unwrapProperty(property)))
+             : MlirProperty{nullptr};
+}
+
+void mlirPropertyDestroy(MlirProperty property) {
+  delete static_cast<OwningProperty *>(property.ptr);
+}
+
+bool mlirPropertyIsNull(MlirProperty property) { return !property.ptr; }
+
+bool mlirPropertyEqual(MlirProperty lhs, MlirProperty rhs) {
+  return unwrapProperty(lhs) == unwrapProperty(rhs);
+}
+
+MlirContext mlirPropertyGetContext(MlirProperty property) {
+  return wrap(unwrapProperty(property).getContext());
+}
+
+MlirTypeID mlirPropertyGetTypeID(MlirProperty property) {
+  return wrap(unwrapProperty(property).getTypeID());
+}
+
+MlirStringRef mlirPropertyGetName(MlirProperty property) {
+  const AbstractProperty *kind = unwrapProperty(property).getKind();
+  return wrap(kind ? kind->getName() : StringRef());
+}
+
+void mlirPropertyPrint(MlirProperty property, MlirStringCallback callback,
+                       void *userData) {
+  detail::CallbackOstream stream(callback, userData);
+  unwrapProperty(property).print(stream);
+}
+
+template <typename Kind>
+static MlirProperty
+makeBuiltinProperty(MLIRContext *context,
+                    const typename Kind::StorageType &value) {
+  const AbstractProperty *kind =
+      AbstractProperty::lookup(TypeID::get<Kind>(), context);
+  return kind ? wrapProperty(OwningProperty::create<Kind>(*kind, value))
+              : MlirProperty{nullptr};
+}
+
+MlirProperty mlirBoolPropertyGet(MlirContext context, bool value) {
+  return makeBuiltinProperty<BoolProperty>(unwrap(context), value);
+}
+
+bool mlirPropertyGetBool(MlirProperty property, bool *value) {
+  const bool *storage = unwrapProperty(property).get<BoolProperty>();
+  if (!storage || !value)
+    return false;
+  *value = *storage;
+  return true;
+}
+
+MlirProperty mlirI64PropertyGet(MlirContext context, int64_t value) {
+  return makeBuiltinProperty<I64Property>(unwrap(context), value);
+}
+
+bool mlirPropertyGetI64(MlirProperty property, int64_t *value) {
+  const int64_t *storage = unwrapProperty(property).get<I64Property>();
+  if (!storage || !value)
+    return false;
+  *value = *storage;
+  return true;
+}
+
+MlirProperty mlirStringPropertyGet(MlirContext context, MlirStringRef value) {
+  StringPropertyStorage storage{unwrap(value).str()};
+  return makeBuiltinProperty<StringProperty>(unwrap(context), storage);
+}
+
+bool mlirPropertyGetString(MlirProperty property, MlirStringRef *value) {
+  const StringPropertyStorage *storage =
+      unwrapProperty(property).get<StringProperty>();
+  if (!storage || !value)
+    return false;
+  *value = wrap(StringRef(storage->value));
+  return true;
+}
+
+intptr_t mlirOperationGetNumPropertyFields(MlirOperation op) {
+  return unwrap(op)->getPropertyFieldDescriptors().size();
+}
+
+MlirOperationPropertyRef mlirOperationGetPropertyField(MlirOperation op,
+                                                       intptr_t index) {
+  if (!op.ptr || index < 0 ||
+      static_cast<size_t>(index) >=
+          unwrap(op)->getPropertyFieldDescriptors().size())
+    return {{nullptr}, -1};
+  return {op, index};
+}
+
+MlirOperationPropertyRef
+mlirOperationGetPropertyFieldByName(MlirOperation op, MlirStringRef name) {
+  if (!op.ptr)
+    return {{nullptr}, -1};
+  for (auto [index, field] :
+       llvm::enumerate(unwrap(op)->getPropertyFieldDescriptors()))
+    if (field.name == unwrap(name))
+      return {op, static_cast<intptr_t>(index)};
+  return {{nullptr}, -1};
+}
+
+bool mlirOperationPropertyRefIsNull(MlirOperationPropertyRef ref) {
+  return !ref.operation.ptr || ref.index < 0;
+}
+
+static std::optional<OperationPropertyRef>
+unwrapPropertyRef(MlirOperationPropertyRef ref) {
+  if (mlirOperationPropertyRefIsNull(ref))
+    return std::nullopt;
+  ArrayRef<PropertyFieldDescriptor> fields =
+      unwrap(ref.operation)->getPropertyFieldDescriptors();
+  if (static_cast<size_t>(ref.index) >= fields.size())
+    return std::nullopt;
+  return OperationPropertyRef(unwrap(ref.operation), fields[ref.index]);
+}
+
+MlirStringRef mlirOperationPropertyRefGetName(MlirOperationPropertyRef ref) {
+  auto field = unwrapPropertyRef(ref);
+  return wrap(field ? field->getName() : StringRef());
+}
+
+MlirProperty mlirOperationPropertyRefCopy(MlirOperationPropertyRef ref) {
+  auto field = unwrapPropertyRef(ref);
+  return field ? wrapProperty(field->copy()) : MlirProperty{nullptr};
+}
+
+MlirLogicalResult mlirOperationPropertyRefAssign(MlirOperationPropertyRef ref,
+                                                 MlirProperty value) {
+  auto field = unwrapPropertyRef(ref);
+  return wrap(field ? field->assign(unwrapProperty(value)) : failure());
+}
+
+MlirLogicalResult mlirOperationPropertyRefReset(MlirOperationPropertyRef ref) {
+  auto field = unwrapPropertyRef(ref);
+  return wrap(field ? field->reset() : failure());
 }
 
 MlirOperation mlirOperationCreateParse(MlirContext context,

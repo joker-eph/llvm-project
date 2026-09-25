@@ -49,6 +49,17 @@ _add_capi_test_executable(mlir-capi-ir-test
     MLIRCAPIRegisterEverything
 )
 
+if(MLIR_ENABLE_BINDINGS_PYTHON)
+  _add_capi_test_executable(mlir-capi-registered-property-test
+    registered_properties.c
+    LINK_LIBS PRIVATE
+      MLIRCAPIIR
+      MLIRCAPIPythonTestDialect
+  )
+  target_include_directories(mlir-capi-registered-property-test PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../python/lib")
+endif()
+
 _add_capi_test_executable(mlir-capi-irdl-test
   irdl.c
   LINK_LIBS PRIVATE
