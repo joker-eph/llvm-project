@@ -119,7 +119,9 @@ def TestOpInterface : OpInterface<"TestOpInterface"> {
       /*retTy=*/"int",
       /*methodName=*/"body_foo",
       /*args=*/(ins "int":$input),
-      /*body=*/[{ return 0; }]
+      /*body=*/[{
+        return $_op->getNumOperands() + $_op->getNumOperands();
+      }]
     >,
     InterfaceMethod<
       /*desc=*/[{some function comment}],
@@ -183,6 +185,13 @@ def DeclareMethodsWithDefaultOp : Op<TestDialect, "declare_methods_op",
 // Method implementations come last, after all class definitions.
 // DECL: template<typename ConcreteOp>
 // DECL: int detail::TestOpInterfaceInterfaceTraits::Model<ConcreteOp>::foo
+// DECL: assert(::mlir::detail::isOperationOfType(tablegen_opaque_val, ::mlir::TypeID::get<ConcreteOp>()) && "operation type mismatch");
+// DECL-NEXT: ConcreteOp tablegen_concrete_op(tablegen_opaque_val);
+// DECL-NEXT: return tablegen_concrete_op.foo(input);
+// DECL: int detail::TestOpInterfaceInterfaceTraits::Model<ConcreteOp>::body_foo
+// DECL: assert(::mlir::detail::isOperationOfType(tablegen_opaque_val, ::mlir::TypeID::get<ConcreteOp>()) && "operation type mismatch");
+// DECL-NEXT: ConcreteOp tablegen_concrete_op(tablegen_opaque_val);
+// DECL-NEXT: return tablegen_concrete_op->getNumOperands() + tablegen_concrete_op->getNumOperands();
 
 // OP_DECL-LABEL: class DeclareMethodsOp : public
 // OP_DECL: int foo(int input);
