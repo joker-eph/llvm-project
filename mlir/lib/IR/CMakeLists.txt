@@ -30,6 +30,7 @@ add_mlir_library(MLIRIR
   Operation.cpp
   OperationSupport.cpp
   PatternLoggingListener.cpp
+  Properties.cpp
   PatternMatch.cpp
   QuantStorageTypeInterface.cpp
   Region.cpp

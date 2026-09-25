@@ -15,6 +15,7 @@
 #include "BuiltinDialectBytecode.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BuiltinProperties.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/IR/OpImplementation.h"
@@ -103,6 +104,9 @@ private:
 } // namespace
 
 void BuiltinDialect::initialize() {
+  addProperties<BoolProperty, I64Property, StringProperty,
+                ArrayPropertyKind<I64Property>,
+                OptionalPropertyKind<I64Property>>();
   registerTypes();
   registerAttributes();
   registerLocationAttributes();

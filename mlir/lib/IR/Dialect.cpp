@@ -39,6 +39,30 @@ Dialect::Dialect(StringRef name, MLIRContext *context, TypeID id)
 
 Dialect::~Dialect() = default;
 
+const AbstractProperty *Dialect::lookupProperty(TypeID typeID) const {
+  auto it = registeredProperties.find(typeID);
+  return it == registeredProperties.end() ? nullptr : it->second.get();
+}
+
+const AbstractProperty *Dialect::lookupProperty(StringRef name) const {
+  auto it = propertiesByName.find(name);
+  return it == propertiesByName.end() ? nullptr : it->second;
+}
+
+void Dialect::addProperty(AbstractProperty property) {
+  if (const AbstractProperty *existing = lookupProperty(property.getTypeID())) {
+    assert(existing->getName() == property.getName() &&
+           "repeated property registration changed its name");
+    return;
+  }
+  assert(!lookupProperty(property.getName()) &&
+         "property name is already registered");
+  TypeID id = property.getTypeID();
+  auto owned = std::make_unique<AbstractProperty>(std::move(property));
+  propertiesByName[owned->getName()] = owned.get();
+  registeredProperties.try_emplace(id, std::move(owned));
+}
+
 /// Verify an attribute from this dialect on the argument at 'argIndex' for
 /// the region at 'regionIndex' on the given operation. Returns failure if
 /// the verification failed, success otherwise. This hook may optionally be

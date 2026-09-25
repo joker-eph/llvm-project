@@ -15,7 +15,9 @@
 
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/IR/OperationSupport.h"
+#include "mlir/IR/Properties.h"
 #include "mlir/Support/TypeID.h"
+#include "llvm/ADT/StringMap.h"
 
 namespace mlir {
 class DialectAsmParser;
@@ -55,6 +57,10 @@ public:
 
   /// Returns the unique identifier that corresponds to this dialect.
   TypeID getTypeID() const { return dialectID; }
+
+  /// Find a registered native property kind in this dialect.
+  const AbstractProperty *lookupProperty(TypeID typeID) const;
+  const AbstractProperty *lookupProperty(StringRef name) const;
 
   /// Returns true if this dialect allows for unregistered operations, i.e.
   /// operations prefixed with the dialect namespace but not registered with
@@ -313,6 +319,14 @@ protected:
   /// 'addAttributes<CustomAttr>()'.
   void addAttribute(TypeID typeID, AbstractAttribute &&attrInfo);
 
+  /// Register named native property kinds. The same kind may be registered
+  /// repeatedly, but a name cannot refer to two different kinds.
+  template <typename... Args>
+  void addProperties() {
+    (void)std::initializer_list<int>{
+        0, (addProperty(AbstractProperty::get<Args>(*this)), 0)...};
+  }
+
   /// Enable support for unregistered operations.
   void allowUnknownOperations(bool allow = true) { unknownOpsAllowed = allow; }
 
@@ -339,6 +353,8 @@ private:
     detail::TypeUniquer::registerType<T>(context);
   }
 
+  void addProperty(AbstractProperty property);
+
   /// The namespace of this dialect.
   StringRef name;
 
@@ -361,6 +377,9 @@ private:
 
   /// A collection of registered dialect interfaces.
   DenseMap<TypeID, std::unique_ptr<DialectInterface>> registeredInterfaces;
+
+  DenseMap<TypeID, std::unique_ptr<AbstractProperty>> registeredProperties;
+  llvm::StringMap<AbstractProperty *> propertiesByName;
 
   /// A set of interfaces that the dialect (or its constructs, i.e.
   /// Attributes/Operations/Types/etc.) has promised to implement, but has yet
