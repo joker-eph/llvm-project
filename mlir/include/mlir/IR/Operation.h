@@ -561,7 +561,10 @@ public:
   DictionaryAttr getRawDictionaryAttrs() { return attrs; }
 
   /// Return all of the attributes on this operation.
-  ArrayRef<NamedAttribute> getAttrs() { return getAttrDictionary().getValue(); }
+  [[deprecated("Use explicit inherent or discardable attribute APIs instead")]]
+  ArrayRef<NamedAttribute> getAttrs() {
+    return getAttrDictionary().getValue();
+  }
 
   /// Return all of the attributes on this operation as a DictionaryAttr.
   DictionaryAttr getAttrDictionary();
@@ -687,16 +690,16 @@ public:
 
   /// Return a range corresponding to the dialect attributes for this operation.
   dialect_attr_range getDialectAttrs() {
-    auto attrs = getAttrs();
+    auto attrs = getAttrDictionary().getValue();
     return {dialect_attr_iterator(attrs.begin(), attrs.end()),
             dialect_attr_iterator(attrs.end(), attrs.end())};
   }
   dialect_attr_iterator dialect_attr_begin() {
-    auto attrs = getAttrs();
+    auto attrs = getAttrDictionary().getValue();
     return dialect_attr_iterator(attrs.begin(), attrs.end());
   }
   dialect_attr_iterator dialect_attr_end() {
-    auto attrs = getAttrs();
+    auto attrs = getAttrDictionary().getValue();
     return dialect_attr_iterator(attrs.end(), attrs.end());
   }
 
@@ -705,7 +708,7 @@ public:
   void setDialectAttrs(DialectAttrT &&dialectAttrs) {
     NamedAttrList attrs;
     attrs.append(std::begin(dialectAttrs), std::end(dialectAttrs));
-    for (auto attr : getAttrs())
+    for (auto attr : getAttrDictionary().getValue())
       if (!attr.getName().strref().contains('.'))
         attrs.push_back(attr);
     setAttrs(attrs.getDictionary(getContext()));
