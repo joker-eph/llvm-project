@@ -41,6 +41,7 @@ TOK_MARKER(code_complete)
 // Identifiers.
 TOK_IDENTIFIER(bare_identifier)        // foo
 TOK_IDENTIFIER(at_identifier)          // @foo
+TOK_IDENTIFIER(amp_identifier)         // &foo
 TOK_IDENTIFIER(hash_identifier)        // #foo
 TOK_IDENTIFIER(percent_identifier)     // %foo
 TOK_IDENTIFIER(caret_identifier)       // ^foo

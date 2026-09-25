@@ -6,11 +6,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/AsmParser/AsmParser.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/IR/BuiltinProperties.h"
+#include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/Dialect.h"
+#include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Properties.h"
+#include "llvm/Support/raw_ostream.h"
 #include "gtest/gtest.h"
 #include <cstdint>
 #include <optional>
@@ -26,6 +30,16 @@ struct BoolProp {
   using StorageType = bool;
   static constexpr llvm::StringLiteral name = "bool";
   static LogicalResult verify(bool) { return success(); }
+  static ParseResult parse(AsmParser &parser, bool &value) {
+    int64_t number;
+    if (parser.parseInteger(number) || (number != 0 && number != 1))
+      return failure();
+    value = number;
+    return success();
+  }
+  static void print(AsmPrinter &printer, bool value) {
+    printer.printInteger(value);
+  }
 };
 
 struct UnitProp {
@@ -33,6 +47,16 @@ struct UnitProp {
   using StorageType = bool;
   static constexpr llvm::StringLiteral name = "unit";
   static LogicalResult verify(bool value) { return success(value); }
+  static ParseResult parse(AsmParser &parser, bool &value) {
+    int64_t number;
+    if (parser.parseInteger(number) || (number != 0 && number != 1))
+      return failure();
+    value = number;
+    return success();
+  }
+  static void print(AsmPrinter &printer, bool value) {
+    printer.printInteger(value);
+  }
 };
 
 struct alignas(128) TrackedStorage {
@@ -60,6 +84,12 @@ struct TrackedProp {
   static LogicalResult verify(const TrackedStorage &value) {
     return success(!value.value.empty());
   }
+  static ParseResult parse(AsmParser &parser, TrackedStorage &value) {
+    return parser.parseString(&value.value);
+  }
+  static void print(AsmPrinter &printer, const TrackedStorage &value) {
+    printer.printString(value.value);
+  }
 };
 
 enum class TestMode { Fast, Slow };
@@ -71,6 +101,19 @@ struct ModeProp {
   static llvm::hash_code hash(TestMode mode) {
     return llvm::hash_value(static_cast<int>(mode));
   }
+  static ParseResult parse(AsmParser &parser, TestMode &mode) {
+    if (succeeded(parser.parseOptionalKeyword("fast"))) {
+      mode = TestMode::Fast;
+      return success();
+    }
+    if (parser.parseKeyword("slow"))
+      return failure();
+    mode = TestMode::Slow;
+    return success();
+  }
+  static void print(AsmPrinter &printer, TestMode mode) {
+    printer << (mode == TestMode::Fast ? "fast" : "slow");
+  }
 };
 
 struct ArrayProp {
@@ -80,6 +123,24 @@ struct ArrayProp {
   static LogicalResult verify(const StorageType &) { return success(); }
   static llvm::hash_code hash(const StorageType &values) {
     return llvm::hash_combine_range(values.begin(), values.end());
+  }
+  static ParseResult parse(AsmParser &parser, StorageType &values) {
+    if (parser.parseLSquare())
+      return failure();
+    if (succeeded(parser.parseOptionalRSquare()))
+      return success();
+    do {
+      int64_t value;
+      if (parser.parseInteger(value))
+        return failure();
+      values.push_back(value);
+    } while (succeeded(parser.parseOptionalComma()));
+    return parser.parseRSquare();
+  }
+  static void print(AsmPrinter &printer, const StorageType &values) {
+    printer << '[';
+    llvm::interleaveComma(values, printer.getStream());
+    printer << ']';
   }
 };
 
@@ -91,6 +152,23 @@ struct OptionalProp {
   static llvm::hash_code hash(const StorageType &value) {
     return value ? llvm::hash_combine(true, *value) : llvm::hash_value(false);
   }
+  static ParseResult parse(AsmParser &parser, StorageType &value) {
+    if (succeeded(parser.parseOptionalKeyword("none"))) {
+      value.reset();
+      return success();
+    }
+    int64_t number;
+    if (parser.parseInteger(number))
+      return failure();
+    value = number;
+    return success();
+  }
+  static void print(AsmPrinter &printer, const StorageType &value) {
+    if (value)
+      printer.printInteger(*value);
+    else
+      printer << "none";
+  }
 };
 
 struct PropertyDialect : public Dialect {
@@ -100,7 +178,9 @@ struct PropertyDialect : public Dialect {
       : Dialect(getDialectNamespace(), context,
                 TypeID::get<PropertyDialect>()) {
     addProperties<BoolProp, UnitProp, TrackedProp, ModeProp, ArrayProp,
-                  OptionalProp>();
+                  OptionalProp, ArrayPropertyKind<BoolProp>,
+                  ArrayPropertyKind<UnitProp>,
+                  OptionalPropertyKind<ModeProp>>();
     addProperties<BoolProp>();
   }
 };
@@ -248,5 +328,116 @@ TEST(RegisteredProperty, NamedComposedKinds) {
   EXPECT_EQ(optionalValue.get().get<OptionalProp>()->value(), 4);
   EXPECT_EQ(arrayValue.get(), arrayValue.clone().get());
   EXPECT_NE(arrayValue.get(), optionalValue.get());
+}
+
+TEST(RegisteredProperty, TemplateCombinatorsPreserveElementIdentity) {
+  MLIRContext context;
+  auto *dialect = context.getOrLoadDialect<PropertyDialect>();
+  using BoolArray = ArrayPropertyKind<BoolProp>;
+  using UnitArray = ArrayPropertyKind<UnitProp>;
+  const AbstractProperty *boolArray =
+      dialect->lookupProperty(TypeID::get<BoolArray>());
+  const AbstractProperty *unitArray =
+      dialect->lookupProperty(TypeID::get<UnitArray>());
+  ASSERT_NE(boolArray, nullptr);
+  ASSERT_NE(unitArray, nullptr);
+  EXPECT_NE(boolArray->getTypeID(), unitArray->getTypeID());
+  EXPECT_EQ(boolArray->getName(), "array.registered_property_test.bool");
+  EXPECT_EQ(unitArray->getName(), "array.registered_property_test.unit");
+  EXPECT_EQ(boolArray, dialect->lookupProperty(boolArray->getName()));
+  auto parsed = parseProperty(
+      "&registered_property_test.array.registered_property_test.bool<[1, "
+      "0]>",
+      &context);
+  ASSERT_TRUE(succeeded(parsed));
+  EXPECT_EQ(parsed->get().get<BoolArray>()->size(), 2u);
+  EXPECT_EQ(parsed->get().get<UnitArray>(), nullptr);
+
+  using ModeOptional = OptionalPropertyKind<ModeProp>;
+  auto optional = parseProperty(
+      "&registered_property_test.optional.registered_property_test.mode<slow>",
+      &context);
+  ASSERT_TRUE(succeeded(optional));
+  EXPECT_EQ(optional->get().get<ModeOptional>()->value(), TestMode::Slow);
+  auto absent = parseProperty(
+      "none", *dialect->lookupProperty(TypeID::get<ModeOptional>()));
+  ASSERT_TRUE(succeeded(absent));
+  EXPECT_FALSE(absent->get().get<ModeOptional>()->has_value());
+}
+
+TEST(RegisteredProperty, StandaloneParsingAndPrinting) {
+  MLIRContext context;
+  context.getOrLoadDialect<PropertyDialect>();
+  auto print = [](Property property) {
+    std::string result;
+    llvm::raw_string_ostream stream(result);
+    property.print(stream);
+    return result;
+  };
+  auto value = parseProperty("&builtin.i64<42>", &context);
+  ASSERT_TRUE(succeeded(value));
+  ASSERT_NE(value->get().get<I64Property>(), nullptr);
+  EXPECT_EQ(*value->get().get<I64Property>(), 42);
+  EXPECT_EQ(print(value->get()), "&builtin.i64<42>");
+
+  const AbstractProperty &kind =
+      *AbstractProperty::lookup("builtin.i64", &context);
+  auto payload = parseProperty("-17", kind);
+  ASSERT_TRUE(succeeded(payload));
+  EXPECT_EQ(*payload->get().get<I64Property>(), -17);
+
+  auto attribute = parseProperty("42 : i64", &context);
+  ASSERT_TRUE(succeeded(attribute));
+  EXPECT_TRUE(attribute->get().isAttribute());
+  EXPECT_EQ(attribute->get().getAttribute(),
+            parseAttribute("42 : i64", &context));
+  EXPECT_EQ(print(attribute->get()), "42 : i64");
+
+  auto string = parseProperty("&builtin.string<\"hello\">", &context);
+  ASSERT_TRUE(succeeded(string));
+  EXPECT_EQ(string->get().get<StringProperty>()->value, "hello");
+  EXPECT_EQ(print(string->get()), "&builtin.string<\"hello\">");
+
+  auto mode = parseProperty("&registered_property_test.mode<slow>", &context);
+  ASSERT_TRUE(succeeded(mode));
+  EXPECT_EQ(*mode->get().get<ModeProp>(), TestMode::Slow);
+  EXPECT_EQ(print(mode->get()), "&registered_property_test.mode<slow>");
+
+  auto array =
+      parseProperty("&registered_property_test.array<[1, 2, 3]>", &context);
+  ASSERT_TRUE(succeeded(array));
+  EXPECT_EQ(array->get().get<ArrayProp>()->size(), 3u);
+  EXPECT_EQ(print(array->get()), "&registered_property_test.array<[1, 2, 3]>");
+  auto optional =
+      parseProperty("&registered_property_test.optional<none>", &context);
+  ASSERT_TRUE(succeeded(optional));
+  EXPECT_FALSE(optional->get().get<OptionalProp>()->has_value());
+}
+
+TEST(RegisteredProperty, ParsingErrorsDestroyTemporaryStorage) {
+  MLIRContext context;
+  context.getOrLoadDialect<PropertyDialect>();
+  std::vector<std::string> errors;
+  ScopedDiagnosticHandler handler(&context, [&](Diagnostic &diag) {
+    errors.push_back(diag.str());
+    return success();
+  });
+  EXPECT_EQ(TrackedStorage::live, 0);
+  EXPECT_TRUE(failed(
+      parseProperty("&registered_property_test.tracked<\"\">", &context)));
+  ASSERT_FALSE(errors.empty());
+  EXPECT_NE(errors.back().find("invalid value for property"),
+            std::string::npos);
+  EXPECT_EQ(TrackedStorage::live, 0);
+  EXPECT_TRUE(failed(
+      parseProperty("&registered_property_test.tracked<\"a\"", &context)));
+  EXPECT_EQ(TrackedStorage::live, 0);
+  EXPECT_TRUE(failed(parseProperty("&builtin.i64<42> trailing", &context)));
+  EXPECT_TRUE(failed(parseProperty(
+      "42 trailing", *AbstractProperty::lookup("builtin.i64", &context))));
+  EXPECT_TRUE(failed(parseProperty("&builtin.unknown<42>", &context)));
+  EXPECT_NE(errors.back().find("unknown property kind"), std::string::npos);
+  EXPECT_TRUE(failed(parseProperty("&unavailable.i64<42>", &context)));
+  EXPECT_NE(errors.back().find("is not available"), std::string::npos);
 }
 } // namespace

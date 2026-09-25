@@ -22,6 +22,7 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/Properties.h"
 #include "mlir/Support/LLVM.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
@@ -383,4 +384,97 @@ Type mlir::parseType(StringRef typeStr, MLIRContext *context, size_t *numRead,
                      bool isKnownNullTerminated) {
   return parseSymbol<Type>(typeStr, context, numRead, isKnownNullTerminated,
                            [](Parser &parser) { return parser.parseType(); });
+}
+
+static FailureOr<OwningProperty>
+parseNativePropertyPayload(Parser &parser, const AbstractProperty &kind) {
+  OwningProperty value = OwningProperty::create(kind);
+  AsmParserImpl<AsmParser> asmParser(parser.getToken().getLoc(), parser);
+  if (failed(kind.parse(asmParser, value.getMutableStorage()))) {
+    if (!asmParser.didEmitError())
+      parser.emitError(parser.getToken().getLoc())
+          << "failed to parse property '" << kind.getDialect().getNamespace()
+          << '.' << kind.getName() << "'";
+    return failure();
+  }
+  if (failed(value.get().verify())) {
+    parser.emitError(parser.getToken().getLoc())
+        << "invalid value for property '" << kind.getDialect().getNamespace()
+        << '.' << kind.getName() << "'";
+    return failure();
+  }
+  return value;
+}
+
+FailureOr<OwningProperty> mlir::parseProperty(StringRef text,
+                                              MLIRContext *context) {
+  if (!text.starts_with('&')) {
+    Attribute attr = parseAttribute(text, context);
+    if (!attr)
+      return failure();
+    return OwningProperty(attr);
+  }
+
+  auto memBuffer = MemoryBuffer::getMemBufferCopy(text, text);
+  SourceMgr sourceMgr;
+  sourceMgr.AddNewSourceBuffer(std::move(memBuffer), SMLoc());
+  SymbolState aliasState;
+  ParserConfig config(context);
+  ParserState state(sourceMgr, config, aliasState, /*asmState=*/nullptr,
+                    /*codeCompleteContext=*/nullptr);
+  Parser parser(state);
+  Token nameToken = parser.getToken();
+  if (nameToken.isNot(Token::amp_identifier))
+    return failure();
+  StringRef qualifiedName = nameToken.getSpelling().drop_front();
+  auto split = qualifiedName.split('.');
+  if (split.second.empty()) {
+    parser.emitError(nameToken.getLoc()) << "expected qualified property name";
+    return failure();
+  }
+  Dialect *dialect = context->getOrLoadDialect(split.first);
+  if (!dialect) {
+    parser.emitError(nameToken.getLoc())
+        << "dialect '" << split.first << "' is not available";
+    return failure();
+  }
+  const AbstractProperty *kind = dialect->lookupProperty(split.second);
+  if (!kind) {
+    parser.emitError(nameToken.getLoc())
+        << "unknown property kind '" << qualifiedName << "'";
+    return failure();
+  }
+  parser.consumeToken();
+  if (parser.parseToken(Token::less, "expected '<' before property payload"))
+    return failure();
+  FailureOr<OwningProperty> value = parseNativePropertyPayload(parser, *kind);
+  if (failed(value))
+    return failure();
+  if (parser.parseToken(Token::greater, "expected '>' after property payload"))
+    return failure();
+  if (parser.getToken().isNot(Token::eof)) {
+    parser.emitError(parser.getToken().getLoc()) << "trailing characters";
+    return failure();
+  }
+  return std::move(*value);
+}
+
+FailureOr<OwningProperty> mlir::parseProperty(StringRef payload,
+                                              const AbstractProperty &kind) {
+  auto memBuffer = MemoryBuffer::getMemBufferCopy(payload, payload);
+  SourceMgr sourceMgr;
+  sourceMgr.AddNewSourceBuffer(std::move(memBuffer), SMLoc());
+  SymbolState aliasState;
+  ParserConfig config(kind.getContext());
+  ParserState state(sourceMgr, config, aliasState, /*asmState=*/nullptr,
+                    /*codeCompleteContext=*/nullptr);
+  Parser parser(state);
+  FailureOr<OwningProperty> value = parseNativePropertyPayload(parser, kind);
+  if (failed(value))
+    return failure();
+  if (parser.getToken().isNot(Token::eof)) {
+    parser.emitError(parser.getToken().getLoc()) << "trailing characters";
+    return failure();
+  }
+  return std::move(*value);
 }

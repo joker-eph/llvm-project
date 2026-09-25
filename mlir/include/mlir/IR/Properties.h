@@ -24,6 +24,8 @@
 #include <utility>
 
 namespace mlir {
+class AsmParser;
+class AsmPrinter;
 class Dialect;
 class MLIRContext;
 
@@ -77,6 +79,8 @@ public:
   using EqualFn = bool (*)(const void *, const void *);
   using HashFn = llvm::hash_code (*)(const void *);
   using VerifyFn = LogicalResult (*)(const void *);
+  using ParseFn = ParseResult (*)(AsmParser &, void *);
+  using PrintFn = void (*)(AsmPrinter &, const void *);
 
   template <typename T>
   static AbstractProperty get(Dialect &dialect) {
@@ -99,6 +103,12 @@ public:
         },
         [](const void *ptr) {
           return T::verify(*static_cast<const Storage *>(ptr));
+        },
+        [](AsmParser &parser, void *ptr) {
+          return T::parse(parser, *static_cast<Storage *>(ptr));
+        },
+        [](AsmPrinter &printer, const void *ptr) {
+          T::print(printer, *static_cast<const Storage *>(ptr));
         });
   }
 
@@ -116,6 +126,12 @@ public:
   }
   llvm::hash_code hash(const void *ptr) const { return hashFn(ptr); }
   LogicalResult verify(const void *ptr) const { return verifyFn(ptr); }
+  ParseResult parse(AsmParser &parser, void *ptr) const {
+    return parseFn(parser, ptr);
+  }
+  void print(AsmPrinter &printer, const void *ptr) const {
+    printFn(printer, ptr);
+  }
   void *getInterface(TypeID interfaceID) const {
     return interfaceMap.lookupInterface(interfaceID);
   }
@@ -128,11 +144,12 @@ private:
   AbstractProperty(Dialect &dialect, TypeID typeID, std::string name,
                    size_t size, size_t alignment, ConstructFn constructFn,
                    CopyFn copyFn, DestroyFn destroyFn, EqualFn equalFn,
-                   HashFn hashFn, VerifyFn verifyFn)
+                   HashFn hashFn, VerifyFn verifyFn, ParseFn parseFn,
+                   PrintFn printFn)
       : dialect(dialect), typeID(typeID), name(std::move(name)), size(size),
         alignment(alignment), constructFn(constructFn), copyFn(copyFn),
         destroyFn(destroyFn), equalFn(equalFn), hashFn(hashFn),
-        verifyFn(verifyFn) {}
+        verifyFn(verifyFn), parseFn(parseFn), printFn(printFn) {}
 
   Dialect &dialect;
   TypeID typeID;
@@ -145,6 +162,8 @@ private:
   EqualFn equalFn;
   HashFn hashFn;
   VerifyFn verifyFn;
+  ParseFn parseFn;
+  PrintFn printFn;
   detail::InterfaceMap interfaceMap;
 };
 
@@ -183,6 +202,7 @@ public:
     return kind ? kind->verify(value) : success();
   }
   llvm::hash_code hash() const;
+  void print(raw_ostream &os) const;
   friend bool operator==(Property lhs, Property rhs);
   friend bool operator!=(Property lhs, Property rhs) { return !(lhs == rhs); }
 
@@ -243,6 +263,7 @@ public:
   Property get() const {
     return storage ? Property(*kind, storage) : Property(attr);
   }
+  void *getMutableStorage() { return storage; }
   OwningProperty clone() const { return copy(get()); }
   explicit operator bool() const { return bool(get()); }
 
@@ -254,6 +275,14 @@ private:
   void *storage = nullptr;
   Attribute attr;
 };
+
+/// Parse either a native `&dialect.mnemonic<payload>` property or an existing
+/// attribute assembly form. Both reject trailing input.
+FailureOr<OwningProperty> parseProperty(StringRef text, MLIRContext *context);
+
+/// Parse only the payload of a known native kind, without its wrapper.
+FailureOr<OwningProperty> parseProperty(StringRef payload,
+                                        const AbstractProperty &kind);
 } // namespace mlir
 
 #endif // MLIR_IR_PROPERTIES_H

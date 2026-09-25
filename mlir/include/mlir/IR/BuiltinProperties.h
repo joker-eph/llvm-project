@@ -9,6 +9,7 @@
 #ifndef MLIR_IR_BUILTINPROPERTIES_H
 #define MLIR_IR_BUILTINPROPERTIES_H
 
+#include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Properties.h"
 #include "llvm/ADT/SmallVector.h"
 #include <cstdint>
@@ -22,6 +23,16 @@ struct BoolProperty {
   using StorageType = bool;
   static constexpr llvm::StringLiteral name = "bool";
   static LogicalResult verify(bool) { return success(); }
+  static ParseResult parse(AsmParser &parser, bool &value) {
+    int64_t parsed;
+    if (parser.parseInteger(parsed) || (parsed != 0 && parsed != 1))
+      return failure();
+    value = parsed;
+    return success();
+  }
+  static void print(AsmPrinter &printer, bool value) {
+    printer.printInteger(value);
+  }
 };
 
 struct I64Property {
@@ -29,6 +40,12 @@ struct I64Property {
   using StorageType = int64_t;
   static constexpr llvm::StringLiteral name = "i64";
   static LogicalResult verify(int64_t) { return success(); }
+  static ParseResult parse(AsmParser &parser, int64_t &value) {
+    return parser.parseInteger(value);
+  }
+  static void print(AsmPrinter &printer, int64_t value) {
+    printer.printInteger(value);
+  }
 };
 
 struct StringPropertyStorage {
@@ -46,6 +63,12 @@ struct StringProperty {
   using StorageType = StringPropertyStorage;
   static constexpr llvm::StringLiteral name = "string";
   static LogicalResult verify(const StorageType &) { return success(); }
+  static ParseResult parse(AsmParser &parser, StorageType &value) {
+    return parser.parseString(&value.value);
+  }
+  static void print(AsmPrinter &printer, const StorageType &value) {
+    printer.printString(value.value);
+  }
 };
 
 /// A distinct registered kind for each element kind. The element's semantic

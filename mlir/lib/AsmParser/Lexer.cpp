@@ -173,6 +173,9 @@ Token Lexer::lexToken() {
     case '@':
       return lexAtIdentifier(tokStart);
 
+    case '&':
+      return lexPrefixedIdentifier(tokStart);
+
     case '#':
       if (*curPtr == '-' && *(curPtr + 1) == '}') {
         curPtr += 2;
@@ -367,6 +370,10 @@ Token Lexer::lexPrefixedIdentifier(const char *tokStart) {
   Token::Kind kind;
   StringRef errorKind;
   switch (*tokStart) {
+  case '&':
+    kind = Token::amp_identifier;
+    errorKind = "invalid property name";
+    break;
   case '#':
     kind = Token::hash_identifier;
     errorKind = "invalid attribute name";

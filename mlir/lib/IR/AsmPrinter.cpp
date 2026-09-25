@@ -27,6 +27,7 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Operation.h"
+#include "mlir/IR/Properties.h"
 #include "mlir/IR/Verifier.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -4056,6 +4057,25 @@ void Attribute::print(raw_ostream &os, bool elideType) const {
 
   AsmState state(getContext());
   print(os, state, elideType);
+}
+
+void Property::print(raw_ostream &os) const {
+  if (isAttribute()) {
+    attr.print(os);
+    return;
+  }
+  if (!kind) {
+    os << "<<NULL PROPERTY>>";
+    return;
+  }
+
+  os << '&' << kind->getDialect().getNamespace() << '.' << kind->getName()
+     << '<';
+  AsmState state(kind->getContext());
+  AsmPrinter::Impl impl(os, state.getImpl());
+  AsmPrinter printer(impl);
+  kind->print(printer, value);
+  os << '>';
 }
 void Attribute::print(raw_ostream &os, AsmState &state, bool elideType) const {
   using AttrTypeElision = AsmPrinter::Impl::AttrTypeElision;
