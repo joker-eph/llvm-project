@@ -1466,9 +1466,73 @@ ParseResult OperationParser::parseGenericOperationAfterOpName(
   if (propertiesAttribute) {
     result.propertiesAttr = *propertiesAttribute;
   } else if (consumeIf(Token::less)) {
-    result.propertiesAttr = parseAttribute();
-    if (!result.propertiesAttr)
-      return failure();
+    if (result.name.hasCompletePropertyFields() &&
+        getToken().is(Token::l_brace)) {
+      SmallVector<NamedAttribute> legacyAttributes;
+      SmallVector<StringAttr> seenFields;
+      bool sawNative = false;
+      auto parseField = [&]() -> ParseResult {
+        StringAttr fieldName;
+        if (getToken().is(Token::string))
+          fieldName = builder.getStringAttr(getToken().getStringValue());
+        else if (getToken().isAny(Token::bare_identifier, Token::inttype) ||
+                 getToken().isKeyword())
+          fieldName = builder.getStringAttr(getTokenSpelling());
+        else
+          return emitWrongTokenError("expected property field name");
+        if (llvm::is_contained(seenFields, fieldName))
+          return emitError("duplicate property field '") << fieldName << "'";
+        seenFields.push_back(fieldName);
+        consumeToken();
+        if (parseToken(Token::equal, "expected '=' after property field name"))
+          return failure();
+        if (getToken().isNot(Token::amp_identifier)) {
+          Attribute attr = parseAttribute();
+          if (!attr)
+            return failure();
+          legacyAttributes.push_back({fieldName, attr});
+          return success();
+        }
+
+        sawNative = true;
+        StringRef qualifiedName = getToken().getSpelling().drop_front();
+        const AbstractProperty *kind =
+            AbstractProperty::lookup(qualifiedName, getContext());
+        if (!kind)
+          return emitError("unknown property kind '") << qualifiedName << "'";
+        consumeToken();
+        if (parseToken(Token::less, "expected '<' before property payload"))
+          return failure();
+        OwningProperty value = OwningProperty::create(*kind);
+        AsmParserImpl<AsmParser> asmParser(getToken().getLoc(), *this);
+        if (failed(kind->parse(asmParser, value.getMutableStorage())) ||
+            failed(value.get().verify()))
+          return emitError("invalid property value for '")
+                 << qualifiedName << "'";
+        if (parseToken(Token::greater, "expected '>' after property payload"))
+          return failure();
+        if (failed(result.setNamedProperty(fieldName.getValue(), value.get())))
+          return emitError("property field '")
+                 << fieldName << "' rejects kind '" << qualifiedName << "'";
+        return success();
+      };
+      if (parseCommaSeparatedList(Delimiter::Braces, parseField,
+                                  " in property dictionary"))
+        return failure();
+      if (sawNative) {
+        for (NamedAttribute attr : legacyAttributes)
+          if (failed(result.setNamedProperty(attr.getName().getValue(),
+                                             Property(attr.getValue()))))
+            return emitError("property field '")
+                   << attr.getName() << "' rejects attribute value";
+      } else if (!legacyAttributes.empty()) {
+        result.propertiesAttr = builder.getDictionaryAttr(legacyAttributes);
+      }
+    } else {
+      result.propertiesAttr = parseAttribute();
+      if (!result.propertiesAttr)
+        return failure();
+    }
     if (parseToken(Token::greater, "expected '>' to close properties"))
       return failure();
   }

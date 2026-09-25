@@ -124,6 +124,55 @@ def PropertyOp : TestOp<"property_op"> {
                    I32:$idx);
 }
 
+def PythonI64Kind : PropDef<"int64_t", "i64", "mlir", "I64Property"> {
+  let noAttributeConversion = 1;
+  let parser = [{ return parser.parseInteger(value); }];
+  let printer = [{ printer.printInteger(value); }];
+}
+
+class PythonI64RegisteredProp : IntProp<"int64_t"> {
+  let propertyKind = PythonI64Kind;
+}
+
+def PythonRegisteredI64Prop : PythonI64RegisteredProp;
+def PythonPositiveI64Prop : PythonI64RegisteredProp {
+  let predicate = CPred<"$_self > 0">;
+}
+def PythonDefaultedI64Prop : PythonI64RegisteredProp {
+  let defaultValue = "7";
+}
+
+def RegisteredPropertyOp : TestOp<"properties", [InferTypeOpInterface]> {
+  let arguments = (ins PythonRegisteredI64Prop:$count);
+  let results = (outs AnyInteger:$result);
+  let assemblyFormat = "prop-dict attr-dict `:` type($result)";
+  let extraClassDeclaration = [{
+    static ::llvm::LogicalResult inferReturnTypes(
+      ::mlir::MLIRContext *context, ::std::optional<::mlir::Location>,
+      ::mlir::ValueRange, ::mlir::DictionaryAttr, ::mlir::PropertyRef properties,
+      ::mlir::RegionRange,
+      ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
+      int64_t width = properties.as<Properties *>()->count;
+      if (width <= 0 || width > 64)
+        return ::mlir::failure();
+      inferredReturnTypes.push_back(::mlir::IntegerType::get(context, width));
+      return ::mlir::success();
+    }
+  }];
+}
+
+def CheckedPropertyOp : TestOp<"checked_properties"> {
+  let arguments = (ins PythonPositiveI64Prop:$positive,
+                       PythonDefaultedI64Prop:$fallback);
+  let assemblyFormat = "prop-dict attr-dict";
+}
+
+def ComposedPropertyOp : TestOp<"composed_properties"> {
+  let arguments = (ins RegisteredArrayProp<PythonRegisteredI64Prop>:$values,
+                       RegisteredOptionalProp<PythonRegisteredI64Prop>:$maybe);
+  let assemblyFormat = "prop-dict attr-dict";
+}
+
 def DummyOp : TestOp<"dummy_op"> {
 }
 

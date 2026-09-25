@@ -6,10 +6,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Bytecode/BytecodeOpInterface.h"
+#include "mlir/Bytecode/BytecodeReader.h"
+#include "mlir/Bytecode/BytecodeWriter.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/OpDefinition.h"
+#include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/Parser/Parser.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "gtest/gtest.h"
 #include <optional>
 
@@ -28,6 +33,47 @@ struct TestProperties {
   /// offloaded to the client.
   std::shared_ptr<const std::string> label;
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TestProperties)
+};
+
+struct TestI32Kind {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TestI32Kind)
+  using StorageType = int;
+  static constexpr llvm::StringLiteral name = "i32";
+  static LogicalResult verify(int) { return success(); }
+  static ParseResult parse(AsmParser &parser, int &value) {
+    return parser.parseInteger(value);
+  }
+  static void print(AsmPrinter &printer, int value) {
+    printer.printInteger(value);
+  }
+};
+
+struct TestArrayKind {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TestArrayKind)
+  using StorageType = std::vector<int64_t>;
+  static constexpr llvm::StringLiteral name = "array";
+  static LogicalResult verify(const StorageType &) { return success(); }
+  static llvm::hash_code hash(const StorageType &value) {
+    return llvm::hash_combine_range(value.begin(), value.end());
+  }
+  static ParseResult parse(AsmParser &parser, StorageType &value) {
+    if (parser.parseLSquare())
+      return failure();
+    if (succeeded(parser.parseOptionalRSquare()))
+      return success();
+    do {
+      int64_t element;
+      if (parser.parseInteger(element))
+        return failure();
+      value.push_back(element);
+    } while (succeeded(parser.parseOptionalComma()));
+    return parser.parseRSquare();
+  }
+  static void print(AsmPrinter &printer, const StorageType &value) {
+    printer << '[';
+    llvm::interleaveComma(value, printer.getStream());
+    printer << ']';
+  }
 };
 
 bool operator==(const TestProperties &lhs, TestProperties &rhs) {
@@ -116,6 +162,52 @@ public:
   // This alias is the only definition needed for enabling "properties" for this
   // operation.
   using Properties = TestProperties;
+  static ArrayRef<PropertyFieldDescriptor> getPropertyFieldDescriptors() {
+    static const PropertyFieldDescriptor fields[] = {
+        {"a", TypeID::get<TestI32Kind>(),
+         [](Operation *op) {
+           const AbstractProperty &kind = *AbstractProperty::lookup(
+               TypeID::get<TestI32Kind>(), op->getContext());
+           return Property(kind, &cast<OpWithProperties>(op).getProperties().a);
+         },
+         [](Operation *op, Property value) {
+           cast<OpWithProperties>(op).getProperties().a =
+               *value.get<TestI32Kind>();
+         },
+         nullptr,
+         [](Operation *op) {
+           cast<OpWithProperties>(op).getProperties().a = -1;
+           return success();
+         },
+         [](OperationState &state, Property value) {
+           state.getOrAddProperties<TestProperties>().a =
+               *value.get<TestI32Kind>();
+         },
+         nullptr},
+        {"array", TypeID::get<TestArrayKind>(),
+         [](Operation *op) {
+           const AbstractProperty &kind = *AbstractProperty::lookup(
+               TypeID::get<TestArrayKind>(), op->getContext());
+           return Property(kind,
+                           &cast<OpWithProperties>(op).getProperties().array);
+         },
+         [](Operation *op, Property value) {
+           cast<OpWithProperties>(op).getProperties().array =
+               *value.get<TestArrayKind>();
+         },
+         [](Operation *, Property value) {
+           return success(!value.get<TestArrayKind>()->empty());
+         },
+         nullptr,
+         [](OperationState &state, Property value) {
+           state.getOrAddProperties<TestProperties>().array =
+               *value.get<TestArrayKind>();
+         },
+         [](Property value) {
+           return success(!value.get<TestArrayKind>()->empty());
+         }}};
+    return fields;
+  }
   static std::optional<mlir::Attribute> getInherentAttr(MLIRContext *context,
                                                         const Properties &prop,
                                                         StringRef name) {
@@ -149,6 +241,81 @@ public:
   // End boilerplate.
 };
 
+struct NativeOnlyProperties {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(NativeOnlyProperties)
+  int count = 0;
+  bool operator==(const NativeOnlyProperties &rhs) const {
+    return count == rhs.count;
+  }
+};
+
+static llvm::hash_code computeHash(const NativeOnlyProperties &value) {
+  return llvm::hash_value(value.count);
+}
+
+/// An operation whose native property deliberately has no attribute encoding.
+class NativeOnlyOp : public Op<NativeOnlyOp, BytecodeOpInterface::Trait> {
+public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(NativeOnlyOp)
+  using Op::Op;
+  using Properties = NativeOnlyProperties;
+  static StringRef getOperationName() {
+    return "test_op_properties.native_only";
+  }
+  static ArrayRef<StringRef> getAttributeNames() { return {}; }
+  static LogicalResult readProperties(DialectBytecodeReader &reader,
+                                      OperationState &state) {
+    uint64_t count;
+    if (failed(reader.readVarInt(count)) || count > INT_MAX)
+      return failure();
+    state.getOrAddProperties<Properties>().count = count;
+    return success();
+  }
+  void writeProperties(DialectBytecodeWriter &writer) {
+    writer.writeVarInt(getProperties().count);
+  }
+  static ArrayRef<PropertyFieldDescriptor> getPropertyFieldDescriptors() {
+    static const PropertyFieldDescriptor fields[] = {
+        {"count", TypeID::get<TestI32Kind>(),
+         [](Operation *op) {
+           const AbstractProperty &kind = *AbstractProperty::lookup(
+               TypeID::get<TestI32Kind>(), op->getContext());
+           return Property(kind, &cast<NativeOnlyOp>(op).getProperties().count);
+         },
+         [](Operation *op, Property value) {
+           cast<NativeOnlyOp>(op).getProperties().count =
+               *value.get<TestI32Kind>();
+         },
+         nullptr, nullptr,
+         [](OperationState &state, Property value) {
+           state.getOrAddProperties<NativeOnlyProperties>().count =
+               *value.get<TestI32Kind>();
+         },
+         nullptr, true}};
+    return fields;
+  }
+  static LogicalResult
+  setPropertiesFromAttr(Properties &, Attribute,
+                        function_ref<InFlightDiagnostic()> emitError) {
+    emitError() << "native_only has no legacy attribute conversion";
+    return failure();
+  }
+  static Attribute getPropertiesAsAttr(MLIRContext *, const Properties &) {
+    return {};
+  }
+  static std::optional<Attribute>
+  getInherentAttr(MLIRContext *, const Properties &, StringRef) {
+    return std::nullopt;
+  }
+  static void setInherentAttr(Properties &, StringRef, Attribute) {}
+  static void walkInherentAttrs(MLIRContext *, Properties &,
+                                OperationName::InherentAttrVisitor) {}
+  static LogicalResult verifyInherentAttrs(OperationName, NamedAttrList &,
+                                           function_ref<InFlightDiagnostic()>) {
+    return success();
+  }
+};
+
 // A trivial supporting dialect to register the above operation.
 class TestOpPropertiesDialect : public Dialect {
 public:
@@ -159,7 +326,8 @@ public:
   explicit TestOpPropertiesDialect(MLIRContext *context)
       : Dialect(getDialectNamespace(), context,
                 TypeID::get<TestOpPropertiesDialect>()) {
-    addOperations<OpWithProperties, OpWithoutProperties>();
+    addProperties<TestI32Kind, TestArrayKind>();
+    addOperations<OpWithProperties, OpWithoutProperties, NativeOnlyOp>();
   }
 };
 
@@ -238,6 +406,111 @@ TEST(OpPropertiesTest, Properties) {
     EXPECT_TRUE(view.contains("array = array<i64: 40, 41, 42>"));
     EXPECT_TRUE(view.contains("label = \"foo bar\""));
   }
+}
+
+TEST(OpPropertiesTest, RegisteredFieldReferences) {
+  MLIRContext context;
+  context.getOrLoadDialect<TestOpPropertiesDialect>();
+  ParserConfig config(&context);
+  OwningOpRef<Operation *> op = parseSourceString(mlirSrc, config);
+  ASSERT_TRUE(op);
+  EXPECT_EQ(op->getPropertyFieldDescriptors().size(), 2u);
+  EXPECT_FALSE(op->getPropertyField("missing"));
+
+  auto a = op->getPropertyField("a");
+  auto array = op->getPropertyField("array");
+  ASSERT_TRUE(a);
+  ASSERT_TRUE(array);
+  EXPECT_EQ(*a->read().get<TestI32Kind>(), -42);
+  OwningProperty snapshot = a->copy();
+
+  const AbstractProperty &i32Kind =
+      *AbstractProperty::lookup(TypeID::get<TestI32Kind>(), &context);
+  auto next = OwningProperty::create<TestI32Kind>(i32Kind, 12);
+  EXPECT_TRUE(succeeded(a->assign(next.get())));
+  EXPECT_EQ(*a->read().get<TestI32Kind>(), 12);
+  EXPECT_EQ(*snapshot.get().get<TestI32Kind>(), -42);
+  EXPECT_TRUE(succeeded(a->reset()));
+  EXPECT_EQ(*a->read().get<TestI32Kind>(), -1);
+
+  const AbstractProperty &arrayKind =
+      *AbstractProperty::lookup(TypeID::get<TestArrayKind>(), &context);
+  auto empty = OwningProperty::create<TestArrayKind>(arrayKind, {});
+  EXPECT_TRUE(failed(array->assign(empty.get())));
+  EXPECT_EQ(array->read().get<TestArrayKind>()->size(), 2u);
+  EXPECT_TRUE(failed(array->reset()));
+  EXPECT_TRUE(failed(a->assign(empty.get())));
+  EXPECT_EQ(*a->read().get<TestI32Kind>(), -1);
+
+  MLIRContext otherContext;
+  otherContext.getOrLoadDialect<TestOpPropertiesDialect>();
+  const AbstractProperty &otherKind =
+      *AbstractProperty::lookup(TypeID::get<TestI32Kind>(), &otherContext);
+  auto foreign = OwningProperty::create<TestI32Kind>(otherKind, 99);
+  EXPECT_TRUE(failed(a->assign(foreign.get())));
+  EXPECT_EQ(*a->read().get<TestI32Kind>(), -1);
+}
+
+TEST(OpPropertiesTest, ConstructWithRegisteredFields) {
+  MLIRContext context;
+  context.getOrLoadDialect<TestOpPropertiesDialect>();
+  OperationState state(UnknownLoc::get(&context),
+                       OpWithProperties::getOperationName());
+  const AbstractProperty &i32Kind =
+      *AbstractProperty::lookup(TypeID::get<TestI32Kind>(), &context);
+  const AbstractProperty &arrayKind =
+      *AbstractProperty::lookup(TypeID::get<TestArrayKind>(), &context);
+  auto count = OwningProperty::create<TestI32Kind>(i32Kind, 42);
+  auto array = OwningProperty::create<TestArrayKind>(arrayKind, {1, 2});
+  EXPECT_TRUE(succeeded(state.setNamedProperty("a", count.get())));
+  EXPECT_TRUE(succeeded(state.setNamedProperty("array", array.get())));
+  EXPECT_EQ(state.getRawProperties().as<TestProperties *>()->a, 42);
+  EXPECT_TRUE(failed(state.setNamedProperty("missing", count.get())));
+  auto empty = OwningProperty::create<TestArrayKind>(arrayKind, {});
+  EXPECT_TRUE(failed(state.setNamedProperty("array", empty.get())));
+  EXPECT_EQ(state.getRawProperties().as<TestProperties *>()->array.size(), 2u);
+
+  OwningOpRef<Operation *> op(Operation::create(state));
+  ASSERT_TRUE(op);
+  EXPECT_EQ(*op->getPropertyField("a")->read().get<TestI32Kind>(), 42);
+  EXPECT_EQ(op->getPropertyField("array")->read().get<TestArrayKind>()->size(),
+            2u);
+}
+
+TEST(OpPropertiesTest, NativeOnlyGenericAssembly) {
+  MLIRContext context;
+  context.getOrLoadDialect<TestOpPropertiesDialect>();
+  ParserConfig config(&context);
+  constexpr StringLiteral assembly =
+      R"mlir("test_op_properties.native_only"() <{count = &test_op_properties.i32<42>}> : () -> ())mlir";
+  OwningOpRef<Operation *> op = parseSourceString(assembly, config);
+  ASSERT_TRUE(op);
+  ASSERT_TRUE(isa<NativeOnlyOp>(*op));
+  EXPECT_EQ(*op->getPropertyField("count")->read().get<TestI32Kind>(), 42);
+
+  std::string printed;
+  llvm::raw_string_ostream os(printed);
+  op->print(os, OpPrintingFlags().printGenericOpForm());
+  EXPECT_NE(printed.find("count = &test_op_properties.i32<42>"),
+            std::string::npos);
+  OwningOpRef<Operation *> reparsed = parseSourceString(printed, config);
+  ASSERT_TRUE(reparsed);
+  EXPECT_EQ(*reparsed->getPropertyField("count")->read().get<TestI32Kind>(),
+            42);
+
+  constexpr StringLiteral legacy =
+      R"mlir("test_op_properties.native_only"() <{count = 42 : i32}> : () -> ())mlir";
+  EXPECT_FALSE(parseSourceString(legacy, config));
+
+  std::string bytecode;
+  llvm::raw_string_ostream bytecodeStream(bytecode);
+  ASSERT_TRUE(succeeded(writeBytecodeToFile(op.get(), bytecodeStream)));
+  Block block;
+  ASSERT_TRUE(succeeded(readBytecodeFile(
+      llvm::MemoryBufferRef(bytecode, "native-only"), &block, config)));
+  ASSERT_FALSE(block.empty());
+  EXPECT_EQ(*block.front().getPropertyField("count")->read().get<TestI32Kind>(),
+            42);
 }
 
 // Test diagnostic emission when using invalid dictionary.

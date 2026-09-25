@@ -84,7 +84,8 @@ void *Property::getInterface(TypeID interfaceID) const {
 
 bool mlir::operator==(Property lhs, Property rhs) {
   if (lhs.kind || rhs.kind)
-    return lhs.kind && rhs.kind && lhs.kind == rhs.kind &&
+    return lhs.kind && rhs.kind &&
+           lhs.kind->getTypeID() == rhs.kind->getTypeID() &&
            lhs.kind->equals(lhs.value, rhs.value);
   return lhs.attr == rhs.attr;
 }

@@ -1307,29 +1307,149 @@ void OpEmitter::genPropertiesSupport() {
 
   opClass.declare<UsingDeclaration>("Properties", "FoldAdaptor::Properties");
 
-  // Convert the property to the attribute form.
+  // A complete list of registered native fields can use the shared field
+  // access and generic assembly path without changing the generated storage.
+  SmallVector<const NamedProperty *> registeredFields;
+  for (ConstArgument argument : attrOrProperties) {
+    const auto *field =
+        llvm::dyn_cast_if_present<const NamedProperty *>(argument);
+    if (!field ||
+        (emitHelper.getOperandSegmentsSize() &&
+         field == &*emitHelper.getOperandSegmentsSize()) ||
+        (emitHelper.getResultSegmentsSize() &&
+         field == &*emitHelper.getResultSegmentsSize()) ||
+        !field->prop.getDef().getValueAsOptionalDef("propertyKind"))
+      break;
+    registeredFields.push_back(field);
+  }
+  if (!registeredFields.empty() &&
+      registeredFields.size() == attrOrProperties.size()) {
+    auto &fieldMethod =
+        opClass
+            .addStaticMethod(
+                "::llvm::ArrayRef<::mlir::PropertyFieldDescriptor>",
+                "getPropertyFieldDescriptors")
+            ->body();
+    fieldMethod
+        << "  static const ::mlir::PropertyFieldDescriptor fields[] = {\n";
+    for (const NamedProperty *field : registeredFields) {
+      const llvm::Record &record =
+          *field->prop.getDef().getValueAsDef("propertyKind");
+      if (field->prop.getStorageType() !=
+          record.getValueAsString("storageType"))
+        llvm::PrintFatalError(
+            field->prop.getDef().getLoc(),
+            "registered property field storage must match its PropDef kind");
+      std::string kind = ("::" + record.getValueAsString("cppNamespace") +
+                          "::" + record.getValueAsString("cppClass"))
+                             .str();
+      std::string verifyValue = "nullptr";
+      Pred predicate = field->prop.getPredicate();
+      if (predicate != Pred() && predicate.getCondition() != "true" &&
+          !StringRef(predicate.getCondition()).contains("$_op")) {
+        FmtContext storageContext;
+        std::string interfaceValue =
+            tgfmt(field->prop.getConvertFromStorageCall(),
+                  &storageContext.addSubst("_storage", "storage"))
+                .str();
+        FmtContext predicateContext;
+        std::string condition = tgfmt(predicate.getCondition(),
+                                      &predicateContext.withSelf("fieldValue"))
+                                    .str();
+        verifyValue = formatv(R"decl([](::mlir::Property value) {
+        auto &storage = *value.get<{0}>();
+        auto fieldValue = {1};
+        return ::mlir::success({2});
+      })decl",
+                              kind, interfaceValue, condition)
+                          .str();
+      }
+      std::string reset = "nullptr";
+      if (field->prop.hasStorageTypeValueOverride()) {
+        reset = formatv(R"decl([](::mlir::Operation *op) {
+        ::llvm::cast<{0}>(op).getProperties().{1} = {2};
+        return ::mlir::success();
+      })decl",
+                        op.getCppClassName(), field->name,
+                        field->prop.getStorageTypeValueOverride())
+                    .str();
+      } else if (field->prop.hasDefaultValue()) {
+        FmtContext assignContext;
+        std::string assign =
+            tgfmt(field->prop.getAssignToStorageCall(),
+                  &assignContext.addSubst("_storage", "storage")
+                       .addSubst("_value", "defaultValue"))
+                .str();
+        reset = formatv(R"decl([](::mlir::Operation *op) {
+        auto &storage = ::llvm::cast<{0}>(op).getProperties().{1};
+        {2} defaultValue = {3};
+        {4};
+        return ::mlir::success();
+      })decl",
+                        op.getCppClassName(), field->name,
+                        field->prop.getInterfaceType(),
+                        field->prop.getDefaultValue(), assign)
+                    .str();
+      }
+      fieldMethod << formatv(R"decl(
+    {"{0}", ::mlir::TypeID::get<{1}>(),
+      [](::mlir::Operation *op) {
+        auto &kind = *::mlir::AbstractProperty::lookup(
+            ::mlir::TypeID::get<{1}>(), op->getContext());
+        return ::mlir::Property(kind,
+            &::llvm::cast<{2}>(op).getProperties().{0});
+      },
+      [](::mlir::Operation *op, ::mlir::Property value) {
+        ::llvm::cast<{2}>(op).getProperties().{0} = *value.get<{1}>();
+      }, nullptr, {3},
+      [](::mlir::OperationState &state, ::mlir::Property value) {
+        state.getOrAddProperties<Properties>().{0} = *value.get<{1}>();
+      }, {4}, true},
+)decl",
+                             field->name, kind, op.getCppClassName(), reset,
+                             verifyValue);
+    }
+    fieldMethod << "  };\n  return fields;\n";
+  }
 
-  setPropMethod << R"decl(
+  bool noLegacyConversion =
+      !registeredFields.empty() &&
+      registeredFields.size() == attrOrProperties.size() &&
+      llvm::all_of(registeredFields, [](const NamedProperty *field) {
+        return field->prop.getDef()
+            .getValueAsDef("propertyKind")
+            ->getValueAsBit("noAttributeConversion");
+      });
+  if (noLegacyConversion) {
+    setPropMethod << "  emitError() << \"legacy attribute conversion is "
+                     "unavailable for this operation\";\n"
+                     "  return ::mlir::failure();\n";
+    getPropMethod << "  return {};\n";
+  } else {
+
+    // Convert the property to the attribute form.
+
+    setPropMethod << R"decl(
   ::mlir::DictionaryAttr dict = ::llvm::dyn_cast<::mlir::DictionaryAttr>(attr);
   if (!dict) {
     emitError() << "expected DictionaryAttr to set properties";
     return ::mlir::failure();
   }
     )decl";
-  const char *propFromAttrFmt = R"decl(
+    const char *propFromAttrFmt = R"decl(
       auto setFromAttr = [] (auto &propStorage, ::mlir::Attribute propAttr,
                ::llvm::function_ref<::mlir::InFlightDiagnostic()> emitError) -> ::mlir::LogicalResult {{
         {0}
       };
       {1};
 )decl";
-  const char *attrGetNoDefaultFmt = R"decl(;
+    const char *attrGetNoDefaultFmt = R"decl(;
       if (attr && ::mlir::failed(setFromAttr(prop.{0}, attr, [&]() {{
             return emitError() << "for `{0}`: ";
           })))
         return ::mlir::failure();
 )decl";
-  const char *attrGetDefaultFmt = R"decl(;
+    const char *attrGetDefaultFmt = R"decl(;
       if (attr) {{
         if (::mlir::failed(setFromAttr(prop.{0}, attr, [&]() {{
               return emitError() << "for `{0}`: ";
@@ -1340,64 +1460,65 @@ void OpEmitter::genPropertiesSupport() {
       }
 )decl";
 
-  for (const auto &attrOrProp : attrOrProperties) {
-    if (const auto *namedProperty =
-            llvm::dyn_cast_if_present<const NamedProperty *>(attrOrProp)) {
-      StringRef name = namedProperty->name;
-      auto &prop = namedProperty->prop;
-      FmtContext fctx;
+    for (const auto &attrOrProp : attrOrProperties) {
+      if (const auto *namedProperty =
+              llvm::dyn_cast_if_present<const NamedProperty *>(attrOrProp)) {
+        StringRef name = namedProperty->name;
+        auto &prop = namedProperty->prop;
+        FmtContext fctx;
 
-      std::string getAttr;
-      llvm::raw_string_ostream os(getAttr);
-      os << "   auto attr = dict.get(\"" << name << "\");";
-      if (name == operandSegmentAttrName) {
-        // Backward compat for now, TODO: Remove at some point.
-        os << "   if (!attr) attr = dict.get(\"" << legacyOperandSegmentAttrName
-           << "\");";
-      }
-      if (name == resultSegmentAttrName) {
-        // Backward compat for now, TODO: Remove at some point.
-        os << "   if (!attr) attr = dict.get(\"" << legacyResultSegmentAttrName
-           << "\");";
-      }
+        std::string getAttr;
+        llvm::raw_string_ostream os(getAttr);
+        os << "   auto attr = dict.get(\"" << name << "\");";
+        if (name == operandSegmentAttrName) {
+          // Backward compat for now, TODO: Remove at some point.
+          os << "   if (!attr) attr = dict.get(\""
+             << legacyOperandSegmentAttrName << "\");";
+        }
+        if (name == resultSegmentAttrName) {
+          // Backward compat for now, TODO: Remove at some point.
+          os << "   if (!attr) attr = dict.get(\""
+             << legacyResultSegmentAttrName << "\");";
+        }
 
-      fctx.withBuilder(odsBuilder);
-      setPropMethod << "{\n"
-                    << formatv(propFromAttrFmt,
-                               tgfmt(prop.getConvertFromAttributeCall(),
-                                     &fctx.addSubst("_attr", propertyAttr)
-                                          .addSubst("_storage", propertyStorage)
-                                          .addSubst("_diag", propertyDiag)),
-                               getAttr);
-      if (prop.hasStorageTypeValueOverride()) {
-        setPropMethod << formatv(attrGetDefaultFmt, name,
-                                 prop.getStorageTypeValueOverride());
-      } else if (prop.hasDefaultValue()) {
-        setPropMethod << formatv(attrGetDefaultFmt, name,
-                                 tgfmt(prop.getDefaultValue(), &fctx));
+        fctx.withBuilder(odsBuilder);
+        setPropMethod << "{\n"
+                      << formatv(
+                             propFromAttrFmt,
+                             tgfmt(prop.getConvertFromAttributeCall(),
+                                   &fctx.addSubst("_attr", propertyAttr)
+                                        .addSubst("_storage", propertyStorage)
+                                        .addSubst("_diag", propertyDiag)),
+                             getAttr);
+        if (prop.hasStorageTypeValueOverride()) {
+          setPropMethod << formatv(attrGetDefaultFmt, name,
+                                   prop.getStorageTypeValueOverride());
+        } else if (prop.hasDefaultValue()) {
+          setPropMethod << formatv(attrGetDefaultFmt, name,
+                                   tgfmt(prop.getDefaultValue(), &fctx));
+        } else {
+          setPropMethod << formatv(attrGetNoDefaultFmt, name);
+        }
+        setPropMethod << "  }\n";
       } else {
-        setPropMethod << formatv(attrGetNoDefaultFmt, name);
-      }
-      setPropMethod << "  }\n";
-    } else {
-      const auto *namedAttr =
-          llvm::dyn_cast_if_present<const AttributeMetadata *>(attrOrProp);
-      StringRef name = namedAttr->attrName;
-      std::string getAttr;
-      llvm::raw_string_ostream os(getAttr);
-      os << "   auto attr = dict.get(\"" << name << "\");";
-      if (name == operandSegmentAttrName) {
-        // Backward compat for now
-        os << "   if (!attr) attr = dict.get(\"" << legacyOperandSegmentAttrName
-           << "\");";
-      }
-      if (name == resultSegmentAttrName) {
-        // Backward compat for now
-        os << "   if (!attr) attr = dict.get(\"" << legacyResultSegmentAttrName
-           << "\");";
-      }
+        const auto *namedAttr =
+            llvm::dyn_cast_if_present<const AttributeMetadata *>(attrOrProp);
+        StringRef name = namedAttr->attrName;
+        std::string getAttr;
+        llvm::raw_string_ostream os(getAttr);
+        os << "   auto attr = dict.get(\"" << name << "\");";
+        if (name == operandSegmentAttrName) {
+          // Backward compat for now
+          os << "   if (!attr) attr = dict.get(\""
+             << legacyOperandSegmentAttrName << "\");";
+        }
+        if (name == resultSegmentAttrName) {
+          // Backward compat for now
+          os << "   if (!attr) attr = dict.get(\""
+             << legacyResultSegmentAttrName << "\");";
+        }
 
-      setPropMethod << formatv(R"decl(
+        setPropMethod << formatv(R"decl(
   {{
     {1}
     if (::mlir::failed(::mlir::detail::setAttributeProperty(
@@ -1405,16 +1526,16 @@ void OpEmitter::genPropertiesSupport() {
       return ::mlir::failure();
   }
 )decl",
-                               name, getAttr);
+                                 name, getAttr);
+      }
     }
-  }
-  setPropMethod << "  return ::mlir::success();\n";
+    setPropMethod << "  return ::mlir::success();\n";
 
-  // Convert the attribute form to the property.
+    // Convert the attribute form to the property.
 
-  getPropMethod << "    ::mlir::SmallVector<::mlir::NamedAttribute> attrs;\n"
-                << "    ::mlir::Builder odsBuilder{ctx};\n";
-  const char *propToAttrFmt = R"decl(
+    getPropMethod << "    ::mlir::SmallVector<::mlir::NamedAttribute> attrs;\n"
+                  << "    ::mlir::Builder odsBuilder{ctx};\n";
+    const char *propToAttrFmt = R"decl(
     {
       const auto &propStorage = prop.{0};
       auto attr = [&]() -> ::mlir::Attribute {{
@@ -1423,32 +1544,33 @@ void OpEmitter::genPropertiesSupport() {
       attrs.push_back(odsBuilder.getNamedAttr("{0}", attr));
     }
 )decl";
-  for (const auto &attrOrProp : attrOrProperties) {
-    if (const auto *namedProperty =
-            llvm::dyn_cast_if_present<const NamedProperty *>(attrOrProp)) {
-      StringRef name = namedProperty->name;
-      auto &prop = namedProperty->prop;
-      FmtContext fctx;
+    for (const auto &attrOrProp : attrOrProperties) {
+      if (const auto *namedProperty =
+              llvm::dyn_cast_if_present<const NamedProperty *>(attrOrProp)) {
+        StringRef name = namedProperty->name;
+        auto &prop = namedProperty->prop;
+        FmtContext fctx;
+        getPropMethod << formatv(
+            propToAttrFmt, name,
+            tgfmt(prop.getConvertToAttributeCall(),
+                  &fctx.addSubst("_ctxt", "ctx")
+                       .addSubst("_storage", propertyStorage)));
+        continue;
+      }
+      const auto *namedAttr =
+          llvm::dyn_cast_if_present<const AttributeMetadata *>(attrOrProp);
+      StringRef name = namedAttr->attrName;
       getPropMethod << formatv(
-          propToAttrFmt, name,
-          tgfmt(prop.getConvertToAttributeCall(),
-                &fctx.addSubst("_ctxt", "ctx")
-                     .addSubst("_storage", propertyStorage)));
-      continue;
+          "    ::mlir::detail::appendAttributeProperty(attrs, \"{0}\", "
+          "prop.{0});\n",
+          name);
     }
-    const auto *namedAttr =
-        llvm::dyn_cast_if_present<const AttributeMetadata *>(attrOrProp);
-    StringRef name = namedAttr->attrName;
-    getPropMethod << formatv(
-        "    ::mlir::detail::appendAttributeProperty(attrs, \"{0}\", "
-        "prop.{0});\n",
-        name);
-  }
-  getPropMethod << R"decl(
+    getPropMethod << R"decl(
   if (!attrs.empty())
     return odsBuilder.getDictionaryAttr(attrs);
   return {};
 )decl";
+  }
 
   // Hashing for the property
 

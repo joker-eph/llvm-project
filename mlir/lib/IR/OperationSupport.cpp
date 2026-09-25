@@ -16,12 +16,48 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OpImplementation.h"
+#include "mlir/IR/Operation.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/SHA1.h"
 #include <numeric>
 #include <optional>
 
 using namespace mlir;
+
+LogicalResult OperationPropertyRef::assign(Property value) const {
+  if (!value || value.getContext() != operation->getContext() ||
+      value.getTypeID() != descriptor->kindID)
+    return failure();
+  if (failed(value.verify()))
+    return failure();
+  if (descriptor->verifyValue && failed(descriptor->verifyValue(value)))
+    return failure();
+  if (descriptor->verify && failed(descriptor->verify(operation, value)))
+    return failure();
+  descriptor->write(operation, value);
+  return success();
+}
+
+LogicalResult OperationPropertyRef::reset() const {
+  return descriptor->reset ? descriptor->reset(operation) : failure();
+}
+
+LogicalResult OperationState::setNamedProperty(StringRef fieldName,
+                                               Property value) {
+  if (!value || value.getContext() != getContext())
+    return failure();
+  for (const PropertyFieldDescriptor &field : name.getPropertyFields()) {
+    if (field.name != fieldName)
+      continue;
+    if (!field.writeState || field.kindID != value.getTypeID() ||
+        failed(value.verify()) ||
+        (field.verifyValue && failed(field.verifyValue(value))))
+      return failure();
+    field.writeState(*this, value);
+    return success();
+  }
+  return failure();
+}
 
 void mlir::detail::appendAttributeProperty(
     llvm::SmallVectorImpl<NamedAttribute> &attrs, StringRef name,

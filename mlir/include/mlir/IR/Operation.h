@@ -114,6 +114,19 @@ public:
   /// The name of an operation is the key identifier for it.
   OperationName getName() { return name; }
 
+  /// Enumerate declared fields for operations that provide descriptors.
+  ArrayRef<PropertyFieldDescriptor> getPropertyFieldDescriptors() {
+    return name.getPropertyFields();
+  }
+
+  /// Look up a live reference to a declared field.
+  std::optional<OperationPropertyRef> getPropertyField(StringRef fieldName) {
+    for (const PropertyFieldDescriptor &field : getPropertyFieldDescriptors())
+      if (field.name == fieldName)
+        return OperationPropertyRef(this, field);
+    return std::nullopt;
+  }
+
   /// If this operation has a registered operation description, return it.
   /// Otherwise return std::nullopt.
   std::optional<RegisteredOperationName> getRegisteredInfo() {

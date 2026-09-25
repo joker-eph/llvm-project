@@ -3852,7 +3852,15 @@ void OperationPrinter::printGenericOp(Operation *op, bool printOpName) {
   }
 
   // Print the properties.
-  if (Attribute prop = op->getPropertiesAsAttribute()) {
+  if (op->getName().hasCompletePropertyFields()) {
+    os << " <{";
+    llvm::interleaveComma(op->getPropertyFieldDescriptors(), os,
+                          [&](const PropertyFieldDescriptor &field) {
+                            os << field.name << " = ";
+                            field.read(op).print(os);
+                          });
+    os << "}>";
+  } else if (Attribute prop = op->getPropertiesAsAttribute()) {
     os << " <";
     Impl::printAttribute(prop);
     os << '>';

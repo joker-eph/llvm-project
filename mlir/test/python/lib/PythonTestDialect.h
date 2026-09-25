@@ -10,6 +10,7 @@
 #define MLIR_TEST_PYTHON_LIB_PYTHONTESTDIALECT_H
 
 #include "mlir/Bytecode/BytecodeOpInterface.h"
+#include "mlir/IR/BuiltinProperties.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"

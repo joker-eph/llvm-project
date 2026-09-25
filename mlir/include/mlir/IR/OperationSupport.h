@@ -20,6 +20,7 @@
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/IR/Location.h"
+#include "mlir/IR/Properties.h"
 #include "mlir/IR/TypeRange.h"
 #include "mlir/IR/Types.h"
 #include "mlir/IR/Value.h"
@@ -63,6 +64,39 @@ class Value;
 class ValueRange;
 template <typename ValueRangeT>
 class ValueTypeRange;
+
+/// Accessors for one declared operation field. Callbacks permit generated
+/// operation storage to retain its existing C++ layout.
+struct PropertyFieldDescriptor {
+  StringRef name;
+  TypeID kindID;
+  Property (*read)(Operation *);
+  void (*write)(Operation *, Property);
+  LogicalResult (*verify)(Operation *, Property) = nullptr;
+  LogicalResult (*reset)(Operation *) = nullptr;
+  void (*writeState)(OperationState &, Property) = nullptr;
+  LogicalResult (*verifyValue)(Property) = nullptr;
+  /// Set on every descriptor only when the list covers all inherent fields.
+  bool complete = false;
+};
+
+/// Borrowed reference to an operation field. The operation must outlive it.
+class OperationPropertyRef {
+public:
+  OperationPropertyRef(Operation *operation,
+                       const PropertyFieldDescriptor &descriptor)
+      : operation(operation), descriptor(&descriptor) {}
+  StringRef getName() const { return descriptor->name; }
+  TypeID getTypeID() const { return descriptor->kindID; }
+  Property read() const { return descriptor->read(operation); }
+  OwningProperty copy() const { return OwningProperty::copy(read()); }
+  LogicalResult assign(Property value) const;
+  LogicalResult reset() const;
+
+private:
+  Operation *operation;
+  const PropertyFieldDescriptor *descriptor;
+};
 
 namespace detail {
 /// Append a present attribute-backed property to a dictionary's attributes.
@@ -188,6 +222,9 @@ public:
     virtual void copyProperties(PropertyRef, PropertyRef) = 0;
     virtual bool compareProperties(PropertyRef, PropertyRef) = 0;
     virtual llvm::hash_code hashProperties(PropertyRef) = 0;
+    virtual ArrayRef<PropertyFieldDescriptor> getPropertyFields() const {
+      return {};
+    }
   };
 
 public:
@@ -472,6 +509,13 @@ public:
   int getOpPropertyByteSize() const {
     return getImpl()->getOpPropertyByteSize();
   }
+  ArrayRef<PropertyFieldDescriptor> getPropertyFields() const {
+    return getImpl()->getPropertyFields();
+  }
+  bool hasCompletePropertyFields() const {
+    ArrayRef<PropertyFieldDescriptor> fields = getPropertyFields();
+    return !fields.empty() && fields.front().complete;
+  }
 
   /// Return the TypeID of the op properties.
   TypeID getOpPropertiesTypeID() const {
@@ -589,6 +633,9 @@ inline llvm::hash_code hash_value(OperationName arg) {
 /// the concrete operation types.
 class RegisteredOperationName : public OperationName {
 public:
+  template <typename OpT>
+  using PropertyFieldsT = decltype(OpT::getPropertyFieldDescriptors());
+
   /// Implementation of the InterfaceConcept for operation APIs that forwarded
   /// to a concrete op implementation.
   template <typename ConcreteOp>
@@ -599,6 +646,11 @@ public:
         : Impl(ConcreteOp::getOperationName(), dialect,
                TypeID::get<ConcreteOp>(), ConcreteOp::getInterfaceMap()) {
       propertiesTypeID = TypeID::get<Properties>();
+    }
+    ArrayRef<PropertyFieldDescriptor> getPropertyFields() const final {
+      if constexpr (llvm::is_detected<PropertyFieldsT, ConcreteOp>::value)
+        return ConcreteOp::getPropertyFieldDescriptors();
+      return {};
     }
     LogicalResult foldHook(Operation *op, ArrayRef<Attribute> attrs,
                            SmallVectorImpl<OpFoldResult> &results) final {
@@ -1093,6 +1145,10 @@ public:
   }
   PropertyRef getRawProperties() { return properties; }
 
+  /// Populate a declared field in typed temporary storage before operation
+  /// creation and result-type inference.
+  LogicalResult setNamedProperty(StringRef fieldName, Property value);
+
   // Set the properties defined on this OpState on the given operation,
   // optionally emit diagnostics on error through the provided diagnostic.
   LogicalResult
@@ -1516,8 +1572,7 @@ struct DenseMapInfo<mlir::OperationName> {
 };
 template <>
 struct DenseMapInfo<mlir::RegisteredOperationName>
-    : public DenseMapInfo<mlir::OperationName> {
-};
+    : public DenseMapInfo<mlir::OperationName> {};
 
 template <>
 struct PointerLikeTypeTraits<mlir::OperationName> {
