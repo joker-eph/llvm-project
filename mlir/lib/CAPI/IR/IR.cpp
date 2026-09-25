@@ -858,11 +858,11 @@ void mlirOperationSetSuccessor(MlirOperation op, intptr_t pos,
 }
 
 intptr_t mlirOperationGetNumAttributes(MlirOperation op) {
-  return static_cast<intptr_t>(unwrap(op)->getAttrs().size());
+  return static_cast<intptr_t>(unwrap(op)->getAttrDictionary().size());
 }
 
 MlirNamedAttribute mlirOperationGetAttribute(MlirOperation op, intptr_t pos) {
-  NamedAttribute attr = unwrap(op)->getAttrs()[pos];
+  NamedAttribute attr = unwrap(op)->getAttrDictionary().getValue()[pos];
   return MlirNamedAttribute{wrap(attr.getName()), wrap(attr.getValue())};
 }
 
