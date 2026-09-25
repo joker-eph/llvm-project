@@ -63,6 +63,14 @@ void Dialect::addProperty(AbstractProperty property) {
   registeredProperties.try_emplace(id, std::move(owned));
 }
 
+void *Dialect::lookupAttributePropertyInterface(TypeID attrID,
+                                                TypeID interfaceID) const {
+  auto it = attributePropertyInterfaces.find(attrID);
+  return it == attributePropertyInterfaces.end()
+             ? nullptr
+             : it->second.lookupInterface(interfaceID);
+}
+
 /// Verify an attribute from this dialect on the argument at 'argIndex' for
 /// the region at 'regionIndex' on the given operation. Returns failure if
 /// the verification failed, success otherwise. This hook may optionally be

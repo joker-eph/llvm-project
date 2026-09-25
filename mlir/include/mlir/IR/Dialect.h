@@ -62,6 +62,23 @@ public:
   const AbstractProperty *lookupProperty(TypeID typeID) const;
   const AbstractProperty *lookupProperty(StringRef name) const;
 
+  /// Attach a property interface after registration, including from a dialect
+  /// extension. Attribute models are stored alongside the dialect rather than
+  /// altering Attribute's layout or existing interface map.
+  template <typename KindT, typename ModelT>
+  void attachPropertyInterface() {
+    auto it = registeredProperties.find(TypeID::get<KindT>());
+    assert(it != registeredProperties.end() && "property kind not registered");
+    it->second->template attachInterfaceModel<ModelT>();
+  }
+  template <typename AttrT, typename ModelT>
+  void attachAttributePropertyInterface() {
+    attributePropertyInterfaces[TypeID::get<AttrT>()]
+        .template insertModels<ModelT>();
+  }
+  void *lookupAttributePropertyInterface(TypeID attrID,
+                                         TypeID interfaceID) const;
+
   /// Returns true if this dialect allows for unregistered operations, i.e.
   /// operations prefixed with the dialect namespace but not registered with
   /// addOperation.
@@ -380,6 +397,7 @@ private:
 
   DenseMap<TypeID, std::unique_ptr<AbstractProperty>> registeredProperties;
   llvm::StringMap<AbstractProperty *> propertiesByName;
+  DenseMap<TypeID, detail::InterfaceMap> attributePropertyInterfaces;
 
   /// A set of interfaces that the dialect (or its constructs, i.e.
   /// Attributes/Operations/Types/etc.) has promised to implement, but has yet

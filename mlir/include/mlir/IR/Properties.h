@@ -10,6 +10,7 @@
 #define MLIR_IR_PROPERTIES_H
 
 #include "mlir/IR/Attributes.h"
+#include "mlir/Support/InterfaceSupport.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Support/TypeID.h"
 #include "llvm/ADT/Hashing.h"
@@ -20,6 +21,7 @@
 #include <new>
 #include <string>
 #include <type_traits>
+#include <utility>
 
 namespace mlir {
 class Dialect;
@@ -45,7 +47,6 @@ struct RegisteredPropertyHash<
     std::void_t<decltype(T::hash(std::declval<const Storage &>()))>> {
   static llvm::hash_code get(const Storage &value) { return T::hash(value); }
 };
-
 template <typename T, typename = void>
 struct RegisteredPropertyName {
   static std::string get(Dialect &) { return StringRef(T::name).str(); }
@@ -57,6 +58,7 @@ struct RegisteredPropertyName<
   static std::string get(Dialect &dialect) { return T::getName(dialect); }
 };
 } // namespace detail
+
 /// The semantic identity and value operations of a native property kind.
 /// Instances are owned by a dialect, and thus by its MLIRContext. The TypeID
 /// identifies the kind, not the C++ type used to store its values.
@@ -114,6 +116,13 @@ public:
   }
   llvm::hash_code hash(const void *ptr) const { return hashFn(ptr); }
   LogicalResult verify(const void *ptr) const { return verifyFn(ptr); }
+  void *getInterface(TypeID interfaceID) const {
+    return interfaceMap.lookupInterface(interfaceID);
+  }
+  template <typename ModelT>
+  void attachInterfaceModel() {
+    interfaceMap.insertModels<ModelT>();
+  }
 
 private:
   AbstractProperty(Dialect &dialect, TypeID typeID, std::string name,
@@ -136,6 +145,7 @@ private:
   EqualFn equalFn;
   HashFn hashFn;
   VerifyFn verifyFn;
+  detail::InterfaceMap interfaceMap;
 };
 
 /// Borrowed, immutable view of a native value or a context-owned attribute.
@@ -168,6 +178,7 @@ public:
                : nullptr;
   }
   const void *getStorage() const { return value; }
+  void *getInterface(TypeID interfaceID) const;
   LogicalResult verify() const {
     return kind ? kind->verify(value) : success();
   }
@@ -182,6 +193,31 @@ private:
 };
 
 bool operator==(Property lhs, Property rhs);
+
+namespace PropertyTrait {
+template <typename ConcreteType, template <typename> class TraitType>
+struct TraitBase {};
+} // namespace PropertyTrait
+
+/// Base for interfaces implemented by registered native property kinds and
+/// attribute-backed values. Models receive a Property view in both cases.
+template <typename ConcreteType, typename Traits>
+class PropertyInterface
+    : public detail::Interface<ConcreteType, Property, Traits, Property,
+                               PropertyTrait::TraitBase> {
+public:
+  using Base = PropertyInterface<ConcreteType, Traits>;
+  using InterfaceBase = detail::Interface<ConcreteType, Property, Traits,
+                                          Property, PropertyTrait::TraitBase>;
+  using InterfaceBase::InterfaceBase;
+
+protected:
+  static typename InterfaceBase::Concept *getInterfaceFor(Property property) {
+    return static_cast<typename InterfaceBase::Concept *>(
+        property.getInterface(ConcreteType::getInterfaceID()));
+  }
+  friend InterfaceBase;
+};
 
 /// Move-only standalone native storage, or a retained context-owned attribute.
 /// Cloning is explicit; destroying native storage runs its C++ destructor.

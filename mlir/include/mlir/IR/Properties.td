@@ -16,6 +16,23 @@
 include "mlir/IR/Constraints.td"
 include "mlir/IR/Utils.td"
 
+// A reusable semantic kind. Operation fields refer to a PropDef, but keep
+// their own defaults, constraints, and native storage in their Property record.
+// Kind definitions have no operation-specific state.
+class PropDef<string storageTypeParam, string mnemonicParam,
+              string cppNamespaceParam, string cppClassParam> {
+  string storageType = storageTypeParam;
+  string mnemonic = mnemonicParam;
+  string cppNamespace = cppNamespaceParam;
+  string cppClass = cppClassParam;
+  bit generateWrapper = 1;
+  bit noAttributeConversion = 0;
+  code verifier = "";
+  code hasher = "";
+  code parser = "";
+  code printer = "";
+}
+
 // Base class for defining properties.
 // `desc` is the summary, a user-readable one-line description of the property
 // used in error messages. If empty, a generic message will be used.
@@ -31,6 +48,7 @@ class Property<string storageTypeParam = "", string desc = "", string interfaceT
   // The full description of this property.
   string description = "";
   code storageType = storageTypeParam;
+  PropDef propertyKind = ?;
   // Note: the interface type is a field on PropConstraint.
 
   // The expression to convert from the storage type to the Interface
@@ -174,6 +192,13 @@ class Property<string storageTypeParam = "", string desc = "", string interfaceT
   // are distinct (ex. SmallVector for storage vs. ArrayRef for interfacing), as it
   // will fall back to `defaultValue` when unspecified.
   string storageTypeValueOverride = "";
+}
+
+// Bind a reusable kind to an operation field. Defaults and predicates can be
+// added around this field without changing the kind's semantic identity.
+class RegisteredProp<PropDef kind, string desc = "">
+    : Property<kind.storageType, desc> {
+  let propertyKind = kind;
 }
 
 /// Implementation of the Property class's `readFromMlirBytecode` field using
@@ -352,6 +377,7 @@ class DefaultValuedProp<Property p, string default = "", string storageDefault =
   let defaultValue = default;
   let storageTypeValueOverride = storageDefault;
   let baseProperty = p;
+  let propertyKind = p.propertyKind;
   // Keep up to date with `Property` above.
   let summary = p.summary;
   let description = p.description;
@@ -379,6 +405,7 @@ class ConfinedProp<Property p, Pred pred, string newSummary = "">
     : Property<p.storageType, !if(!empty(newSummary), p.summary, newSummary), p.interfaceType> {
   let predicate = !if(!ne(p.predicate, TruePred), And<[p.predicate, pred]>, pred);
   let baseProperty = p;
+  let propertyKind = p.propertyKind;
   // Keep up to date with `Property` above.
   let description = p.description;
   let storageType = p.storageType;
@@ -480,7 +507,7 @@ class ArrayProp<Property elem = Property<>, string newSummary = ""> :
   }];
 
   let convertToAttribute = [{
-    SmallVector<::mlir::Attribute> elems;
+    ::llvm::SmallVector<::mlir::Attribute> elems;
     for (const auto& elemVal : $_storage) {
       auto elemAttr = [&](const }] # elem.storageType #[{& propStorage) -> ::mlir::Attribute {
         }] # !subst("$_storage", "propStorage", elem.convertToAttribute) # [{
@@ -788,4 +815,32 @@ class OptionalProp<Property p, bit canDelegateParsing = 1>
 class OptionalProperty<Property p, bit canDelegateParsing = 1>
   : OptionalProp<p, canDelegateParsing>,
     Deprecated<"moved to shorter name OptionalProp">;
+
+// Combinator instances are distinct kinds whose C++ implementation is a
+// template. The kind is selected by its element kind, not by the element's
+// storage type. Its mnemonic is derived from the registered element at runtime.
+class PropCombinatorDef<string storageTypeParam, string cppClassParam>
+    : PropDef<storageTypeParam, "", "mlir", cppClassParam> {
+  let generateWrapper = 0;
+}
+
+class ArrayPropKind<PropDef element>
+    : PropCombinatorDef<"::llvm::SmallVector<" # element.storageType # ">",
+        "ArrayPropertyKind<::" # element.cppNamespace # "::" #
+        element.cppClass # ">">;
+
+class OptionalPropKind<PropDef element>
+    : PropCombinatorDef<"std::optional<" # element.storageType # ">",
+        "OptionalPropertyKind<::" # element.cppNamespace # "::" #
+        element.cppClass # ">">;
+
+class RegisteredArrayProp<Property element>
+    : ArrayProp<element> {
+  let propertyKind = ArrayPropKind<element.propertyKind>;
+}
+
+class RegisteredOptionalProp<Property element>
+    : OptionalProp<element> {
+  let propertyKind = OptionalPropKind<element.propertyKind>;
+}
 #endif // PROPERTIES

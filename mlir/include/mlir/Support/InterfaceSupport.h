@@ -198,6 +198,12 @@ public:
   /// Returns true if the interface map contains an interface for the given id.
   bool contains(TypeID interfaceID) const { return lookup(interfaceID); }
 
+  /// Return a type-erased interface model for clients that dispatch on a
+  /// runtime interface ID.
+  void *lookupInterface(TypeID interfaceID) const {
+    return lookup(interfaceID);
+  }
+
   /// Insert the given interface models.
   template <typename... IfaceModels>
   void insertModels() {

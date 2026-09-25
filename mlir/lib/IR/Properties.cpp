@@ -72,6 +72,16 @@ MLIRContext *Property::getContext() const {
   return kind ? kind->getContext() : attr ? attr.getContext() : nullptr;
 }
 
+void *Property::getInterface(TypeID interfaceID) const {
+  if (kind)
+    return kind->getInterface(interfaceID);
+  if (!attr)
+    return nullptr;
+  Attribute attribute = attr;
+  return attr.getDialect().lookupAttributePropertyInterface(
+      attribute.getTypeID(), interfaceID);
+}
+
 bool mlir::operator==(Property lhs, Property rhs) {
   if (lhs.kind || rhs.kind)
     return lhs.kind && rhs.kind && lhs.kind == rhs.kind &&

@@ -31,6 +31,7 @@ add_tablegen(mlir-tblgen MLIR
   PassCAPIGen.cpp
   PassDocGen.cpp
   PassGen.cpp
+  PropertyGen.cpp
   RewriterGen.cpp
   SPIRVUtilsGen.cpp
   CppGenUtilities.cpp
