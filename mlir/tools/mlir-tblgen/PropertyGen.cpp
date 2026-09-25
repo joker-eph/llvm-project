@@ -57,6 +57,13 @@ getRegisteredProperties(const RecordKeeper &records) {
       llvm::PrintFatalError(record->getLoc(),
                             "registered property requires standalone parser "
                             "and printer bodies");
+    // Multiple operation fields may specialize defaults and constraints while
+    // using the same semantic kind. Emit its C++ wrapper only once.
+    if (llvm::any_of(result, [&](const RegisteredPropertyDef &existing) {
+          return existing.cppNamespace == cppNamespace &&
+                 existing.cppClass == cppClass;
+        }))
+      continue;
     result.push_back({cppNamespace, cppClass, mnemonic,
                       record->getValueAsString("storageType"),
                       record->getValueAsString("verifier"),

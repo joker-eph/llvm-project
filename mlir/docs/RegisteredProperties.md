@@ -57,6 +57,8 @@ fields. Descriptors use callbacks to read and write the operation's existing
 storage layout. `Operation::getPropertyField` gives a checked borrowed
 reference; `copy()` makes a standalone snapshot. Assignment verifies context,
 semantic kind, intrinsic validity, and field-local constraints before writing.
+Generated references can reset defaulted fields while required fields reject
+reset.
 `OperationState::setNamedProperty` copies a field into temporary typed storage
 before result-type inference. An `InferTypeOpInterface` implementation can read
 that typed storage without converting it to an attribute. Operations that

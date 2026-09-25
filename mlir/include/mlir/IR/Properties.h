@@ -49,6 +49,7 @@ struct RegisteredPropertyHash<
     std::void_t<decltype(T::hash(std::declval<const Storage &>()))>> {
   static llvm::hash_code get(const Storage &value) { return T::hash(value); }
 };
+
 template <typename T, typename = void>
 struct RegisteredPropertyName {
   static std::string get(Dialect &) { return StringRef(T::name).str(); }
