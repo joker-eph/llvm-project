@@ -63,6 +63,8 @@
   MAKE_MLIR_PYTHON_QUALNAME("ir.AffineMap._CAPIPtr")
 #define MLIR_PYTHON_CAPSULE_ATTRIBUTE                                          \
   MAKE_MLIR_PYTHON_QUALNAME("ir.Attribute._CAPIPtr")
+#define MLIR_PYTHON_CAPSULE_PROPERTY                                           \
+  MAKE_MLIR_PYTHON_QUALNAME("ir.Property._CAPIPtr")
 #define MLIR_PYTHON_CAPSULE_BLOCK MAKE_MLIR_PYTHON_QUALNAME("ir.Block._CAPIPtr")
 #define MLIR_PYTHON_CAPSULE_CONTEXT                                            \
   MAKE_MLIR_PYTHON_QUALNAME("ir.Context._CAPIPtr")
@@ -190,6 +192,18 @@ static inline MlirAttribute mlirPythonCapsuleToAttribute(PyObject *capsule) {
   void *ptr = PyCapsule_GetPointer(capsule, MLIR_PYTHON_CAPSULE_ATTRIBUTE);
   MlirAttribute attr = {ptr};
   return attr;
+}
+
+/** Creates a borrowed capsule for an owned MlirProperty Python wrapper. */
+static inline PyObject *mlirPythonPropertyToCapsule(MlirProperty property) {
+  return PyCapsule_New(property.ptr, MLIR_PYTHON_CAPSULE_PROPERTY, NULL);
+}
+
+/** Extracts a property borrowed from its Python owner. */
+static inline MlirProperty mlirPythonCapsuleToProperty(PyObject *capsule) {
+  void *ptr = PyCapsule_GetPointer(capsule, MLIR_PYTHON_CAPSULE_PROPERTY);
+  MlirProperty property = {ptr};
+  return property;
 }
 
 /** Creates a capsule object encapsulating the raw C-API MlirBlock.

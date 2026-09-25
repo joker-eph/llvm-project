@@ -715,7 +715,8 @@ public:
          const MlirValue *operands, size_t numOperands,
          std::optional<nanobind::dict> attributes,
          std::optional<std::vector<PyBlock *>> successors, int regions,
-         PyLocation &location, const nanobind::object &ip, bool inferType);
+         PyLocation &location, const nanobind::object &ip, bool inferType,
+         std::optional<nanobind::dict> properties = std::nullopt);
 
   /// Creates an OpView suitable for this operation.
   nanobind::object createOpView();

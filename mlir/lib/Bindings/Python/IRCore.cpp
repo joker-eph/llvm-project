@@ -18,6 +18,7 @@
 #include "mlir-c/ExtensibleDialect.h"
 #include "mlir-c/IR.h"
 #include "mlir-c/Support.h"
+#include <nanobind/stl/unique_ptr.h>
 
 #include <array>
 #include <cassert>
@@ -915,6 +916,150 @@ nb::object PyModule::getCapsule() {
 // PyOperation
 //------------------------------------------------------------------------------
 
+class PyProperty : public BaseContextObject {
+public:
+  PyProperty(PyMlirContextRef context, MlirProperty value)
+      : BaseContextObject(std::move(context)), value(value) {
+    if (mlirPropertyIsNull(value))
+      throw nb::value_error("invalid property");
+  }
+  PyProperty(const PyProperty &) = delete;
+  virtual ~PyProperty() { mlirPropertyDestroy(value); }
+  MlirProperty get() const { return value; }
+
+private:
+  MlirProperty value;
+};
+
+class PyI64Property : public PyProperty {
+public:
+  using PyProperty::PyProperty;
+};
+
+class PyBoolProperty : public PyProperty {
+public:
+  using PyProperty::PyProperty;
+};
+
+class PyStringProperty : public PyProperty {
+public:
+  using PyProperty::PyProperty;
+};
+
+static std::unique_ptr<PyProperty> makePyProperty(PyMlirContextRef context,
+                                                  MlirProperty value) {
+  if (mlirPropertyIsNull(value))
+    throw nb::value_error("invalid property");
+  int64_t numeric;
+  bool boolean;
+  MlirStringRef string;
+  if (mlirPropertyGetI64(value, &numeric))
+    return std::make_unique<PyI64Property>(std::move(context), value);
+  if (mlirPropertyGetBool(value, &boolean))
+    return std::make_unique<PyBoolProperty>(std::move(context), value);
+  if (mlirPropertyGetString(value, &string))
+    return std::make_unique<PyStringProperty>(std::move(context), value);
+  return std::make_unique<PyProperty>(std::move(context), value);
+}
+
+class PyOpPropertyRef {
+public:
+  PyOpPropertyRef(PyOperationRef operation, std::string name)
+      : operation(std::move(operation)), name(std::move(name)) {}
+  MlirOperationPropertyRef get() {
+    operation->checkValid();
+    MlirOperationPropertyRef result = mlirOperationGetPropertyFieldByName(
+        operation->get(), toMlirStringRef(name));
+    if (mlirOperationPropertyRefIsNull(result))
+      throw nb::key_error(name.c_str());
+    return result;
+  }
+  const std::string &getName() const { return name; }
+  std::unique_ptr<PyProperty> copy() {
+    return makePyProperty(operation->getContext(),
+                          mlirOperationPropertyRefCopy(get()));
+  }
+  void assign(const PyProperty &value) {
+    if (mlirLogicalResultIsFailure(
+            mlirOperationPropertyRefAssign(get(), value.get())))
+      throw nb::value_error("property assignment failed");
+  }
+  void reset() {
+    if (mlirLogicalResultIsFailure(mlirOperationPropertyRefReset(get())))
+      throw nb::value_error("property reset failed");
+  }
+
+private:
+  PyOperationRef operation;
+  std::string name;
+};
+
+class PyOpPropertyMap {
+public:
+  explicit PyOpPropertyMap(PyOperationRef operation)
+      : operation(std::move(operation)) {}
+  intptr_t size() {
+    operation->checkValid();
+    return mlirOperationGetNumPropertyFields(operation->get());
+  }
+  std::vector<std::string> keys() {
+    operation->checkValid();
+    std::vector<std::string> result;
+    for (intptr_t i = 0, e = size(); i < e; ++i) {
+      MlirStringRef name = mlirOperationPropertyRefGetName(
+          mlirOperationGetPropertyField(operation->get(), i));
+      result.emplace_back(name.data, name.length);
+    }
+    return result;
+  }
+  PyOpPropertyRef ref(const std::string &name) {
+    PyOpPropertyRef result(operation, name);
+    result.get();
+    return result;
+  }
+  std::unique_ptr<PyProperty> getItem(const std::string &name) {
+    return ref(name).copy();
+  }
+  void setItem(const std::string &name, const PyProperty &value) {
+    ref(name).assign(value);
+  }
+
+private:
+  PyOperationRef operation;
+};
+
+class PyOpDiscardableAttributeMap {
+public:
+  explicit PyOpDiscardableAttributeMap(PyOperationRef operation)
+      : operation(std::move(operation)) {}
+  intptr_t size() {
+    operation->checkValid();
+    return mlirOperationGetNumDiscardableAttributes(operation->get());
+  }
+  nb::object getItem(const std::string &name) {
+    operation->checkValid();
+    MlirAttribute attr = mlirOperationGetDiscardableAttributeByName(
+        operation->get(), toMlirStringRef(name));
+    if (mlirAttributeIsNull(attr))
+      throw nb::key_error(name.c_str());
+    return PyAttribute(operation->getContext(), attr).maybeDownCast();
+  }
+  void setItem(const std::string &name, PyAttribute &attr) {
+    operation->checkValid();
+    mlirOperationSetDiscardableAttributeByName(
+        operation->get(), toMlirStringRef(name), attr.get());
+  }
+  void delItem(const std::string &name) {
+    operation->checkValid();
+    if (!mlirOperationRemoveDiscardableAttributeByName(operation->get(),
+                                                       toMlirStringRef(name)))
+      throw nb::key_error(name.c_str());
+  }
+
+private:
+  PyOperationRef operation;
+};
+
 PyOperation::PyOperation(PyMlirContextRef contextRef, MlirOperation operation)
     : BaseContextObject(std::move(contextRef)), operation(operation) {}
 
@@ -1236,10 +1381,12 @@ nb::object PyOperation::create(std::string_view name,
                                std::optional<nb::dict> attributes,
                                std::optional<std::vector<PyBlock *>> successors,
                                int regions, PyLocation &location,
-                               const nb::object &maybeIp, bool inferType) {
+                               const nb::object &maybeIp, bool inferType,
+                               std::optional<nb::dict> properties) {
   std::vector<MlirType> mlirResults;
   std::vector<MlirBlock> mlirSuccessors;
   std::vector<std::pair<std::string, MlirAttribute>> mlirAttributes;
+  std::vector<std::pair<std::string, MlirProperty>> mlirProperties;
 
   // General parameter validation.
   if (regions < 0)
@@ -1284,6 +1431,14 @@ nb::object PyOperation::create(std::string_view name,
                                name, "\" (", err.what(), ")");
         throw nb::type_error(msg.c_str());
       }
+    }
+  }
+  if (properties) {
+    mlirProperties.reserve(properties->size());
+    for (std::pair<nb::handle, nb::handle> item : *properties) {
+      std::string key = nb::cast<std::string>(item.first);
+      auto &property = nb::cast<PyProperty &>(item.second);
+      mlirProperties.emplace_back(std::move(key), property.get());
     }
   }
   // Unpack/validate successors.
@@ -1335,7 +1490,17 @@ nb::object PyOperation::create(std::string_view name,
 
   // Construct the operation.
   PyMlirContext::ErrorCapture errors(location.getContext());
-  MlirOperation operation = mlirOperationCreate(&state);
+  MlirOperation operation;
+  if (properties) {
+    std::vector<MlirNamedProperty> namedProperties;
+    namedProperties.reserve(mlirProperties.size());
+    for (const auto &[key, value] : mlirProperties)
+      namedProperties.push_back({toMlirStringRef(key), value});
+    operation = mlirOperationCreateWithProperties(
+        &state, namedProperties.size(), namedProperties.data());
+  } else {
+    operation = mlirOperationCreate(&state);
+  }
   if (!operation.ptr)
     throw MLIRError("Operation creation failed", errors.take());
   PyOperationRef created =
@@ -3317,6 +3482,133 @@ void PyFusedLocation::bindDerived(ClassTy &c) {
 // Populates the core exports of the 'ir' submodule.
 //------------------------------------------------------------------------------
 void populateIRCore(nb::module_ &m) {
+  nb::class_<PyProperty>(m, "Property")
+      .def_prop_ro(MLIR_PYTHON_CAPI_PTR_ATTR,
+                   [](PyProperty &self) {
+                     return nb::steal<nb::object>(
+                         mlirPythonPropertyToCapsule(self.get()));
+                   })
+      .def_static(
+          "parse",
+          [](const std::string &text, DefaultingPyMlirContext context) {
+            MlirProperty value =
+                mlirPropertyParse(context->get(), toMlirStringRef(text));
+            if (mlirPropertyIsNull(value))
+              throw nb::value_error("failed to parse property");
+            return makePyProperty(context->getRef(), value);
+          },
+          "text"_a, "context"_a = nb::none())
+      .def_static(
+          "parse_with_kind",
+          [](const std::string &kind, const std::string &payload,
+             DefaultingPyMlirContext context) {
+            MlirProperty value =
+                mlirPropertyParseWithKind(context->get(), toMlirStringRef(kind),
+                                          toMlirStringRef(payload));
+            if (mlirPropertyIsNull(value))
+              throw nb::value_error("failed to parse property payload");
+            return makePyProperty(context->getRef(), value);
+          },
+          "kind"_a, "payload"_a, "context"_a = nb::none())
+      .def_static("from_attribute",
+                  [](PyAttribute &attribute) {
+                    return makePyProperty(
+                        attribute.getContext(),
+                        mlirPropertyFromAttribute(attribute.get()));
+                  })
+      .def("copy",
+           [](PyProperty &self) {
+             return makePyProperty(self.getContext(),
+                                   mlirPropertyCopy(self.get()));
+           })
+      .def_prop_ro(
+          "context",
+          [](PyProperty &self) { return self.getContext().getObject(); })
+      .def_prop_ro("name",
+                   [](PyProperty &self) {
+                     MlirStringRef name = mlirPropertyGetName(self.get());
+                     return std::string(name.data, name.length);
+                   })
+      .def_prop_ro("value",
+                   [](PyProperty &self) -> nb::object {
+                     int64_t integer;
+                     bool boolean;
+                     MlirStringRef string;
+                     if (mlirPropertyGetI64(self.get(), &integer))
+                       return nb::int_(integer);
+                     if (mlirPropertyGetBool(self.get(), &boolean))
+                       return nb::bool_(boolean);
+                     if (mlirPropertyGetString(self.get(), &string))
+                       return nb::str(string.data, string.length);
+                     return nb::none();
+                   })
+      .def_prop_ro(
+          "attribute",
+          [](PyProperty &self) {
+            MlirAttribute attr = mlirPropertyAsAttribute(self.get());
+            if (mlirAttributeIsNull(attr))
+              throw nb::value_error("property is not attribute-backed");
+            return PyAttribute(self.getContext(), attr).maybeDownCast();
+          })
+      .def("__str__",
+           [](PyProperty &self) {
+             PyPrintAccumulator accum;
+             mlirPropertyPrint(self.get(), accum.getCallback(),
+                               accum.getUserData());
+             return accum.join();
+           })
+      .def("__eq__", [](PyProperty &self, PyProperty &other) {
+        return mlirPropertyEqual(self.get(), other.get());
+      });
+
+  nb::class_<PyI64Property, PyProperty>(m, "I64Property")
+      .def_static(
+          "get",
+          [](int64_t value, DefaultingPyMlirContext context) {
+            return std::make_unique<PyI64Property>(
+                context->getRef(), mlirI64PropertyGet(context->get(), value));
+          },
+          "value"_a, "context"_a = nb::none());
+  nb::class_<PyBoolProperty, PyProperty>(m, "BoolProperty")
+      .def_static(
+          "get",
+          [](bool value, DefaultingPyMlirContext context) {
+            return std::make_unique<PyBoolProperty>(
+                context->getRef(), mlirBoolPropertyGet(context->get(), value));
+          },
+          "value"_a, "context"_a = nb::none());
+  nb::class_<PyStringProperty, PyProperty>(m, "StringProperty")
+      .def_static(
+          "get",
+          [](const std::string &value, DefaultingPyMlirContext context) {
+            return std::make_unique<PyStringProperty>(
+                context->getRef(),
+                mlirStringPropertyGet(context->get(), toMlirStringRef(value)));
+          },
+          "value"_a, "context"_a = nb::none());
+  m.attr("Property").attr("__hash__") = nb::none();
+
+  nb::class_<PyOpPropertyRef>(m, "OperationPropertyRef")
+      .def_prop_ro("name", &PyOpPropertyRef::getName)
+      .def("copy", &PyOpPropertyRef::copy)
+      .def("assign", &PyOpPropertyRef::assign)
+      .def("reset", &PyOpPropertyRef::reset);
+  nb::class_<PyOpPropertyMap>(m, "OperationPropertyMap")
+      .def("__len__", &PyOpPropertyMap::size)
+      .def("keys", &PyOpPropertyMap::keys)
+      .def("__iter__",
+           [](PyOpPropertyMap &self) {
+             return nb::cast(self.keys()).attr("__iter__")();
+           })
+      .def("__getitem__", &PyOpPropertyMap::getItem)
+      .def("__setitem__", &PyOpPropertyMap::setItem)
+      .def("ref", &PyOpPropertyMap::ref);
+  nb::class_<PyOpDiscardableAttributeMap>(m, "OperationDiscardableAttributeMap")
+      .def("__len__", &PyOpDiscardableAttributeMap::size)
+      .def("__getitem__", &PyOpDiscardableAttributeMap::getItem)
+      .def("__setitem__", &PyOpDiscardableAttributeMap::setItem)
+      .def("__delitem__", &PyOpDiscardableAttributeMap::delItem);
+
   //----------------------------------------------------------------------------
   // Enums.
   //----------------------------------------------------------------------------
@@ -4053,6 +4345,18 @@ void populateIRCore(nb::module_ &m) {
           },
           "Returns a dictionary-like map of operation attributes.")
       .def_prop_ro(
+          "properties",
+          [](PyOperationBase &self) {
+            return PyOpPropertyMap(self.getOperation().getRef());
+          },
+          "Returns declared operation property fields.")
+      .def_prop_ro(
+          "discardable_attributes",
+          [](PyOperationBase &self) {
+            return PyOpDiscardableAttributeMap(self.getOperation().getRef());
+          },
+          "Returns only discardable operation attributes.")
+      .def_prop_ro(
           "context",
           [](PyOperationBase &self) -> nb::typed<nb::object, PyMlirContext> {
             PyOperation &concreteOperation = self.getOperation();
@@ -4344,8 +4648,9 @@ void populateIRCore(nb::module_ &m) {
                  attributes,
              std::optional<std::vector<PyBlock *>> successors, int regions,
              const std::optional<PyLocation> &location,
-             const nb::object &maybeIp,
-             bool inferType) -> nb::typed<nb::object, PyOperation> {
+             const nb::object &maybeIp, bool inferType,
+             std::optional<nb::dict> properties)
+              -> nb::typed<nb::object, PyOperation> {
             // Unpack/validate operands.
             std::vector<MlirValue> mlirOperands;
             if (operands) {
@@ -4358,14 +4663,15 @@ void populateIRCore(nb::module_ &m) {
             }
 
             PyLocation pyLoc = maybeGetTracebackLocation(location);
-            return PyOperation::create(
-                name, results, mlirOperands.data(), mlirOperands.size(),
-                attributes, successors, regions, pyLoc, maybeIp, inferType);
+            return PyOperation::create(name, results, mlirOperands.data(),
+                                       mlirOperands.size(), attributes,
+                                       successors, regions, pyLoc, maybeIp,
+                                       inferType, properties);
           },
           "name"_a, "results"_a = nb::none(), "operands"_a = nb::none(),
           "attributes"_a = nb::none(), "successors"_a = nb::none(),
           "regions"_a = 0, "loc"_a = nb::none(), "ip"_a = nb::none(),
-          "infer_type"_a = false,
+          "infer_type"_a = false, "properties"_a = nb::none(),
           R"(
             Creates a new operation.
 

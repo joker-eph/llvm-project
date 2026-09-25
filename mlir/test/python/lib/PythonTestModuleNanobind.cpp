@@ -147,6 +147,17 @@ NB_MODULE(_mlirPythonTestNanobind, m) {
       },
       nb::arg("context").none() = nb::none());
 
+  m.def("property_number", [](nb::object property) {
+    nb::object capsule = property.attr(MLIR_PYTHON_CAPI_PTR_ATTR);
+    MlirProperty value = mlirPythonCapsuleToProperty(capsule.ptr());
+    if (mlirPropertyIsNull(value))
+      throw nb::python_error();
+    int64_t number;
+    if (!mlirPythonTestPropertyGetNumber(value, &number))
+      throw nb::value_error("property does not implement NumberInterface");
+    return number;
+  });
+
   // Reproducer for the failed assertion `_PyType_LookupRef` triggered by
   // `NanobindAdaptors.h::from_python` type casters.
   //

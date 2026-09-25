@@ -15,6 +15,7 @@ from mlir._mlir_libs._mlirPythonTestNanobind import (
     TestTensorValue,
     TestIntegerRankedTensorType,
     take_module_or_operation,
+    property_number,
 )
 
 test.register_python_test_dialect(get_dialect_registry())
@@ -1068,3 +1069,116 @@ def testOverloadWithWrongPythonCapsule():
     # CHECK: result = module
     result = take_module_or_operation(module)
     print(f"result = {result}")
+
+
+# CHECK-LABEL: TEST: testRegisteredProperties
+@run
+def testRegisteredProperties():
+    with Context() as ctx, Location.unknown():
+        parsed = Property.parse("&builtin.i64<42>", context=ctx)
+        built = I64Property.get(42, context=ctx)
+        assert isinstance(parsed, I64Property)
+        assert parsed == built
+        assert parsed.value == 42
+        try:
+            hash(parsed)
+            assert False, "mutable native property was hashable"
+        except TypeError:
+            pass
+        assert isinstance(Property.parse("&builtin.bool<1>", context=ctx), BoolProperty)
+        assert BoolProperty.get(True, context=ctx).value is True
+        assert StringProperty.get("hello", context=ctx).value == "hello"
+        attribute_backed = Property.parse("42 : i64", context=ctx)
+        assert str(attribute_backed.attribute) == "42 : i64"
+        assert attribute_backed != parsed
+        assert property_number(parsed) == 42
+        assert property_number(attribute_backed) == 42
+        op = Operation.create(
+            "python_test.properties", properties={"count": parsed}, infer_type=True
+        )
+        assert str(op.results[0].type) == "i42"
+        custom = str(op)
+        assert "<count = 42>" in custom
+        assert Operation.parse(custom, context=ctx).properties["count"].value == 42
+        op.discardable_attributes["note"] = StringAttr.get("x")
+        assert len(op.discardable_attributes) == 1
+        assert len(op.properties) == 1
+        assert list(op.properties) == ["count"]
+        generic = op.get_asm(print_generic_op_form=True)
+        assert "count = &builtin.i64<42>" in generic
+        parsed_op = Operation.parse(generic, context=ctx)
+        assert parsed_op.properties["count"].value == 42
+        snapshot = op.properties["count"]
+        view = op.properties.ref("count")
+        view.assign(I64Property.get(7, context=ctx))
+        assert snapshot.value == 42
+        assert view.copy().value == 7
+        try:
+            view.reset()
+            assert False, "required field reset succeeded"
+        except ValueError:
+            pass
+        with Context() as other:
+            foreign = I64Property.get(99, context=other)
+            try:
+                view.assign(foreign)
+                assert False, "cross-context assignment succeeded"
+            except ValueError:
+                pass
+        assert view.copy().value == 7
+        op.erase()
+        assert snapshot.value == 42
+        try:
+            view.copy()
+            assert False, "erased operation view remained live"
+        except RuntimeError:
+            pass
+        checked = Operation.create(
+            "python_test.checked_properties", properties={"positive": built}
+        )
+        assert checked.properties["fallback"].value == 7
+        try:
+            checked.properties["positive"] = I64Property.get(0, context=ctx)
+            assert False, "field constraint accepted zero"
+        except ValueError:
+            pass
+        assert checked.properties["positive"].value == 42
+        checked.properties["fallback"] = I64Property.get(9, context=ctx)
+        checked.properties.ref("fallback").reset()
+        assert checked.properties["fallback"].value == 7
+        assert list(checked.properties) == ["positive", "fallback"]
+        generic_checked = checked.get_asm(print_generic_op_form=True)
+        assert (
+            Operation.parse(generic_checked, context=ctx).properties["fallback"].value
+            == 7
+        )
+        array = Property.parse("&builtin.array.builtin.i64<[1, 2]>", context=ctx)
+        optional = Property.parse("&builtin.optional.builtin.i64<3>", context=ctx)
+        composed = Operation.create(
+            "python_test.composed_properties",
+            properties={"values": array, "maybe": optional},
+        )
+        assert list(composed.properties) == ["values", "maybe"]
+        values_view = composed.properties.ref("values")
+        values_snapshot = values_view.copy()
+        replacement = Property.parse("&builtin.array.builtin.i64<[7]>", context=ctx)
+        values_view.assign(replacement)
+        assert str(values_snapshot) == "&builtin.array.builtin.i64<[1, 2]>"
+        assert str(values_view.copy()) == "&builtin.array.builtin.i64<[7]>"
+        generic_composed = composed.get_asm(print_generic_op_form=True)
+        roundtrip = Operation.parse(generic_composed, context=ctx)
+        assert str(roundtrip.properties["maybe"]) == (
+            "&builtin.optional.builtin.i64<3>"
+        )
+        import io
+
+        module = Module.parse("module {\n" + generic_composed + "\n}", ctx)
+        bytecode = io.BytesIO()
+        module.operation.write_bytecode(bytecode)
+        restored = Module.parse(bytecode.getvalue(), ctx)
+        restored_composed = restored.body.operations[0]
+        assert str(restored_composed.properties["values"]) == (
+            "&builtin.array.builtin.i64<[7]>"
+        )
+        # CHECK: registered properties: 42
+        print(f"registered properties: {snapshot.value}")
