@@ -23,6 +23,65 @@
 
 using namespace mlir;
 
+std::optional<Attribute>
+RegisteredOperationName::EmptyPropertiesModel::getInherentAttr(Operation *,
+                                                               StringRef) {
+  return std::nullopt;
+}
+void RegisteredOperationName::EmptyPropertiesModel::setInherentAttr(Operation *,
+                                                                    StringAttr,
+                                                                    Attribute) {
+  llvm_unreachable(
+      "Can't call setInherentAttr on operation with empty properties");
+}
+void RegisteredOperationName::EmptyPropertiesModel::walkInherentAttrs(
+    Operation *, InherentAttrVisitor) {}
+LogicalResult
+RegisteredOperationName::EmptyPropertiesModel::verifyInherentAttrs(
+    OperationName, NamedAttrList &, function_ref<InFlightDiagnostic()>) {
+  return success();
+}
+int RegisteredOperationName::EmptyPropertiesModel::getOpPropertyByteSize() {
+  return 0;
+}
+void RegisteredOperationName::EmptyPropertiesModel::initProperties(
+    OperationName, PropertyRef storage, PropertyRef init) {
+  if (init)
+    new (storage.as<EmptyProperties *>())
+        EmptyProperties(*init.as<EmptyProperties *>());
+  else
+    new (storage.as<EmptyProperties *>()) EmptyProperties();
+}
+void RegisteredOperationName::EmptyPropertiesModel::deleteProperties(
+    PropertyRef prop) {
+  prop.as<EmptyProperties *>()->~EmptyProperties();
+}
+void RegisteredOperationName::EmptyPropertiesModel::populateDefaultProperties(
+    OperationName, PropertyRef) {}
+LogicalResult
+RegisteredOperationName::EmptyPropertiesModel::setPropertiesFromAttr(
+    OperationName, PropertyRef, Attribute,
+    function_ref<InFlightDiagnostic()> emitError) {
+  emitError() << "this operation has empty properties";
+  return failure();
+}
+Attribute RegisteredOperationName::EmptyPropertiesModel::getPropertiesAsAttr(
+    Operation *) {
+  return {};
+}
+bool RegisteredOperationName::EmptyPropertiesModel::compareProperties(
+    PropertyRef, PropertyRef) {
+  return true;
+}
+void RegisteredOperationName::EmptyPropertiesModel::copyProperties(
+    PropertyRef lhs, PropertyRef rhs) {
+  *lhs.as<EmptyProperties *>() = *rhs.as<EmptyProperties *>();
+}
+llvm::hash_code
+RegisteredOperationName::EmptyPropertiesModel::hashProperties(PropertyRef) {
+  return {};
+}
+
 void mlir::detail::appendAttributeProperty(
     llvm::SmallVectorImpl<NamedAttribute> &attrs, StringRef name,
     Attribute attr) {

@@ -588,10 +588,33 @@ inline llvm::hash_code hash_value(OperationName arg) {
 /// to be parameterized by generic operation hooks. Most user code should use
 /// the concrete operation types.
 class RegisteredOperationName : public OperationName {
+  /// Shared property callbacks for exact empty storage. Keep nonempty operation
+  /// models directly derived from Impl, without intermediate vtables.
+  struct EmptyPropertiesModel : public Impl {
+    using Impl::Impl;
+    static constexpr bool hasProperties = false;
+    std::optional<Attribute> getInherentAttr(Operation *, StringRef) final;
+    void setInherentAttr(Operation *, StringAttr, Attribute) final;
+    void walkInherentAttrs(Operation *, InherentAttrVisitor) final;
+    LogicalResult verifyInherentAttrs(OperationName, NamedAttrList &,
+                                      function_ref<InFlightDiagnostic()>) final;
+    int getOpPropertyByteSize() final;
+    void initProperties(OperationName, PropertyRef, PropertyRef) final;
+    void deleteProperties(PropertyRef) final;
+    void populateDefaultProperties(OperationName, PropertyRef) final;
+    LogicalResult
+        setPropertiesFromAttr(OperationName, PropertyRef, Attribute,
+                              function_ref<InFlightDiagnostic()>) final;
+    Attribute getPropertiesAsAttr(Operation *) final;
+    bool compareProperties(PropertyRef, PropertyRef) final;
+    void copyProperties(PropertyRef, PropertyRef) final;
+    llvm::hash_code hashProperties(PropertyRef) final;
+  };
+
 public:
   /// Implementation of the InterfaceConcept for operation APIs that forwarded
   /// to a concrete op implementation.
-  template <typename ConcreteOp>
+  template <typename ConcreteOp, typename = void>
   struct Model : public Impl {
     using Properties = std::remove_reference_t<
         decltype(std::declval<ConcreteOp>().getProperties())>;
@@ -726,6 +749,57 @@ public:
         return ConcreteOp::computePropertiesHash(*prop.as<Properties *>());
 
       return {};
+    }
+  };
+
+  // Keep the operation-specific dispatch identical to the primary model.
+  // A specialization avoids instantiating empty property adapters while also
+  // avoiding a second vtable for every operation with nonempty properties.
+  template <typename ConcreteOp>
+  struct Model<
+      ConcreteOp,
+      std::enable_if_t<
+          std::is_same_v<
+              std::remove_reference_t<
+                  decltype(std::declval<ConcreteOp>().getProperties())>,
+              EmptyProperties> &&
+          std::is_same_v<
+              typename ConcreteOp::template InferredProperties<ConcreteOp>,
+              EmptyProperties>>> : public EmptyPropertiesModel {
+    using Properties = std::remove_reference_t<
+        decltype(std::declval<ConcreteOp>().getProperties())>;
+    static constexpr bool hasProperties = false;
+    Model(Dialect *dialect)
+        : EmptyPropertiesModel(ConcreteOp::getOperationName(), dialect,
+                               TypeID::get<ConcreteOp>(),
+                               ConcreteOp::getInterfaceMap()) {
+      propertiesTypeID = TypeID::get<Properties>();
+    }
+    LogicalResult foldHook(Operation *op, ArrayRef<Attribute> attrs,
+                           SmallVectorImpl<OpFoldResult> &results) final {
+      return ConcreteOp::getFoldHookFn()(op, attrs, results);
+    }
+    void getCanonicalizationPatterns(RewritePatternSet &set,
+                                     MLIRContext *context) final {
+      ConcreteOp::getCanonicalizationPatterns(set, context);
+    }
+    bool hasTrait(TypeID id) final { return ConcreteOp::getHasTraitFn()(id); }
+    OperationName::ParseAssemblyFn getParseAssemblyFn() final {
+      return ConcreteOp::parse;
+    }
+    void populateDefaultAttrs(const OperationName &name,
+                              NamedAttrList &attrs) final {
+      ConcreteOp::populateDefaultAttrs(name, attrs);
+    }
+    void printAssembly(Operation *op, OpAsmPrinter &printer,
+                       StringRef name) final {
+      ConcreteOp::getPrintAssemblyFn()(op, printer, name);
+    }
+    LogicalResult verifyInvariants(Operation *op) final {
+      return ConcreteOp::getVerifyInvariantsFn()(op);
+    }
+    LogicalResult verifyRegionInvariants(Operation *op) final {
+      return ConcreteOp::getVerifyRegionInvariantsFn()(op);
     }
   };
 

@@ -7,8 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/Attributes.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OperationSupport.h"
+#include "mlir/IR/Verifier.h"
 #include "mlir/Parser/Parser.h"
 #include "gtest/gtest.h"
 #include <optional>
@@ -16,6 +18,68 @@
 using namespace mlir;
 
 namespace {
+TEST(OpPropertiesTest, RegisteredEmptyPropertiesHooks) {
+  MLIRContext context;
+  OpBuilder builder(&context);
+  OwningOpRef<Operation *> op(
+      builder
+          .create<UnrealizedConversionCastOp>(builder.getUnknownLoc(),
+                                              TypeRange{builder.getI32Type()},
+                                              ValueRange{})
+          .getOperation());
+  RegisteredOperationName::Model<UnrealizedConversionCastOp> model(
+      op->getDialect());
+  OperationName::InterfaceConcept &hooks = model;
+  EXPECT_EQ(model.getPropertiesTypeID(), TypeID::get<EmptyProperties>());
+  EXPECT_EQ(hooks.getOpPropertyByteSize(), 0);
+  EXPECT_EQ(op->getPropertiesStorageSize(), 0);
+  EXPECT_TRUE(succeeded(verify(op.get())));
+  OwningOpRef<Operation *> cloned(op->clone());
+  EXPECT_EQ(cloned->getPropertiesStorageSize(), 0);
+  EXPECT_TRUE(succeeded(verify(cloned.get())));
+
+  alignas(EmptyProperties) char storage[sizeof(EmptyProperties)];
+  PropertyRef properties(TypeID::get<EmptyProperties>(), storage);
+  EmptyProperties initial;
+  PropertyRef init(TypeID::get<EmptyProperties>(), &initial);
+  hooks.initProperties(op->getName(), properties, {});
+  hooks.populateDefaultProperties(op->getName(), properties);
+  hooks.copyProperties(properties, init);
+  EXPECT_TRUE(hooks.compareProperties(properties, init));
+  EXPECT_EQ(static_cast<size_t>(hooks.hashProperties(properties)), 0U);
+  hooks.deleteProperties(properties);
+  hooks.initProperties(op->getName(), properties, init);
+  hooks.deleteProperties(properties);
+
+  EXPECT_FALSE(hooks.getPropertiesAsAttr(op.get()));
+  EXPECT_FALSE(hooks.getInherentAttr(op.get(), "ignored"));
+  bool visited = false;
+  hooks.walkInherentAttrs(op.get(),
+                          [&](StringRef, Attribute &) { visited = true; });
+  EXPECT_FALSE(visited);
+  auto dictionary = builder.getDictionaryAttr(
+      {builder.getNamedAttr("ignored", builder.getUnitAttr())});
+  NamedAttrList attrs(dictionary);
+  std::string diagnostic;
+  ScopedDiagnosticHandler handler(&context, [&](Diagnostic &diag) {
+    diagnostic += diag.str();
+    return success();
+  });
+  auto emitError = [&] { return mlir::emitError(builder.getUnknownLoc()); };
+  EXPECT_TRUE(
+      succeeded(hooks.verifyInherentAttrs(op->getName(), attrs, emitError)));
+  EXPECT_EQ(attrs.getDictionary(&context), dictionary);
+  // Generic property conversion rejects empty storage, unlike the typed API.
+  EXPECT_TRUE(failed(hooks.setPropertiesFromAttr(op->getName(), properties,
+                                                 dictionary, emitError)));
+  EXPECT_EQ(diagnostic, "this operation has empty properties");
+#ifndef NDEBUG
+  EXPECT_DEATH(hooks.setInherentAttr(op.get(), builder.getStringAttr("ignored"),
+                                     builder.getUnitAttr()),
+               "Can't call setInherentAttr");
+#endif
+}
+
 /// Simple structure definining a struct to define "properties" for a given
 /// operation. Default values are honored when creating an operation.
 struct TestProperties {
@@ -317,6 +381,8 @@ TEST(OpPropertiesTest, Cloning) {
   auto opWithProp = dyn_cast<OpWithProperties>(op.get());
   ASSERT_TRUE(opWithProp);
   Operation *clone = opWithProp->clone();
+  std::weak_ptr<const std::string> label = opWithProp.getProperties().label;
+  EXPECT_EQ(label.use_count(), 2);
 
   // Check that op and its clone prints equally
   std::string opStr;
@@ -330,7 +396,10 @@ TEST(OpPropertiesTest, Cloning) {
     clone->print(os);
   }
   clone->erase();
+  EXPECT_EQ(label.use_count(), 1);
   EXPECT_STREQ(opStr.c_str(), cloneStr.c_str());
+  op = {};
+  EXPECT_TRUE(label.expired());
 }
 
 TEST(OpPropertiesTest, Equivalence) {
